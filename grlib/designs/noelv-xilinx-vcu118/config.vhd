@@ -34,10 +34,10 @@ package config is
 -- L2 Cache
   constant CFG_L2_EN : integer := 1;
   constant CFG_L2_SIZE : integer := 128;
-  constant CFG_L2_WAYS : integer := 4;
+  constant CFG_L2_WAYS : integer := 2;
   constant CFG_L2_RAN : integer := 0;
   constant CFG_L2_LSZ : integer := 32;
-  constant CFG_L2_MAP : integer := 16#00FF#;
+  constant CFG_L2_MAP : integer := 16#003F#;
   constant CFG_L2_AXI : integer := 1;
 -- AMBA settings
   constant CFG_DEFMST : integer := (0);
