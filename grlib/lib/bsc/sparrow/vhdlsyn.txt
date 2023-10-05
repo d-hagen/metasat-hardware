@@ -1,0 +1,5 @@
+module/vector_utils.vhd
+module/sprw_opcodes.vhd
+module/sparrow.vhd
+module/lpmul.vhd
+module/sparrow_unit.vhd

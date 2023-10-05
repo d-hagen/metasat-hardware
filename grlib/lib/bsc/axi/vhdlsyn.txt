@@ -1,0 +1,4 @@
+libaxi.vhd vhdlstd=2008
+axislv.vhd vhdlstd=2008
+axisplit.vhd vhdlstd=2008
+aximerge.vhd vhdlstd=2008

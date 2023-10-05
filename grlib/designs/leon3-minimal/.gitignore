@@ -1,0 +1,17 @@
+#ignore everything
+*
+
+#Don't ignore default files
+!.gitignore
+!Makefile
+!ahbrom.vhd
+!config.vhd
+!leon3mp.ucf
+!leon3mp.vhd
+!prom.h
+!prom.srec
+!ram.srec
+!signals.txt
+!systest.c
+!testbench.vhd
+!wave.do
