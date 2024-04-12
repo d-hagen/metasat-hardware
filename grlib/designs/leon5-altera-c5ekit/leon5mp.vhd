@@ -5,7 +5,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -346,6 +347,10 @@ begin
       wbmask   => CFG_BWMASK,
       busw     => CFG_AHBW,
       fpuconf  => CFG_FPUTYPE,
+      perfcfg  => CFG_PERFCFG,
+      rfconf   => CFG_RFCONF,
+      cmemconf => CFG_CMEMCONF,
+      tcmconf  => CFG_TCMCONF,
       disas    => disas,
       ahbtrace => ahbtrace
       )
@@ -601,6 +606,7 @@ begin
 
   ethi1.rxd(ethi1.rxd'high downto 4) <= (others => '0');
   ethi1.gtx_clk <= '0'; ethi1.rmii_clk <= '0';
+  ethi1.edclsepahb <= '1';
 
   emdio_pad2 : iopad generic map (tech => padtech)
     port map (enetb_mdio, etho2.mdio_o, etho2.mdio_oe, ethi2.mdio_i);
@@ -634,6 +640,7 @@ begin
 
   ethi2.rxd(ethi1.rxd'high downto 4) <= (others => '0');
   ethi2.gtx_clk <= '0'; ethi2.rmii_clk <= '0';
+  ethi2.edclsepahb <= '1';
 
   eth1 : if CFG_GRETH = 1 generate -- Gaisler ethernet MAC
     e1 : grethm_mb
@@ -642,7 +649,7 @@ begin
         ehindex => hdidx_greth1,
         pindex => pidx_greth1,
         paddr => 11,
-        pirq => 12,
+        pirq => 5,
         memtech => memtech,
         mdcscaler => CPU_FREQ/1000,
         enable_mdio => 1,
@@ -684,7 +691,7 @@ begin
         ehindex => hdidx_greth2,
         pindex => pidx_greth2,
         paddr => 12,
-        pirq => 13,
+        pirq => 6,
         memtech => memtech,
         mdcscaler => CPU_FREQ/1000,
         enable_mdio => 1,

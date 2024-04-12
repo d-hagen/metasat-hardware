@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -44,8 +45,8 @@ entity tbufmemnv is
     );
   port (
     clk         : in  std_ulogic;
-    di          : in  nv_trace_in_type;
-    do          : out nv_trace_out_type;
+    trace_in    : in  nv_trace_in_type;
+    trace_out   : out nv_trace_out_type;
     testin      : in  std_logic_vector(TESTIN_WIDTH-1 downto 0)
     );
 
@@ -78,7 +79,7 @@ architecture rtl of tbufmemnv is
 
 begin
 
-  enable <= di.enable & di.enable;
+  enable <= trace_in.enable & trace_in.enable;
 
  -- Syncrams ----------------------------------------------------------------
  mem64 : for i in 0 to TRACE_CELLS-1 generate -- build the 512-bit trace buffer
@@ -91,15 +92,15 @@ begin
       )
     port map (
       clk       => clk,
-      address   => di.addr(addrbits-1 downto 0),
-      datain    => di.data((i*64)+63 downto i*64),
-      dataout   => do.data((i*64)+63 downto i*64),
+      address   => trace_in.addr(addrbits-1 downto 0),
+      datain    => trace_in.data((i*64)+63 downto i*64),
+      dataout   => trace_out.data((i*64)+63 downto i*64),
       enable    => enable,
-      write     => di.write(i*2+1 downto i*2),
+      write     => trace_in.write(i*2+1 downto i*2),
       testin    => testin
     );
   end generate;
-  do.data(do.data'high downto 64*TRACE_CELLS) <= (others => '0');
+  trace_out.data(trace_out.data'high downto 64*TRACE_CELLS) <= (others => '0');
   
   -- Drive test signals
   

@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -100,7 +101,8 @@ package testlib is
    -----------------------------------------------------------------------------
    procedure tterminate(
       variable test:       inout boolean;
-      variable testcount:  inout integer);
+      variable testcount:  inout integer;
+      constant skipDelay:  in boolean := false);
 
    -----------------------------------------------------------------------------
    -- check std_logic_vector array
@@ -356,13 +358,16 @@ package body testlib is
    -----------------------------------------------------------------------------
    procedure tterminate(
       variable test:       inout boolean;
-      variable testcount:  inout integer) is
+      variable testcount:  inout integer;
+      constant skipDelay:  in boolean := false) is
       variable l:                line;
    begin
       --------------------------------------------------------------------------
       -- end of test
       --------------------------------------------------------------------------
-      wait for 1 ms;
+      if skipDelay = false then
+        wait for 1 ms;
+      end if;
       print("--=========================================================--");
       if testcount = 0  then
          print("*** test completed successfully                           ***");
@@ -379,7 +384,7 @@ package body testlib is
          severity failure;
       wait;
    end procedure tterminate;
-
+   
    -----------------------------------------------------------------------------
    -- check std_logic_vector array
    -----------------------------------------------------------------------------

@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -42,7 +43,7 @@ entity plic_target is
     srcbits     : integer := 4
     );
   port (
-    priority    : in  std_logic_vector(prbits-1 downto 0);
+    prio        : in  std_logic_vector(prbits-1 downto 0);
     threshold   : in  std_logic_vector(prbits-1 downto 0);
     irqreq      : out std_ulogic
     );
@@ -52,7 +53,7 @@ architecture rtl of plic_target is
 
 begin
 
-  comb : process (priority, threshold)
+  comb : process (prio, threshold)
     variable eip        : std_ulogic;
   begin
 
@@ -68,7 +69,7 @@ begin
     -- notification. If the target is a RISC-V hart context, the interrupt notifications arrive
     -- on the meip/seip/ueip bits depending on the privilege level of the hart context.
 
-    if (priority > threshold) then
+    if (unsigned(prio) > unsigned(threshold)) then
       eip       := '1';
     else
       eip       := '0';

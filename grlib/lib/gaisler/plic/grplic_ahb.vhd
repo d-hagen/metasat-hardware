@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -221,7 +222,7 @@ begin
         srcbits         => srcbits
         )
       port map (
-        priority        => pr_out_array(i),
+        prio            => pr_out_array(i),
         threshold       => threshold(i),
         irqreq          => irqreq(i)
         );
@@ -374,7 +375,7 @@ begin
           end if;
         else -- enable register
           -- only for suppoted contexts
-          if r.haddr(THR_BIT-1 downto 7) < max_ctx(THR_BIT-1 downto 7) then
+          if unsigned(r.haddr(THR_BIT-1 downto 7)) < unsigned(max_ctx(THR_BIT-1 downto 7)) then
               -- only support 32 sources (including 0)
               if r.haddr(6 downto 2) = zero32(6 downto 2) then 
                 rdata(sources-1 downto 0)     := r.enable(selen)(sources-1 downto 0);
@@ -416,7 +417,7 @@ begin
           end if;
         else -- enable register
           -- only for suppoted contexts
-          if r.haddr(THR_BIT-1 downto 7) < max_ctx(THR_BIT-1 downto 7) then
+          if unsigned(r.haddr(THR_BIT-1 downto 7)) < unsigned(max_ctx(THR_BIT-1 downto 7)) then
             -- only support 32 sources (including 0)
             if r.haddr(6 downto 2) = zero32(6 downto 2) then 
               v.enable(selen)(sources-1 downto 0)   := wdata(sources-1 downto 0);

@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -36,6 +37,7 @@ use grlib.devices.all;
 use grlib.stdlib.log2x;
 use grlib.stdlib.orv;
 library gaisler;
+use gaisler.noelvtypes.all;
 use gaisler.noelv.XLEN;
 use gaisler.noelv.nv_dm_in_type;
 use gaisler.noelv.nv_dm_out_type;
@@ -45,9 +47,6 @@ use gaisler.noelvint.progbuf;
 use gaisler.noelvint.nv_progbuf_in_vector;
 use gaisler.noelvint.nv_progbuf_out_vector;
 use gaisler.noelvint.nv_progbuf_out_none;
-use gaisler.noelvint.word;
-use gaisler.noelvint.word64;
-use gaisler.noelvint.zerow;
 use gaisler.utilnv.to_bit;
 use gaisler.utilnv.u2i;
 use gaisler.utilnv.u2slv;

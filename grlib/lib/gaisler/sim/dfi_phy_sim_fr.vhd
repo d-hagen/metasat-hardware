@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -233,7 +234,7 @@ begin
     end loop;
   end process;
 
-  frproc: process(phy_dfi_clk)
+  frproc: process(phy_dfi_clk,phy_resetn)
     variable rdphase: integer range 0 to freqratio-1 := 0;
     type rddata_slot is record
       data: std_logic_vector(dfi_data_width-1 downto 0);
@@ -245,7 +246,11 @@ begin
     variable next_rddata_valid: std_logic_vector(freqratio*dfi_rdata_valid_width-1 downto 0) := (others => '0');
     variable pushrddata: boolean;
   begin
-    if rising_edge(phy_dfi_clk) then
+    if phy_resetn='0' then
+      dfi_rddata_valid <= (others => '0');
+      rdphase := 0;
+      next_rddata_valid := (others => '0');
+    elsif rising_edge(phy_dfi_clk) then
       rddata(rdphase).valid := phy_dfi_rddata_valid(0);
       rddata(rdphase).data := phy_dfi_rddata;
       if rddata(rdphase).valid='1' then

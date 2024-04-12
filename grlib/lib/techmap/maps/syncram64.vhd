@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -73,6 +74,18 @@ architecture rtl of syncram64 is
   );
   end component;
 
+  component versal_syncram64
+  generic ( abits : integer := 9);
+  port (
+    clk     : in  std_ulogic;
+    address : in  std_logic_vector (abits -1 downto 0);
+    datain  : in  std_logic_vector (63 downto 0);
+    dataout : out std_logic_vector (63 downto 0);
+    enable  : in  std_logic_vector (1 downto 0);
+    write   : in  std_logic_vector (1 downto 0)
+  );
+  end component;
+
   component artisan_syncram64
   generic ( abits : integer := 9);
   port (
@@ -128,7 +141,11 @@ begin
 nopar : if paren = 0 generate
 
   s64 : if has_sram64(tech) = 1 and (rdhold=0 or syncram_readhold(tech)/=0) generate
-    xc2v : if (is_unisim(tech) = 1) and (is_ultrascale(tech) = 0) generate 
+    xversal : if (tech = versal) generate
+      xversal0 : versal_syncram64 generic map (abits)
+         port map (clk, address, datain(63 downto 0), dataoutx, xenable, write);
+    end generate;
+    xc2v : if (is_unisim(tech) = 1) and (is_ultrascale(tech) = 0) and (tech /= versal) generate 
       x0 : unisim_syncram64 generic map (abits)
          port map (clk, address, datain(63 downto 0), dataoutx, xenable, write);
     end generate;

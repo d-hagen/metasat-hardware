@@ -1,5 +1,5 @@
-module/vector_utils.vhd
-module/sprw_opcodes.vhd
-module/sparrow.vhd
-module/lpmul.vhd
-module/sparrow_unit.vhd
+vector_utils.vhd
+sprw_opcodes.vhd
+sparrow.vhd vhdlstd=2008
+lpmul.vhd
+sparrow_unit.vhd

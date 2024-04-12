@@ -68,7 +68,7 @@ architecture rtl of axi_mig4_7series is
   -- DDR4 Signals
   signal ddr4_aclk    : std_logic;
   signal ddr4_aresetn : std_logic;
-  signal ddr4_awid    : std_logic_vector(3 downto 0);
+  signal ddr4_awid    : std_logic_vector(7 downto 0);
   signal ddr4_awaddr  : std_logic_vector(31 downto 0);
   signal ddr4_awlen   : std_logic_vector(7 downto 0);
   signal ddr4_awsize  : std_logic_vector(2 downto 0);
@@ -84,11 +84,11 @@ architecture rtl of axi_mig4_7series is
   signal ddr4_wlast   : std_logic;
   signal ddr4_wvalid  : std_logic;
   signal ddr4_wready  : std_logic;
-  signal ddr4_bid     : std_logic_vector(3 downto 0);
+  signal ddr4_bid     : std_logic_vector(7 downto 0);
   signal ddr4_bresp   : std_logic_vector(1 downto 0);
   signal ddr4_bvalid  : std_logic;
   signal ddr4_bready  : std_logic;
-  signal ddr4_arid    : std_logic_vector(3 downto 0);
+  signal ddr4_arid    : std_logic_vector(7 downto 0);
   signal ddr4_araddr  : std_logic_vector(31 downto 0);
   signal ddr4_arlen   : std_logic_vector(7 downto 0);
   signal ddr4_arsize  : std_logic_vector(2 downto 0);
@@ -99,7 +99,7 @@ architecture rtl of axi_mig4_7series is
   signal ddr4_arqos   : std_logic_vector(3 downto 0);
   signal ddr4_arvalid : std_logic;
   signal ddr4_arready : std_logic;
-  signal ddr4_rid     : std_logic_vector(3 downto 0);
+  signal ddr4_rid     : std_logic_vector(7 downto 0);
   signal ddr4_rdata   : std_logic_vector(AHBDW-1 downto 0);
   signal ddr4_rresp   : std_logic_vector(1 downto 0);
   signal ddr4_rlast   : std_logic;
@@ -151,7 +151,7 @@ architecture rtl of axi_mig4_7series is
       c0_ddr4_ui_clk             : OUT   STD_LOGIC;
       c0_ddr4_ui_clk_sync_rst    : OUT   STD_LOGIC;
       c0_ddr4_aresetn            : IN    STD_LOGIC;
-      c0_ddr4_s_axi_awid         : IN    STD_LOGIC_VECTOR(3 DOWNTO 0);
+      c0_ddr4_s_axi_awid         : IN    STD_LOGIC_VECTOR(7 DOWNTO 0);
       c0_ddr4_s_axi_awaddr       : IN    STD_LOGIC_VECTOR(30 DOWNTO 0);
       c0_ddr4_s_axi_awlen        : IN    STD_LOGIC_VECTOR(7 DOWNTO 0);
       c0_ddr4_s_axi_awsize       : IN    STD_LOGIC_VECTOR(2 DOWNTO 0);
@@ -168,10 +168,10 @@ architecture rtl of axi_mig4_7series is
       c0_ddr4_s_axi_wvalid       : IN    STD_LOGIC;
       c0_ddr4_s_axi_wready       : OUT   STD_LOGIC;
       c0_ddr4_s_axi_bready       : IN    STD_LOGIC;
-      c0_ddr4_s_axi_bid          : OUT   STD_LOGIC_VECTOR(3 DOWNTO 0);
+      c0_ddr4_s_axi_bid          : OUT   STD_LOGIC_VECTOR(7 DOWNTO 0);
       c0_ddr4_s_axi_bresp        : OUT   STD_LOGIC_VECTOR(1 DOWNTO 0);
       c0_ddr4_s_axi_bvalid       : OUT   STD_LOGIC;
-      c0_ddr4_s_axi_arid         : IN    STD_LOGIC_VECTOR(3 DOWNTO 0);
+      c0_ddr4_s_axi_arid         : IN    STD_LOGIC_VECTOR(7 DOWNTO 0);
       c0_ddr4_s_axi_araddr       : IN    STD_LOGIC_VECTOR(30 DOWNTO 0);
       c0_ddr4_s_axi_arlen        : IN    STD_LOGIC_VECTOR(7 DOWNTO 0);
       c0_ddr4_s_axi_arsize       : IN    STD_LOGIC_VECTOR(2 DOWNTO 0);
@@ -186,7 +186,7 @@ architecture rtl of axi_mig4_7series is
       c0_ddr4_s_axi_rlast        : OUT   STD_LOGIC;
       c0_ddr4_s_axi_rvalid       : OUT   STD_LOGIC;
       c0_ddr4_s_axi_rresp        : OUT   STD_LOGIC_VECTOR(1 DOWNTO 0);
-      c0_ddr4_s_axi_rid          : OUT   STD_LOGIC_VECTOR(3 DOWNTO 0);
+      c0_ddr4_s_axi_rid          : OUT   STD_LOGIC_VECTOR(7 DOWNTO 0);
       c0_ddr4_s_axi_rdata        : OUT   STD_LOGIC_VECTOR(127 DOWNTO 0);
       addn_ui_clkout1            : OUT   STD_LOGIC;
       sys_rst                    : IN    STD_LOGIC
@@ -196,7 +196,7 @@ architecture rtl of axi_mig4_7series is
     PORT (
       s_axi_aclk     : IN  STD_LOGIC;
       s_axi_aresetn  : IN  STD_LOGIC;
-      s_axi_awid     : IN  STD_LOGIC_VECTOR(3 DOWNTO 0);
+      s_axi_awid     : IN  STD_LOGIC_VECTOR(7 DOWNTO 0);
       s_axi_awaddr   : IN  STD_LOGIC_VECTOR(31 DOWNTO 0);
       s_axi_awlen    : IN  STD_LOGIC_VECTOR(7 DOWNTO 0);
       s_axi_awsize   : IN  STD_LOGIC_VECTOR(2 DOWNTO 0);
@@ -213,11 +213,11 @@ architecture rtl of axi_mig4_7series is
       s_axi_wlast    : IN  STD_LOGIC;
       s_axi_wvalid   : IN  STD_LOGIC;
       s_axi_wready   : OUT STD_LOGIC;
-      s_axi_bid      : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
+      s_axi_bid      : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
       s_axi_bresp    : OUT STD_LOGIC_VECTOR(1 DOWNTO 0);
       s_axi_bvalid   : OUT STD_LOGIC;
       s_axi_bready   : IN  STD_LOGIC;
-      s_axi_arid     : IN  STD_LOGIC_VECTOR(3 DOWNTO 0);
+      s_axi_arid     : IN  STD_LOGIC_VECTOR(7 DOWNTO 0);
       s_axi_araddr   : IN  STD_LOGIC_VECTOR(31 DOWNTO 0);
       s_axi_arlen    : IN  STD_LOGIC_VECTOR(7 DOWNTO 0);
       s_axi_arsize   : IN  STD_LOGIC_VECTOR(2 DOWNTO 0);
@@ -229,7 +229,7 @@ architecture rtl of axi_mig4_7series is
       s_axi_arqos    : IN  STD_LOGIC_VECTOR(3 DOWNTO 0);
       s_axi_arvalid  : IN  STD_LOGIC;
       s_axi_arready  : OUT STD_LOGIC;
-      s_axi_rid      : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
+      s_axi_rid      : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
       s_axi_rdata    : OUT STD_LOGIC_VECTOR(AHBDW-1 DOWNTO 0);
       s_axi_rresp    : OUT STD_LOGIC_VECTOR(1 DOWNTO 0);
       s_axi_rlast    : OUT STD_LOGIC;
@@ -237,7 +237,7 @@ architecture rtl of axi_mig4_7series is
       s_axi_rready   : IN  STD_LOGIC;
       m_axi_aclk     : IN  STD_LOGIC;
       m_axi_aresetn  : IN  STD_LOGIC;
-      m_axi_awid     : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
+      m_axi_awid     : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
       m_axi_awaddr   : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
       m_axi_awlen    : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
       m_axi_awsize   : OUT STD_LOGIC_VECTOR(2 DOWNTO 0);
@@ -254,11 +254,11 @@ architecture rtl of axi_mig4_7series is
       m_axi_wlast    : OUT STD_LOGIC;
       m_axi_wvalid   : OUT STD_LOGIC;
       m_axi_wready   : IN  STD_LOGIC;
-      m_axi_bid      : IN  STD_LOGIC_VECTOR(3 DOWNTO 0);
+      m_axi_bid      : IN  STD_LOGIC_VECTOR(7 DOWNTO 0);
       m_axi_bresp    : IN  STD_LOGIC_VECTOR(1 DOWNTO 0);
       m_axi_bvalid   : IN  STD_LOGIC;
       m_axi_bready   : OUT STD_LOGIC;
-      m_axi_arid     : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
+      m_axi_arid     : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
       m_axi_araddr   : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
       m_axi_arlen    : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
       m_axi_arsize   : OUT STD_LOGIC_VECTOR(2 DOWNTO 0);
@@ -270,7 +270,7 @@ architecture rtl of axi_mig4_7series is
       m_axi_arqos    : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
       m_axi_arvalid  : OUT STD_LOGIC;
       m_axi_arready  : IN  STD_LOGIC;
-      m_axi_rid      : IN  STD_LOGIC_VECTOR(3 DOWNTO 0);
+      m_axi_rid      : IN  STD_LOGIC_VECTOR(7 DOWNTO 0);
       m_axi_rdata    : IN  STD_LOGIC_VECTOR(AHBDW-1 DOWNTO 0);
       m_axi_rresp    : IN  STD_LOGIC_VECTOR(1 DOWNTO 0);
       m_axi_rlast    : IN  STD_LOGIC;
@@ -285,7 +285,7 @@ architecture rtl of axi_mig4_7series is
       -- SLAVE INTERFACE
       --**********************************************
       --**************** Write Address Channel Signals ****************
-      s_axi_awid     : in  std_logic_vector(3 downto 0);
+      s_axi_awid     : in  std_logic_vector(7 downto 0);
       s_axi_awaddr   : in  std_logic_vector(31 downto 0);
       s_axi_awlen    : in  std_logic_vector(7 downto 0);
       s_axi_awsize   : in  std_logic_vector(2 downto 0);
@@ -304,12 +304,12 @@ architecture rtl of axi_mig4_7series is
       s_axi_wvalid   : in  std_logic;
       s_axi_wready   : out std_logic;
       --**************** Write Response Channel Signals ****************
-      s_axi_bid      : out std_logic_vector(3 downto 0);
+      s_axi_bid      : out std_logic_vector(7 downto 0);
       s_axi_bresp    : out std_logic_vector(1 downto 0);
       s_axi_bvalid   : out std_logic;
       s_axi_bready   : in  std_logic;
       --**************** Read Address Channel Signals ****************
-      s_axi_arid     : in  std_logic_vector(3 downto 0);
+      s_axi_arid     : in  std_logic_vector(7 downto 0);
       s_axi_araddr   : in  std_logic_vector(31 downto 0);
       s_axi_arlen    : in  std_logic_vector(7 downto 0);
       s_axi_arsize   : in  std_logic_vector(2 downto 0);
@@ -322,7 +322,7 @@ architecture rtl of axi_mig4_7series is
       s_axi_arvalid  : in  std_logic;
       s_axi_arready  : out std_logic;
       --**************** Read Data Channel Signals ****************
-      s_axi_rid      : out std_logic_vector(3 downto 0);
+      s_axi_rid      : out std_logic_vector(7 downto 0);
       s_axi_rdata    : out std_logic_vector(AHBDW-1 downto 0);
       s_axi_rresp    : out std_logic_vector(1 downto 0);
       s_axi_rlast    : out std_logic;
@@ -333,7 +333,7 @@ architecture rtl of axi_mig4_7series is
       -- MASTER INTERFACE
       --**********************************************
       --**************** Write Address Channel Signals ****************
-      m_axi_awid     : out std_logic_vector(3 downto 0);
+      m_axi_awid     : out std_logic_vector(7 downto 0);
       m_axi_awaddr   : out std_logic_vector(31 downto 0);
       m_axi_awlen    : out std_logic_vector(7 downto 0);
       m_axi_awsize   : out std_logic_vector(2 downto 0);
@@ -352,12 +352,12 @@ architecture rtl of axi_mig4_7series is
       m_axi_wvalid   : out std_logic;
       m_axi_wready   : in  std_logic;
       --**************** Write Response Channel Signals ****************
-      m_axi_bid      : in  std_logic_vector(3 downto 0);
+      m_axi_bid      : in  std_logic_vector(7 downto 0);
       m_axi_bresp    : in  std_logic_vector(1 downto 0);
       m_axi_bvalid   : in  std_logic;
       m_axi_bready   : out std_logic;
       --**************** Read Address Channel Signals ****************
-      m_axi_arid     : out std_logic_vector(3 downto 0);
+      m_axi_arid     : out std_logic_vector(7 downto 0);
       m_axi_araddr   : out std_logic_vector(31 downto 0);
       m_axi_arlen    : out std_logic_vector(7 downto 0);
       m_axi_arsize   : out std_logic_vector(2 downto 0);
@@ -370,7 +370,7 @@ architecture rtl of axi_mig4_7series is
       m_axi_arvalid  : out std_logic;
       m_axi_arready  : in  std_logic;
       --**************** Read Data Channel Signals ****************
-      m_axi_rid      : in  std_logic_vector(3 downto 0);
+      m_axi_rid      : in  std_logic_vector(7 downto 0);
       m_axi_rdata    : in  std_logic_vector(AHBDW-1 downto 0);
       m_axi_rresp    : in  std_logic_vector(1 downto 0);
       m_axi_rlast    : in  std_logic;

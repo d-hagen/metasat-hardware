@@ -2,7 +2,7 @@ Overview
 --------
 
 This LEON3 design is tailored for the Altera CycloneV E Development
-kit and builds with Quartus 13.
+kit and builds with Quartus 16.
 
 Design contains:
   * LEON3 running at 95 MHz
@@ -99,9 +99,9 @@ Memory map:
 Interrupts:
   2 - UART
   4 - I2CMST
+  5 - GRETH #1
+  6 - GRETH #2
   8 - Timer
-  12 - GRETH #1
-  13 - GRETH #2
 
 
 Simulation

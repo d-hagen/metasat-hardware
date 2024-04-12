@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -35,6 +36,7 @@ use grlib.amba.hsize_dword;
 library gaisler;
 use gaisler.utilnv.all_0;
 use gaisler.utilnv.u2i;
+use gaisler.utilnv.cond;
 
 package mmucacheconfig is
 
@@ -284,7 +286,7 @@ package body mmucacheconfig is
     when sv48   => return 47;
     when others => return 31;
     end case;
-  end;  
+  end;
 
   function vpn(what : va_type) return std_logic_vector is
     constant va_tmp : std_logic_vector                        := va(what);  -- constant
@@ -413,19 +415,24 @@ package body mmucacheconfig is
     if what = sparc then
       return true;
     else
-      -- W without R is reserved!
-      if data(rv_pte_w downto rv_pte_r) = "10" then
-        return false;
-      end if;
-      if mask(mask'high) = '0' and not all_0(data(18 downto 10)) then
-        return false;
-      end if;
-      if mask(mask'high - 1) = '0' and not all_0(data(27 downto 19)) then
-        return false;
-      end if;
-      if what = sv48 then
-        if mask(mask'high - 2) = '0' and not all_0(data(36 downto 28)) then
+      if what = sv32 then
+        if mask(mask'high) = '0' and not all_0(data(19 downto 10)) then
           return false;
+        end if;
+        if mask(mask'high - 1) = '0' and not all_0(data(31 downto 20)) then
+          return false;
+        end if;
+      else
+        if mask(mask'high) = '0' and not all_0(data(18 downto 10)) then
+          return false;
+        end if;
+        if mask(mask'high - 1) = '0' and not all_0(data(27 downto 19)) then
+          return false;
+        end if;
+        if what = sv48 then
+          if mask(mask'high - 2) = '0' and not all_0(data(36 downto 28)) then
+            return false;
+          end if;
         end if;
       end if;
 
@@ -491,7 +498,7 @@ package body mmucacheconfig is
         return false;
       end if;
 
-      
+
       -- PTD also has D, A and U reserved, so enforce 0 (Spike does).
       if data(rv_pte_d) = '1' or data(rv_pte_a) = '1' or data(rv_pte_u) = '1' then
         return false;
@@ -523,7 +530,7 @@ package body mmucacheconfig is
     -- Non-constant
     variable base       : std_logic_vector(pa_tmp'range) := (others => '0');
   begin
-   
+
     case what is
     when sv32   => -- base(ppn_sv32'range) := satp(BASE_SV32'range);
       for i in ppn_sv32'high downto ppn_sv32'low loop
@@ -594,11 +601,11 @@ package body mmucacheconfig is
   function pt_addr(what  : va_type;
                    data  : std_logic_vector; mask : std_logic_vector;
                    vaddr : std_logic_vector; code : std_logic_vector) return std_logic_vector is
-    constant pa_tmp : std_logic_vector               := pa(what);  -- constant
+    --constant pa_tmp : std_logic_vector               := pa(what);  -- constant
     variable index  : integer range 1 to mask'length := mask'length - u2i(code);
     variable lowbit : integer                        := 11 - va_size(what, index) + 1;
     -- Non-constant
-    variable addr   : std_logic_vector(pa_tmp'range) := (others => '0');
+    variable addr   : std_logic_vector(pa_msb(what) downto 0) := (others => '0');
     variable pos    : integer;
   begin
     if what = sparc then
@@ -617,7 +624,7 @@ package body mmucacheconfig is
     else
       -- Every page table is the size of one page (thus downto 12).
       -- 12 due to smallest page size, 10 are the information bits.
-      addr(addr'high downto 12) := data(pa_tmp'high - 12 + 10 downto 10);
+      addr(addr'high downto 12) := data(addr'high - 12 + 10 downto 10);
       pos := 12;
       for i in mask'length downto 1 loop
         if i > u2i(code) then
@@ -661,12 +668,12 @@ package body mmucacheconfig is
 
   function pte_cached(what : va_type;
                       data : std_logic_vector) return std_logic is
-    constant data_tmp : std_logic_vector(1 downto 0) := data(rv_pte_pbmt'range);
+    variable pbmt : std_logic_vector(rv_pte_pbmt'range) := data(rv_pte_pbmt'range);
   begin
     if what = sparc then
       return data(PTE_C);
     else
-      case data_tmp is
+      case pbmt is
         when "01"   => return '0';  -- NC
         when "10"   => return '0';  -- I/O
         when others => return '1';  -- PMA (reserved for "11")
@@ -674,36 +681,52 @@ package body mmucacheconfig is
     end if;
   end;
 
-  -- Check if PTE will be modified (accessed/modified bits).
-  -- needwb     - writeback is needed
-  -- needwblock - lock is needed due to setting 'modified'
+  -- Check if PTE will be modified (Accessed/Dirty bits).
+  -- needwb     - writeback is needed since D and/or A is changed
+  -- needwblock - locked RMW writeback is needed due to not setting D
+  -- (It is safe to set D+A, but setting only A could, without locked RMW,
+  --  potentially over-write another CPU's "simultaneous" setting of D+A.)
   procedure pte_mark_modacc(what   : va_type;
                             data   : inout std_logic_vector; modified   : std_logic;
                             needwb : out std_logic;          needwblock : out std_logic) is
     -- Non-constant
-    variable was_modified : std_logic;
-    variable tmpneedwb    : std_logic := '0';  -- Since reading from out parameter is impossible.
+--    variable was_modified : std_logic;
+--    variable tmpneedwb    : std_logic := '0';  -- Since reading from out parameter is impossible.
+--    variable accessed     : std_logic;
+    variable accessed : std_logic := cond(what = sparc, data(PTE_R), data(rv_pte_a));
+    variable dirty    : std_logic := cond(what = sparc, data(PTE_M), data(rv_pte_d));
   begin
-    if what = sparc then
-      was_modified     := data(PTE_M);
-      if modified = '1' then
-        tmpneedwb      := not data(PTE_M);                  -- Mark if was not '1' already.
-        data(PTE_M)    := '1';
-      end if;
-      tmpneedwb        := tmpneedwb or not data(PTE_R);     -- Mark if was not '1' already.
-      data(PTE_R)      := '1';         -- Referenced
-    else
-      was_modified     := data(rv_pte_d);
-      if modified = '1' then
-        tmpneedwb      := not data(rv_pte_d);               -- Mark if was not '1' already.
-        data(rv_pte_d) := '1';
-      end if;
-      tmpneedwb        := tmpneedwb or not data(rv_pte_a);  -- Mark if was not '1' already.
-      data(rv_pte_a)   := '1';         -- Accessed
-    end if;
+--    if what = sparc then
+--      was_modified     := data(PTE_M);
+--      if modified = '1' then
+--        tmpneedwb      := not data(PTE_M);                  -- Mark if was not '1' already.
+--        data(PTE_M)    := '1';
+--      end if;
+--      tmpneedwb        := tmpneedwb or not data(PTE_R);     -- Mark if was not '1' already.
+--      data(PTE_R)      := '1';         -- Referenced
+--    else
+--      was_modified     := data(rv_pte_d);
+--      if modified = '1' then
+--        tmpneedwb      := not data(rv_pte_d);               -- Mark if was not '1' already.
+--        data(rv_pte_d) := '1';
+--      end if;
+--      tmpneedwb        := tmpneedwb or not data(rv_pte_a);  -- Mark if was not '1' already.
+--      data(rv_pte_a)   := '1';         -- Accessed
+--    end if;
+--
+--    needwblock := tmpneedwb and not was_modified;
+--    needwb     := tmpneedwb;
 
-    needwblock := tmpneedwb and not was_modified;
-    needwb     := tmpneedwb;
+    data(cond(what = sparc, PTE_R, rv_pte_a)) := '1';    -- Always accessed!
+
+    if modified = '1' then
+      data(cond(what = sparc, PTE_M, rv_pte_d)) := '1';  -- Now dirty!
+      needwb     := not dirty;                           -- First modification?
+      needwblock := '0';                                 -- No lock needed!
+    else
+      needwb     := not accessed;                        -- First access?
+      needwblock := not accessed;                        --  Then use locked RMW update.
+    end if;
   end;
 
   -- Convert virtual vaddr to physical paddr, using vmask to OR correct levels.

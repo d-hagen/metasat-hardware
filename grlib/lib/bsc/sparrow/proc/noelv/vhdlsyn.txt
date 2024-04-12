@@ -1,1 +1,0 @@
-sprw_config.vhd

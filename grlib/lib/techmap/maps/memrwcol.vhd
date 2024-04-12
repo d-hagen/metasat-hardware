@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -107,11 +108,11 @@ begin
 
     if sepclk=0 and techrwcol=1 then
       if uaddress1=uaddress2 then
-        if v1.wren='1' then
+        if v1.wren='1' and (rdhold=0 or uenable2='1') then
           ven2 := '0';
           v2.mux := '1';
         end if;
-        if v2.wren='1' then
+        if v2.wren='1' and (rdhold=0 or uenable1='1') then
           ven1 := '0';
           v1.mux := '1';
         end if;

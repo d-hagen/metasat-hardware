@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -34,10 +35,15 @@ use grlib.config_types.all;
 use grlib.config.all;
 use grlib.amba.all;
 use grlib.stdlib.log2;
+use grlib.riscv.reg_t;
 library gaisler;
+use gaisler.noelvtypes.all;
 use gaisler.noelv.XLEN;
 use gaisler.noelv.nv_irq_in_type;
 use gaisler.noelv.nv_irq_out_type;
+use gaisler.noelv.nv_nirq_in_type;
+use gaisler.noelv.imsic_in_type;
+use gaisler.noelv.imsic_out_type;
 use gaisler.noelv.nv_debug_in_type;
 use gaisler.noelv.nv_debug_out_type;
 use gaisler.noelv.nv_counter_out_type;
@@ -97,11 +103,19 @@ entity cpucorenv is
     pmp_g               : integer range 0  to 10        := 0;  -- PMP grain is 2^(pmp_g + 2) bytes
     asidlen             : integer range 0 to  16        := 0;  -- Max 9 for Sv32
     vmidlen             : integer range 0 to  14        := 0;  -- Max 7 for Sv32
+    -- Interrupts
+    imsic               : integer range 0  to 1         := 0;  -- IMSIC implemented
+    -- RNMI
+    rnmi_iaddr          : integer                       := 16#00100#; -- RNMI interrupt trap handler address
+    rnmi_xaddr          : integer                       := 16#00101#; -- RNMI exception trap handler address
     -- Extensions
+    ext_noelv           : integer range 0  to 1         := 1;  -- NOEL-V Extensions
     ext_m               : integer range 0  to 1         := 1;  -- M Base Extension Set
     ext_a               : integer range 0  to 1         := 0;  -- A Base Extension Set
     ext_c               : integer range 0  to 1         := 0;  -- C Base Extension Set
     ext_h               : integer range 0  to 1         := 0;  -- H Extension
+    ext_sp              : integer range 0  to 1         := 0;  -- Sparrow Extension 
+    ext_zcb             : integer range 0  to 1         := 0;  -- Zcb Extension
     ext_zba             : integer range 0  to 1         := 0;  -- Zba Extension
     ext_zbb             : integer range 0  to 1         := 0;  -- Zbb Extension
     ext_zbc             : integer range 0  to 1         := 0;  -- Zbc Extension
@@ -110,9 +124,21 @@ entity cpucorenv is
     ext_zbkc            : integer range 0  to 1         := 0;  -- Zbkc Extension
     ext_zbkx            : integer range 0  to 1         := 0;  -- Zbkx Extension
     ext_sscofpmf        : integer range 0  to 1         := 0;  -- Sscofpmf Extension
-    ext_sstc            : integer range 0  to 2         := 0;  -- Sctc Extension (2 : only time csr impl.)  
+    ext_sstc            : integer range 0  to 2         := 0;  -- Sctc Extension (2 : only time csr impl.)
+    ext_smaia           : integer range 0  to 1         := 0;  -- Smaia Extension
+    ext_ssaia           : integer range 0  to 1         := 0;  -- Ssaia Extension
+    ext_smstateen       : integer range 0  to 1         := 0;  -- Smstateen Extension
+    ext_smrnmi          : integer range 0  to 1         := 0;  -- Smrnmi Extension
+    ext_smepmp          : integer range 0  to 1         := 0;  -- Smepmp Extension
     ext_zicbom          : integer range 0  to 1         := 0;  -- Zicbom Extension
-    ext_sp              : integer range 0  to 1         := 0;  -- Sparrow Extension 
+    ext_zicond          : integer range 0  to 1         := 0;  -- Zicond Extension
+    ext_zimop           : integer range 0  to 1         := 0;  -- Zimop Extension
+    ext_zcmop           : integer range 0  to 1         := 0;  -- Zcmop Extension
+    ext_svinval         : integer range 0  to 1         := 0;  -- Svinval Extension
+    ext_zfa             : integer range 0  to 1         := 0;  -- Zfa Extension
+    ext_zfh             : integer range 0  to 1         := 0;  -- Zfh Extension
+    ext_zfhmin          : integer range 0  to 1         := 0;  -- Zfhmin Extension
+    ext_zfbfmin         : integer range 0  to 1         := 0;  -- Zfbfmin Extension
     mode_s              : integer range 0  to 1         := 0;  -- Supervisor Mode Support
     mode_u              : integer range 0  to 1         := 0;  -- User Mode Support
     fpulen              : integer range 0  to 128       := 0;  -- Floating-point precision
@@ -120,6 +146,7 @@ entity cpucorenv is
     -- Advanced Features
     late_branch         : integer range 0  to 1         := 0;  -- Late Branch Support
     late_alu            : integer range 0  to 1         := 0;  -- Late ALUs Support
+    ras                 : integer range 0  to 2         := 0;  -- Return Address Stack (1 - test, 2 - enable)
     -- Core
     physaddr            : integer range 32 to 56        := 32; -- Physical Addressing
     rstaddr             : integer                       := 16#00000#; -- reset vector (MSB)
@@ -146,8 +173,11 @@ entity cpucorenv is
     ahbo        : out ahb_mst_out_type;
     ahbsi       : in  ahb_slv_in_type;
     ahbso       : in  ahb_slv_out_vector;
+    imsici      : out imsic_in_type;      -- IMSIC In Port
+    imsico      : in  imsic_out_type;     -- IMSIC Out Port
     irqi        : in  nv_irq_in_type;     -- irq in
     irqo        : out nv_irq_out_type;    -- irq out
+    nirqi       : in  nv_nirq_in_type;    -- RNM irq in
     dbgi        : in  nv_debug_in_type;   -- debug in
     dbgo        : out nv_debug_out_type;  -- debug out
     eto         : out nv_etrace_out_type;
@@ -167,10 +197,18 @@ architecture rtl of cpucorenv is
   constant itcmen    : integer := b2i(((tcmconf / 256) mod 32) /= 0);
   constant itcmabits : integer := (1 - itcmen) + ((tcmconf / 256) mod 32);
 
+  -- *waysize  is in kByte, thus add 10 (1k = 2^10).
+  -- *linesize is in words, thus add 2 (4 = 2^2).
+  -- Low bit is (sometimes) valid mark, thus add 1.
+
   constant iidxwidth    : integer := (log2(iwaysize) + 10) - (log2(ilinesize) + 2);
   constant itagwidth    : integer := physaddr - (log2(iwaysize) + 10) + 1;
 
   constant didxwidth    : integer := (log2(dwaysize) + 10) - (log2(dlinesize) + 2);
+  constant dtagwidth    : integer := physaddr - (log2(dwaysize) + 10) + 1;
+
+  constant cdataw       : integer := 64;
+
   constant dtagconf     : integer := cmemconf mod 4;
   constant dusebw       : integer := (cmemconf / 4) mod 2;
   constant mulconf_int  : integer := mulconf mod 4;
@@ -185,7 +223,15 @@ architecture rtl of cpucorenv is
     end if;
   end;
 
-  constant fpuconf      : integer := regen_fpuconf;
+  constant fpuconf       : integer := regen_fpuconf;
+
+  -- No support for Zfa/Zfh/Zfhmin on nanoFPUnv
+  constant actual_zfa     : integer := cond(hw_fpu = 3, ext_zfa, 0);
+  constant actual_zfh     : integer := cond(hw_fpu = 3, ext_zfh, 0);
+  constant actual_zfhmin  : integer := cond(hw_fpu = 3, ext_zfhmin, 0);
+  constant actual_zfbfmin : integer := cond(hw_fpu = 3, ext_zfbfmin, 0);
+
+
   function gen_capability return std_logic_vector is
     variable cap : std_logic_vector(9 downto 0) := (others => '0');
   begin
@@ -193,9 +239,8 @@ architecture rtl of cpucorenv is
     cap(6 downto 3) := u2vec(NOELV_VERSION, 4);
     return cap;
   end;
+
   constant capability   : std_logic_vector(9 downto 0) := gen_capability;
-  constant dtagwidth    : integer := physaddr - (log2(dwaysize) + 10) + 1;
-  constant cdataw       : integer := 64;
 
   -- Ensures riscv_mmu is OK.
   -- Sv32 if and only if XLEN is 32, else Sv39 unless explicitly Sv48.
@@ -268,6 +313,7 @@ architecture rtl of cpucorenv is
   signal tbi            : nv_trace_in_type;
   signal tbo            : nv_trace_out_type;
 
+
   -- Cache Signals
   signal ici          : nv_icache_in_type;
   signal ico          : nv_icache_out_type;
@@ -292,7 +338,9 @@ architecture rtl of cpucorenv is
 
   -- FPU
   signal fpi            : fpu5_in_type;
+  signal fpia           : fpu5_in_async_type;
   signal fpo            : fpu5_out_type;
+  signal fpoa           : fpu5_out_async_type;
   signal fpc_mosi       : nv_intreg_mosi_type;
   signal fpc_miso       : nv_intreg_miso_type;
   signal c2c_mosi       : nv_intreg_mosi_type;
@@ -327,6 +375,8 @@ architecture rtl of cpucorenv is
 
   signal itracei : itrace_in_type;
   signal itraceo : itrace_out_type;
+
+
 begin
 
   -- Signal Assignments -----------------------------------------------------
@@ -356,6 +406,11 @@ begin
       testen     => ahbsi.testen,
       testrst    => ahbsi.testrst
     );
+
+
+
+
+
 
   tbi.addr   <= itraceo.taddr;
   tbi.data   <= itraceo.idata;
@@ -389,11 +444,21 @@ begin
       pmp_no_tor    => pmp_no_tor,
       pmp_entries   => pmp_entries,
       pmp_g         => pmp_g,
+      asidlen       => asidlen,
+      vmidlen       => vmidlen,
+      -- Interrupts
+      imsic         => imsic,
+      -- RNMI
+      rnmi_iaddr    => rnmi_iaddr,
+      rnmi_xaddr    => rnmi_xaddr,
       -- Extensions
+      ext_noelv     => ext_noelv,
       ext_m         => ext_m,
       ext_a         => ext_a,
       ext_c         => ext_c,
       ext_h         => ext_h,
+      ext_sp        => ext_sp,
+      ext_zcb       => ext_zcb,
       ext_zba       => ext_zba,
       ext_zbb       => ext_zbb,
       ext_zbc       => ext_zbc,
@@ -403,8 +468,20 @@ begin
       ext_zbkx      => ext_zbkx,
       ext_sscofpmf  => ext_sscofpmf,
       ext_sstc      => ext_sstc,
+      ext_smaia     => ext_smaia,
+      ext_ssaia     => ext_ssaia,
+      ext_smstateen => ext_smstateen,
+      ext_smrnmi    => ext_smrnmi,
+      ext_smepmp    => ext_smepmp,
       ext_zicbom    => ext_zicbom,
-      ext_sp        => ext_sp,
+      ext_zicond    => ext_zicond,
+      ext_zimop     => ext_zimop,
+      ext_zcmop     => ext_zcmop,
+      ext_svinval   => ext_svinval,
+      ext_zfa       => actual_zfa,
+      ext_zfh       => actual_zfh,
+      ext_zfhmin    => actual_zfhmin,
+      ext_zfbfmin   => actual_zfbfmin,
       mode_s        => mode_s,
       mode_u        => mode_u,
       dmen          => dmen,
@@ -414,6 +491,7 @@ begin
       -- Advanced Features
       late_branch   => late_branch,
       late_alu      => late_alu,
+      ras           => ras,
       -- Misc
       pbaddr        => pbaddr,
       tbuf          => tbuf,
@@ -436,18 +514,23 @@ begin
       dco           => dco,
       rfi           => rfi,
       rfo           => rfo,
+      imsici        => imsici,
+      imsico        => imsico,
       irqi          => irqi,
       irqo          => irqo,
+      nirqi         => nirqi,
       dbgi          => dbgi,
       dbgo          => dbgo,
       muli          => muli,
       mulo          => mulo,
       divi          => divi,
       divo          => divo,
-      fpui          => fpi,
-      fpuo          => fpo,
       sdi           => sdi,
       sdo           => sdo,
+      fpui          => fpi,
+      fpuia         => fpia,
+      fpuo          => fpo,
+      fpuoa         => fpoa,
       cnt           => iu_cnt,
       itracei       => itracei,
       itraceo       => itraceo,
@@ -509,6 +592,7 @@ begin
     mulo  <= mul_out_none;
   end generate;
 
+  -- SPARROW Unit ---------------------------------------------------------------
   spgen : if ext_sp = 1 generate
     sploop: for i in 0 to 1-single_issue generate
       sprw : sparrow_unit 
@@ -556,8 +640,10 @@ begin
       pmp_g         => pmp_g,
       asidlen       => asidlen,
       vmidlen       => vmidlen,
+      ext_noelv     => ext_noelv,
       ext_a         => ext_a,
       ext_h         => ext_h,
+      ext_smepmp    => ext_smepmp,
       ext_zicbom    => ext_zicbom,
       tlb_pmp       => tlb_pmp,
       -- Misc
@@ -598,6 +684,9 @@ begin
       perf          => c_perf
       );
 
+  -- Unused
+  fpc_miso     <= nv_intreg_miso_none;
+  c2c_miso     <= nv_intreg_miso_none;
 
   cnt.icnt     <= iu_cnt.icnt;
   cnt.icmiss   <= c_perf(0);
@@ -605,7 +694,7 @@ begin
   cnt.dcmiss   <= c_perf(2);
   cnt.dtlbmiss <= c_perf(3);
   cnt.bpmiss   <= iu_cnt.bpmiss;
-
+   
   -- Branch History Table ---------------------------------------------------
   bht0 : bhtnv
     generic map (
@@ -641,17 +730,19 @@ begin
     );
 
   -- Return Address Stack ----------------------------------------------------
-  ras0 : rasnv
-    generic map (
-      depth             => 8,
-      pcbits            => pcaddr_bits
+  rasgen : if ras >= 1 generate
+    ras0 : rasnv
+      generic map (
+        depth             => 8,
+        pcbits            => pcaddr_bits
       )
-    port map (
-      clk               => gclk,
-      rstn              => rstx,
-      rasi              => rasi,
-      raso              => raso
-    );
+      port map (
+        clk               => gclk,
+        rstn              => rstx,
+        rasi              => rasi,
+        raso              => raso
+      );
+  end generate;
 
   -- IU Register File ----------------------------------------------------------
   ramrf : if (rfconf mod 16) = 0 generate
@@ -687,7 +778,8 @@ begin
         );
   end generate;
 
-  dffrf : if rfconf = 1 generate
+  dffrf : if (rfconf mod 16) = 1 generate
+  begin
     rf0 : regfile64dffnv
       generic map (
         tech            => memtech,
@@ -716,6 +808,7 @@ begin
         re4             => rfi.ren4,
         rdata4          => rfo.data4
         );
+
   end generate;
 
   -- FPU Register File ----------------------------------------------------------
@@ -753,12 +846,15 @@ begin
         );
    end generate;
 
-   dffrff : if rfconf = 1 generate
+   dffrff : if (rfconf mod 16) = 1 generate
     rf1 : regfile64dffnv
       generic map (
         tech            => memtech,
         wrfst           => WRT,
-        reg0write       => 1
+        reg0write       => 1,
+        -- GHDL+Verilator circular logic fix,
+        -- together with appropriate FPU changes.
+        forward       => 0
         )
       port map (
         clk             => gclk,
@@ -783,6 +879,7 @@ begin
         re4             => '0',
         rdata4          => rff_rdummy   -- Dummy
         );
+
    end generate;
 
   end generate;
@@ -829,8 +926,8 @@ begin
       )
       port map (
         clk      => gclk,
-        di       => tbi,
-        do       => tbo,
+        trace_in => tbi,
+        trace_out=> tbo,
         testin   => ahbi.testin
       );
   end generate;
@@ -866,41 +963,17 @@ begin
         clk         => gclk,
         rstn        => rstx,
         holdn       => holdn,
-        e_inst      => fpi.inst,
-        e_valid     => fpi.e_valid,
-        e_nullify   => fpi.e_nullify,
-        issue_id    => fpi.issue_id,
-        csrfrm      => fpi.csrfrm,
-        s1          => fs1_word64,
-        s2          => fs2_word64,
-        s3          => fs3_word64,
-        fpu_holdn   => fpo.holdn,
-        ready_flop  => fpo.ready,
-        commit      => fpi.commit,
-        commit_id   => fpi.commit_id,
-        lddata_id   => fpi.data_id,
-        lddata_now  => fpi.data_valid,
-        lddata      => fpi.data,
-        unissue     => fpi.unissue,
-        unissue_id  => fpi.unissue_id,
+        fpi         => fpi,
+        fpia        => fpia,
+        fpo         => fpo,
+        fpoa        => fpoa,
         rs1         => rff_rs1,
         rs2         => rff_rs2,
         rs3         => rff_rs3,
         ren         => rff_ren,
-        rd          => fpo.rd,
-        wen         => fpo.wen,
-        stdata      => fpo.data,
-        flags_wen   => fpo.flags_wen,
-        flags       => fpo.flags,
-        now2int     => fpo.now2int,
-        id2int      => fpo.id2int,
-        stdata2int  => fpo.data2int,
-        flags2int   => fpo.flags2int,
-        mode_in     => fpi.mode,
-        wb_mode     => fpo.mode,
-        wb_id       => fpo.wb_id,
-        idle        => fpo.idle,
-        events      => fpo.events
+        s1          => fs1_word64,
+        s2          => fs2_word64,
+        s3          => fs3_word64
       );
 
     rff_fd        <= fpo.data(rff_fd'range);
@@ -911,49 +984,28 @@ begin
   pfpu_gen : if fpulen /= 0 and hw_fpu = 3 generate
     piped : pipefpunv
       generic map (
-        fpulen    => fpulen,
-        mulconf   => mulconf_fpu
+        fpulen      => fpulen,
+        ext_zfa     => ext_zfa,
+        ext_zfh     => ext_zfh,
+        ext_zfhmin  => ext_zfhmin,
+        ext_zfbfmin => ext_zfbfmin,
+        mulconf     => mulconf_fpu
       )
       port map (
         clk         => gclk,
         rstn        => rstx,
         holdn       => holdn,
-        e_inst      => fpi.inst,
-        e_valid     => fpi.e_valid,
-        e_nullify   => fpi.e_nullify,
-        issue_id    => fpi.issue_id,
-        csrfrm      => fpi.csrfrm,
-        s1          => fs1_word64,
-        s2          => fs2_word64,
-        s3          => fs3_word64,
-        fpu_holdn   => fpo.holdn,
-        ready_flop  => fpo.ready,
-        commit      => fpi.commit,
-        commit_id   => fpi.commit_id,
-        lddata_id   => fpi.data_id,
-        lddata_now  => fpi.data_valid,
-        lddata      => fpi.data,
-        unissue     => fpi.unissue,
-        unissue_id  => fpi.unissue_id,
+        fpi         => fpi,
+        fpia        => fpia,
+        fpo         => fpo,
+        fpoa        => fpoa,
         rs1         => rff_rs1,
         rs2         => rff_rs2,
         rs3         => rff_rs3,
         ren         => rff_ren,
-        rd          => fpo.rd,
-        wen         => fpo.wen,
-        stdata      => fpo.data,
-        flags_wen   => fpo.flags_wen,
-        flags       => fpo.flags,
-        now2int     => fpo.now2int,
-        id2int      => fpo.id2int,
-        stdata2int  => fpo.data2int,
-        flags2int   => fpo.flags2int,
-        mode_in     => fpi.mode,
-        wb_mode     => fpo.mode,
-        wb_id       => fpo.wb_id,
-        idle        => fpo.idle,
-        events      => fpo.events,
-        ctrl        => fpi.ctrl
+        s1          => fs1_word64,
+        s2          => fs2_word64,
+        s3          => fs3_word64
       );
 
     rff_fd   <= fpo.data(rff_fd'range);

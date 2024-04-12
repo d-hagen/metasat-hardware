@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -268,67 +269,10 @@ port (
     );
 end component;
 
-component virtex7_tap 
-port (
-     tapi_tdo1   : in std_ulogic;
-     tapi_tdo2   : in std_ulogic;
-     tapo_tck    : out std_ulogic;
-     tapo_tdi    : out std_ulogic;
-     tapo_rst    : out std_ulogic;
-     tapo_capt   : out std_ulogic;
-     tapo_shft   : out std_ulogic;
-     tapo_upd    : out std_ulogic;
-     tapo_xsel1  : out std_ulogic;
-     tapo_xsel2  : out std_ulogic
+component bscane2_tap
+generic (
+     altchain : in integer range 0 to 1 := 0
     );
-end component;
-
-component kintex7_tap 
-port (
-     tapi_tdo1   : in std_ulogic;
-     tapi_tdo2   : in std_ulogic;
-     tapo_tck    : out std_ulogic;
-     tapo_tdi    : out std_ulogic;
-     tapo_rst    : out std_ulogic;
-     tapo_capt   : out std_ulogic;
-     tapo_shft   : out std_ulogic;
-     tapo_upd    : out std_ulogic;
-     tapo_xsel1  : out std_ulogic;
-     tapo_xsel2  : out std_ulogic
-    );
-end component;
-
-component kintexu_tap 
-port (
-     tapi_tdo1   : in std_ulogic;
-     tapi_tdo2   : in std_ulogic;
-     tapo_tck    : out std_ulogic;
-     tapo_tdi    : out std_ulogic;
-     tapo_rst    : out std_ulogic;
-     tapo_capt   : out std_ulogic;
-     tapo_shft   : out std_ulogic;
-     tapo_upd    : out std_ulogic;
-     tapo_xsel1  : out std_ulogic;
-     tapo_xsel2  : out std_ulogic
-    );
-end component;
-
-component virtexup_tap 
-port (
-     tapi_tdo1   : in std_ulogic;
-     tapi_tdo2   : in std_ulogic;
-     tapo_tck    : out std_ulogic;
-     tapo_tdi    : out std_ulogic;
-     tapo_rst    : out std_ulogic;
-     tapo_capt   : out std_ulogic;
-     tapo_shft   : out std_ulogic;
-     tapo_upd    : out std_ulogic;
-     tapo_xsel1  : out std_ulogic;
-     tapo_xsel2  : out std_ulogic
-    );
-end component;
-
-component artix7_tap 
 port (
      tapi_tdo1   : in std_ulogic;
      tapi_tdo2   : in std_ulogic;

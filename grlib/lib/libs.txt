@@ -4,7 +4,6 @@ techmap           vhdlstd=93
 spw
 spfi
 wizl
-grlib
 eth
 opencores
 ihp

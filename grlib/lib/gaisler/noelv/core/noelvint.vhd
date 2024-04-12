@@ -1,9 +1,9 @@
-
 ------------------------------------------------------------------------------
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -33,10 +33,15 @@ use grlib.amba.all;
 use grlib.config_types.all;
 use grlib.config.all;
 use grlib.stdlib.log2;
+use grlib.riscv.reg_t;
 library gaisler;
+use gaisler.noelvtypes.all;
 use gaisler.noelv.XLEN;
 use gaisler.noelv.nv_irq_in_type;
 use gaisler.noelv.nv_irq_out_type;
+use gaisler.noelv.nv_nirq_in_type;
+use gaisler.noelv.imsic_in_type;
+use gaisler.noelv.imsic_out_type;
 use gaisler.noelv.nv_dm_in_type;
 use gaisler.noelv.nv_dm_out_type;
 use gaisler.noelv.nv_debug_in_type;
@@ -51,62 +56,7 @@ use bsc.sparrow.sprw_out_vec;
 
 package noelvint is
 
-  constant PMPENTRIES           : integer := 16;
-  constant PMPADDRBITS          : integer := 54;
-  constant MAX_TRIGGER_NUM      : integer := 4;
-
-  subtype cause_type is std_logic_vector(5 downto 0);
-
-  subtype word8  is std_logic_vector( 7 downto 0);
-  subtype word16 is std_logic_vector(15 downto 0);
-  subtype word64 is std_logic_vector(63 downto 0);
-  subtype word   is std_logic_vector(31 downto 0);
-  subtype wordx  is std_logic_vector(XLEN - 1 downto 0);
-
-  constant zerow16      : word16 := (others => '0');
-  constant zerow64      : word64 := (others => '0');
-  constant zerox        : wordx  := (others => '0');
-  constant zerow        : word   := (others => '0');
-
-  -----------------------------------------------------------------------------
-  -- Constants
-  -----------------------------------------------------------------------------
-  constant NOELV_VERSION        : integer := 2;
-  constant NOELV_TRACE_VERSION  : integer := 1;
-
-  constant TRACE_WIDTH  : integer := 512
--- pragma translate_off
-                                     + 2 * (64 + 16)
--- pragma translate_on
-                                     ;
-  constant TRACE_SEL    : integer := TRACE_WIDTH / 32;
-
-  constant IDBITS3 : integer := 39;    -- Sv39
-
-  constant CTAG_LRRPOS  : integer := 9;
-  constant CTAG_LOCKPOS : integer := 8;
-
-  constant REPL_SOFT    : integer := 0;
-  constant REPL_RAND    : integer := 1;
-
-  constant RND     : std_logic_vector(1 downto 0) := "11";
-  constant LRR     : std_logic_vector(1 downto 0) := "10";
-  constant LRU     : std_logic_vector(1 downto 0) := "01";
-  constant DIR     : std_logic_vector(1 downto 0) := "00";
-
-  constant MAXWAYS : integer := 8;
-  constant TAGMAX  : integer := 32;
-  constant IDXMAX  : integer := 16;
-
-  constant MAX_PREDICTOR_BITS  : integer := 2;
-
-  -- One bit extra length to deal with < condition on high NAPOT limits,
-  -- and another one because it is allowed to have all 1's in the CSR and
-  -- an implicit 0 above that.
-  subtype pmpaddr_type       is std_logic_vector(PMPADDRBITS + 1 downto 0);
   type    pmpaddr_vec_type   is array (0 to PMPENTRIES - 1) of pmpaddr_type;
-
-  constant pmpaddrzero : pmpaddr_type := (others => '0');
 
   type pmp_precalc_type is record
     valid : std_ulogic;
@@ -128,8 +78,8 @@ package noelvint is
     itcmwipe  : std_ulogic;
     dtcmwipe  : std_ulogic;
     dsnoop    : std_ulogic;
-    iflush    : std_ulogic; 
-    dflush    : std_ulogic; 
+    iflush    : std_ulogic;
+    dflush    : std_ulogic;
     dcs       : std_logic_vector(1 downto 0);
     ics       : std_logic_vector(1 downto 0);
   end record;
@@ -149,6 +99,7 @@ package noelvint is
     itcmwipe    : std_ulogic;
     dtcmwipe    : std_ulogic;
   end record;
+
   constant csr_in_cctrl_rst : csr_in_cctrl_type := (
     iflushpend  => '0',
     dflushpend  => '0',
@@ -156,30 +107,46 @@ package noelvint is
     dtcmwipe    => '0'
   );
 
+
   type nv_csr_out_type is record
-    satp        : wordx;
-    vsatp       : wordx;
-    hgatp       : wordx;
-    mmu_adfault : std_ulogic;   -- Take page fault on access/modify.
-    pmpcfg0     : word64;
-    pmpcfg2     : word64;
-    precalc     : pmp_precalc_vec(0 to PMPENTRIES - 1);
-    cctrl       : csr_out_cctrl_type;
+    satp          : wordx;
+    vsatp         : wordx;
+    hgatp         : wordx;
+    mmu_adfault   : std_ulogic; -- Take page fault on access/modify.
+    mmu_h_adfault : std_ulogic; -- Take page fault on access/modify when virtualized.
+    mmu_sptfault  : std_ulogic; -- Take page fault on any sPT walk.
+    mmu_hptfault  : std_ulogic; -- Take page fault on any hPT walk.
+    mmu_oldfence  : std_ulogic; -- Use old sfence/hfence mechanism.
+    pmpcfg0       : word64;
+    pmpcfg2       : word64;
+    precalc       : pmp_precalc_vec(0 to PMPENTRIES - 1);
+    mmwp          : std_ulogic;
+    mml           : std_ulogic;
+    cctrl        : csr_out_cctrl_type;
   end record;
+
   constant nv_csr_out_type_none : nv_csr_out_type := (
-    satp        => (others => '0'),
-    vsatp       => (others => '0'),
-    hgatp       => (others => '0'),
-    mmu_adfault => '0',
-    pmpcfg0     => (others => '0'),
-    pmpcfg2     => (others => '0'),
-    precalc     => PMPPRECALCRES,
-    cctrl       => csr_out_cctrl_rst
+    satp          => (others => '0'),
+    vsatp         => (others => '0'),
+    hgatp         => (others => '0'),
+    mmu_adfault   => '0',
+    mmu_h_adfault => '0',
+    mmu_sptfault  => '0',
+    mmu_hptfault  => '0',
+    mmu_oldfence  => '0',
+    pmpcfg0       => (others => '0'),
+    pmpcfg2       => (others => '0'),
+    precalc       => PMPPRECALCRES,
+    mmwp          => '0',
+    mml           => '0',
+    cctrl        => csr_out_cctrl_rst
   );
+
   type nv_csr_in_type is record
     cctrl       : csr_in_cctrl_type;
     cconfig     : word64;
   end record;
+
   constant nv_csr_in_type_none : nv_csr_in_type := (
     cctrl       => csr_in_cctrl_rst,
     cconfig     => (others => '0')
@@ -198,28 +165,24 @@ package noelvint is
   -- Types
   -----------------------------------------------------------------------------
 
-  subtype reg_t is std_logic_vector(4 downto 0);
-
   -- FPU ------------------------------------------------------------------
 
-  subtype fpu_id is std_logic_vector(4 downto 0);
-
   type fpu5_in_type is record
-    inst        : word;
+    inst        : word;                          -- Issue interface
     e_valid     : std_ulogic;
     issue_id    : fpu_id;
     csrfrm      : std_logic_vector(2 downto 0);
-    flush       : std_logic_vector(1 to 4);               -- Pipeline Flush
-    e_nullify   : std_ulogic;
-    commit      : std_ulogic;
+--    e_nullify   : std_ulogic;
+    mode        : std_logic_vector(2 downto 0);  --   Pass along for logging
+    commit      : std_ulogic;                    -- Commit/unissue interface
     commit_id   : fpu_id;
-    unissue     : std_ulogic;
-    unissue_id  : fpu_id;
     data_id     : fpu_id;
     data_valid  : std_ulogic;
-    data        : word64;
-    mode        : std_logic_vector(2 downto 0);           -- Pass along for logging
-    ctrl        : std_logic_vector(8 downto 0);           -- Debug control
+--    data        : word64;
+    unissue     : std_ulogic;
+    unissue_id  : fpu_id;
+    flush       : std_logic_vector(1 to 4);      --   Pipeline Flush
+    ctrl        : std_logic_vector(8 downto 0);  -- Debug control
   end record;
 
   constant fpu5_in_none : fpu5_in_type := (
@@ -227,57 +190,71 @@ package noelvint is
     e_valid     => '0',
     issue_id    => (others => '0'),
     csrfrm      => (others => '0'),
-    flush       => (others => '0'),
-    e_nullify   => '0',
+--    e_nullify   => '0',
+    mode        => (others => '0'),
     commit      => '0',
     commit_id   => (others => '0'),
-    unissue     => '0',
-    unissue_id  => (others => '0'),
     data_id     => (others => '0'),
     data_valid  => '0',
-    data        => (others => '0'),
-    mode        => (others => '0'),
+--    data        => (others => '0'),
+    unissue     => '0',
+    unissue_id  => (others => '0'),
+    flush       => (others => '0'),
     ctrl        => (others => '0')
     );
 
-  type fpu5_out_type is record
+  type fpu5_in_async_type is record
+    e_nullify   : std_ulogic;
     data        : word64;
-    data2int    : word64;
+  end record;
+
+  constant fpu5_in_async_none : fpu5_in_async_type := (
+    e_nullify     => '0',
+    data        => (others => '0')
+  );
+
+  type fpu5_out_type is record
     rd          : reg_t;
     wen         : std_ulogic;
-    flags       : std_logic_vector(4 downto 0);
-    flags_wen   : std_ulogic; 
-    flags2int   : std_logic_vector(4 downto 0);
-    ready       : std_ulogic;
-    holdn       : std_ulogic;
+    data        : word64;                        -- Result interface
+    flags_wen   : std_ulogic;
+    flags       : flags_t;
     mode        : std_logic_vector(2 downto 0);
     wb_id       : fpu_id;
-    idle        : std_ulogic;
-    now2int     : std_ulogic;
-    id2int      : fpu_id;
     events      : word64;
   end record;
 
   constant fpu5_out_none : fpu5_out_type := (
-    data        => (others => '0'),
-    data2int    => (others => '0'),
     rd          => (others => '0'),
     wen         => '0',
-    flags       => (others => '0'),
+    data        => (others => '0'),
     flags_wen   => '0',
-    flags2int   => (others => '0'),
-    ready       => '1',
-    holdn       => '1',
+    flags       => (others => '0'),
     mode        => (others => '0'),
     wb_id       => (others => '0'),
-    idle        => '1',
-    now2int     => '0',
-    id2int      => (others => '0'),
     events      => (others => '0')
     );
 
-  type fpu5_out_vector_type is array (integer range 0 to 7) of fpu5_out_type;
-  type fpu5_in_vector_type  is array (integer range 0 to 7) of fpu5_in_type;
+  type fpu5_out_async_type is record
+    holdn       : std_ulogic;                    -- Issue interface
+    ready       : std_ulogic;
+    idle        : std_ulogic;
+    now2int     : std_ulogic;                    -- Result to IU
+    id2int      : fpu_id;                        --  These are muxed after the clock,
+    data2int    : word64;                        --  to save a cycle when the IU
+    flags2int   : flags_t;                       --  is waiting on data from FPU.
+  end record;
+
+  constant fpu5_out_async_none : fpu5_out_async_type := (
+    holdn       => '1',
+    ready       => '1',
+    idle        => '1',
+    now2int     => '0',
+    id2int      => (others => '0'),
+    data2int    => (others => '0'),
+    flags2int   => (others => '0')
+    );
+
 
   -- Register File --------------------------------------------------------
   type iregfile_in_type is record
@@ -361,7 +338,7 @@ package noelvint is
     exctype     : std_ulogic;
     exchyper    : std_ulogic;
     addrhyper   : addr_type;
-    typehyper   : std_logic_vector(1 downto 0);
+    typehyper   : std_logic_vector(1 downto 0);  -- 00 OK, 01 data RW, 10 PT R, 11 - PT W
     hold        : std_ulogic;
     flush       : std_ulogic;                    -- flush in progress
     mds         : std_ulogic;                    -- memory data strobe
@@ -406,6 +383,14 @@ package noelvint is
     iudiag_miso      : nv_intreg_miso_type;
   end record;
 
+  constant nv_dcache_in_none : nv_dcache_in_type := (
+    x"00", (others => '0'), x"00", (others => '0'), zerow64, "00",
+    '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+    "000", '0', '0', '0', '0',
+    '0', '0', '0',
+    "000000", "000", nv_intreg_miso_none
+  );
+
   type nv_dcache_out_type is record
     data        : nv_cdatatype;
     way         : std_logic_vector(log2(MAXWAYS) - 1 downto 0);
@@ -413,7 +398,7 @@ package noelvint is
     exctype     : std_ulogic;
     exchyper    : std_ulogic;
     addrhyper   : addr_type;
-    typehyper   : std_logic_vector(1 downto 0);
+    typehyper   : std_logic_vector(1 downto 0);  -- 00 OK, 01 data RW, 10 PT R, 11 - PT W
     hold        : std_ulogic;
     mds         : std_ulogic;
     werr        : std_ulogic;
@@ -423,10 +408,16 @@ package noelvint is
     iudiag_mosi : nv_intreg_mosi_type;
   end record;
 
-  type cram_tags is array(0 to 7) of std_logic_vector(TAGMAX - 1 downto 0);
+  constant nv_dcache_out_none : nv_dcache_out_type := (
+    (others => (others => '0')), (others => '0'), '0', '0', '0',
+    (others => '0'), "00", '0', '0', '0', '0', '0', '0',
+    nv_intreg_mosi_none
+    );
+
+  type cram_tags is array(0 to 7) of cache_tag;
 
   type nv_cram_in_type is record
-    iindex      : std_logic_vector(IDXMAX-1 downto 0);
+    iindex      : cache_index;
     itagen      : std_logic_vector(0 to 7);
     itagwrite   : std_ulogic;
     itagdin     : cram_tags;
@@ -439,23 +430,23 @@ package noelvint is
     itcmwrite   : std_logic_vector(1 downto 0);
     itcmdin     : word64;
     -- Cache read port
-    dtagcindex  : std_logic_vector(IDXMAX-1 downto 0);
+    dtagcindex  : cache_index;
     dtagcen     : std_logic_vector(0 to 7);
     -- Cache update and snoop hit port
-    dtaguindex  : std_logic_vector(IDXMAX-1 downto 0);
+    dtaguindex  : cache_index;
     dtaguwrite  : std_logic_vector(0 to 7);
     dtagudin    : cram_tags;
     -- Combined read/update port (without snoop hit)
-    dtagcuindex : std_logic_vector(IDXMAX-1 downto 0);
+    dtagcuindex : cache_index;
     dtagcuen    : std_logic_vector(0 to 7);
     dtagcuwrite : std_ulogic;
     -- Snoop tag read and write
-    dtagsindex  : std_logic_vector(IDXMAX-1 downto 0);
+    dtagsindex  : cache_index;
     dtagsen     : std_logic_vector(0 to 7);
     dtagswrite  : std_ulogic;
     dtagsdin    : cram_tags;
     -- DCache data
-    ddataindex  : std_logic_vector(IDXMAX-1 downto 0);
+    ddataindex  : cache_index;
     ddataoffs   : std_logic_vector(1 downto 0);
     ddataen     : std_logic_vector(0 to 7);
     ddatawrite  : word8;
@@ -465,6 +456,47 @@ package noelvint is
     dtcmdin     : word64;
     dtcmwrite   : word8;
   end record;
+
+  constant nv_cram_in_none : nv_cram_in_type := (
+    iindex      => (others => '0'),
+    itagen      => (others => '0'),
+    itagwrite   => '0',
+    itagdin     => (others => (others => '0')),
+    idataoffs   => (others => '0'),
+    idataen     => (others => '0'),
+    idatawrite  => (others => '0'),
+    idatadin    => zerow64,
+    ifulladdr   => zerow,
+    itcmen      => '0',
+    itcmwrite   => (others => '0'),
+    itcmdin     => zerow64,
+    -- Cache read port
+    dtagcindex  => (others => '0'),
+    dtagcen     => (others => '0'),
+    -- Cache update and snoop hit port
+    dtaguindex  => (others => '0'),
+    dtaguwrite  => (others => '0'),
+    dtagudin    => (others => (others => '0')),
+    -- Combined read/update port (without snoop hit)
+    dtagcuindex => (others => '0'),
+    dtagcuen    => (others => '0'),
+    dtagcuwrite => '0',
+    -- Snoop tag read and write
+    dtagsindex  => (others => '0'),
+    dtagsen     => (others => '0'),
+    dtagswrite  => '0',
+    dtagsdin    => (others => (others => '0')),
+    -- DCache data
+    ddataindex  => (others => '0'),
+    ddataoffs   => (others => '0'),
+    ddataen     => (others => '0'),
+    ddatawrite  => (others => '0'),
+    ddatadin    => (others => zerow64),
+    ddatafulladdr => zerow,
+    dtcmen      => '0',
+    dtcmdin     => zerow64,
+    dtcmwrite   => (others => '0')
+  );
 
   type nv_cram_out_type is record
     itagdout  : cram_tags;
@@ -480,26 +512,15 @@ package noelvint is
   subtype trace_addr is std_logic_vector(11 downto 0);
   type nv_trace_in_type is record
     addr             : trace_addr;
-    data             : std_logic_vector(TRACE_WIDTH-1 downto 0);
+    data             : trace_data;
     enable           : std_ulogic;
-    write            : std_logic_vector(TRACE_SEL-1 downto 0);
+    write            : trace_sel;
   end record;
 
   type nv_trace_out_type is record
-    data             : std_logic_vector(TRACE_WIDTH-1 downto 0);
+    data             : trace_data;
   end record;
 
-  type nv_trace_2p_in_type is record
-    renable          : std_ulogic;
-    raddr            : trace_addr;
-    write            : std_logic_vector(TRACE_SEL-1 downto 0);
-    waddr            : trace_addr;
-    data             : std_logic_vector(TRACE_WIDTH-1 downto 0);
-  end record;
-
-  type nv_trace_2p_out_type is record
-    data             : std_logic_vector(TRACE_WIDTH-1 downto 0);
-  end record;
 
   type trace_lane is record
     valid      : std_ulogic;
@@ -507,6 +528,7 @@ package noelvint is
     compressed : std_ulogic;
     int_res    : std_ulogic;
     csr_write  : std_ulogic;
+    memory     : std_ulogic;
     pc         : wordx;
     inst       : word;
     cinst      : word16;
@@ -520,6 +542,7 @@ package noelvint is
     compressed => '0',
     int_res    => '0',
     csr_write  => '0',
+    memory     => '0',
     pc         => zerox,
     inst       => zerow,
     cinst      => zerow16,
@@ -549,7 +572,7 @@ package noelvint is
     lanes     : trace_lanes(0 to 1);
     prv       : std_logic_vector(1 downto 0);
     v         : std_ulogic;
-    cause     : cause_type;  -- Top bit is IRQ
+    cause     : cause_type;
   end record;
 
   constant trace_info_none : trace_info := (
@@ -560,19 +583,15 @@ package noelvint is
     v         => '0',
     cause     => (others => '0')
   );
-    
+
   type itrace_in_type is record
     holdn       : std_ulogic;
     rstate      : std_logic_vector(1 downto 0);
     is_amo      : boolean;
     is_ld       : boolean;
     is_st       : boolean;
---    logging     : std_ulogic;
     dm_tbufaddr : trace_addr;
     dm_trace    : std_ulogic;
---    trace_index : std_logic_vector(3 downto 0);
---    trace_wdata : wordx;
---    trace_w     : std_ulogic;
     trace       : trace_type;
     tpbuf_en    : std_ulogic;
     info        : trace_info;
@@ -588,15 +607,14 @@ package noelvint is
     dm_trace    => '0',
     trace       => trace_rst,
     tpbuf_en    => '0',
---    idata       => (others => '0'),
     info        => trace_info_none
   );
 
   type itrace_out_type is record
     tcnt       : trace_addr;
     taddr      : trace_addr;
-    idata      : std_logic_vector(TRACE_WIDTH - 1 downto 0);
-    write      : std_logic_vector(TRACE_SEL-1 downto 0);
+    idata      : trace_data;
+    write      : trace_sel;
     enable     : std_ulogic;
   end record;
 
@@ -619,16 +637,9 @@ package noelvint is
     write   => (others => '0')
     );
 
-  constant nv_trace_2p_out_type_none : nv_trace_2p_out_type := (
-    data => (others => '0'));
 
-  constant nv_trace_2p_in_type_none : nv_trace_2p_in_type := (
-    renable => '0',
-    raddr   => (others => '0'),
-    write   => (others => '0'),
-    waddr   => (others => '0'),
-    data    => (others => '0')
-    );
+
+
 
   -- MUL/DIV --------------------------------------------------------------
   type mul_in_type is record
@@ -739,7 +750,6 @@ package noelvint is
   type nv_bht_in_type is record
     waddr        : wordx;
     wen          : std_ulogic;
-    wdata        : std_logic_vector(MAX_PREDICTOR_BITS-1 downto 0);
     taken        : std_ulogic;
     raddr_comb   : wordx;
     rindex_bhist : wordx;
@@ -762,33 +772,6 @@ package noelvint is
     phistory    => (others => '0')
   );
 
-  -- Program buffer --------------------------------------------------------------
-  type nv_progbuf_in_type is record
-    addr      : std_logic_vector(4 downto 0);
-    eaddr     : std_logic_vector(4 downto 0);
-    write     : std_logic;
-    data      : word;
-  end record;
-  constant nv_progbuf_in_none : nv_progbuf_in_type := (
-    addr      => (others => '0'),
-    eaddr     => (others => '0'),
-    write     => '0',
-    data      => (others => '0')
-  );
-
-  type nv_progbuf_out_type is record
-    edata      : word64;
-    data       : word;
-  end record;
-  constant nv_progbuf_out_none : nv_progbuf_out_type := (
-    edata     => (others => '0'),
-    data      => (others => '0')
-  );
-
-  type nv_progbuf_in_vector  is array (natural range <>) of nv_progbuf_in_type;
-  type nv_progbuf_out_vector is array (natural range <>) of nv_progbuf_out_type;
-
-
   -----------------------------------------------------------------------------
   -- Components
   -----------------------------------------------------------------------------
@@ -802,8 +785,7 @@ package noelvint is
       dmen         : integer range 0 to 1;
       tbuf         : integer;
       disas        : integer;
-      scantest     : integer;
-      pipeline     : integer range 0 to 3
+      scantest     : integer
     );
     port (
       clk     : in  std_ulogic;
@@ -817,63 +799,89 @@ package noelvint is
     );
   end component;
 
+
   component iunv
     generic (
-      hindex       : integer range 0  to 15;       -- Hart index
-      fabtech      : integer range 0  to NTECH;    -- fabtech
-      memtech      : integer range 0  to NTECH;    -- memtech
+      hindex        : integer range 0  to 15;       -- Hart index
+      fabtech       : integer range 0  to NTECH;    -- fabtech
+      memtech       : integer range 0  to NTECH;    -- memtech
       -- Core
-      physaddr     : integer range 32 to 56;       -- Physical Addressing
-      addr_bits    : integer range 32 to 56;       -- Max bits required for an address
-      rstaddr      : integer;                      -- Reset vector (MSB)
-      perf_cnts    : integer range 0  to 29;       -- Number of performance counters
-      perf_evts    : integer range 0  to 255;      -- Number of performance events
-      perf_bits    : integer range 0  to 64;       -- Bits of performance counting
-      illegalTval0 : integer range 0  to 1;        -- Zero TVAL on illegal instruction
-      no_muladd    : integer range 0  to 1;        -- 1 - multiply-add not supported
-      single_issue : integer range 0  to 1;        -- 1 - only one pipeline
+      physaddr      : integer range 32 to 56;       -- Physical Addressing
+      addr_bits     : integer range 32 to 64;       -- Max bits required for an address
+      rstaddr       : integer;                      -- Reset vector (MSB)
+      perf_cnts     : integer range 0  to 29;       -- Number of performance counters
+      perf_evts     : integer range 0  to 255;      -- Number of performance events
+      perf_bits     : integer range 0  to 64;       -- Bits of performance counting
+      illegalTval0  : integer range 0  to 1;        -- Zero TVAL on illegal instruction
+      no_muladd     : integer range 0  to 1;        -- 1 - multiply-add not supported
+      single_issue  : integer range 0  to 1;        -- 1 - only one pipeline
       -- Caches
-      iways        : integer range 1  to 8;        -- I$ Ways
-      dways        : integer range 1  to 8;        -- D$ Ways
-      itcmen       : integer range 0  to 1;        -- Instruction TCM
-      dtcmen       : integer range 0  to 1;        -- Data TCM
+      iways         : integer range 1  to 8;        -- I$ Ways
+      dways         : integer range 1  to 8;        -- D$ Ways
+      itcmen        : integer range 0  to 1;        -- Instruction TCM
+      dtcmen        : integer range 0  to 1;        -- Data TCM
       -- MMU
-      mmuen        : integer range 0  to 2;        -- >0 - MMU enable
-      riscv_mmu    : integer range 0  to 3;
-      pmp_no_tor   : integer range 0  to 1;        -- Disable PMP TOR
-      pmp_entries  : integer range 0  to 16;       -- Implemented PMP registers
-      pmp_g        : integer range 0  to 10;       -- PMP grain is 2^(pmp_g + 2) bytes
+      mmuen         : integer range 0  to 2;        -- >0 - MMU enable
+      riscv_mmu     : integer range 0  to 3;
+      pmp_no_tor    : integer range 0  to 1;        -- Disable PMP TOR
+      pmp_entries   : integer range 0  to 16;       -- Implemented PMP registers
+      pmp_g         : integer range 0  to 10;       -- PMP grain is 2^(pmp_g + 2) bytes
+      asidlen       : integer range 0 to  16;       -- Max 9 for Sv32
+      vmidlen       : integer range 0 to  14;       -- Max 7 for Sv32
+      -- Interrupts
+      imsic         : integer range 0  to 1;        -- IMSIC implemented
+      -- RNMI
+      rnmi_iaddr   : integer;                      -- RNMI interrupt trap handler address
+      rnmi_xaddr   : integer;                      -- RNMI exception trap handler address
       -- Extensions
-      ext_m        : integer range 0  to 1;        -- M Base Extension Set
-      ext_a        : integer range 0  to 1;        -- A Base Extension Set
-      ext_c        : integer range 0  to 1;        -- C Base Extension Set
-      ext_h        : integer range 0  to 1;        -- H Extension
-      ext_zba      : integer range 0  to 1;        -- Zba Extension
-      ext_zbb      : integer range 0  to 1;        -- Zbb Extension
-      ext_zbc      : integer range 0  to 1;        -- Zbc Extension
-      ext_zbs      : integer range 0  to 1;        -- Zbs Extension
-      ext_zbkb     : integer range 0  to 1;        -- Zbkb Extension
-      ext_zbkc     : integer range 0  to 1;        -- Zbkc Extension
-      ext_zbkx     : integer range 0  to 1;        -- Zbkx Extension
-      ext_sscofpmf : integer range 0  to 1;        -- Sscofpmf Extension
-      ext_sstc     : integer range 0  to 2;        -- Sctc Extension (2 : only time csr impl.)  
-      ext_zicbom   : integer range 0  to 1;        -- Zicbom Extension
-      ext_sp       : integer range 0  to 1;        -- Sparrow Extension 
-      mode_s       : integer range 0  to 1;        -- Supervisor Mode Support
-      mode_u       : integer range 0  to 1;        -- User Mode Support
-      dmen         : integer range 0  to 1;        -- Using RISC-V Debug Module
-      fpulen       : integer range 0  to 128;      -- Floating-point precision
-      fpuconf      : integer range 0  to 1;        -- 0 = nanoFPUnv, 1 = GRFPUnv
-      trigger      : integer;
+      ext_noelv     : integer range 0  to 1;        -- NOEL-V Extensions
+      ext_m         : integer range 0  to 1;        -- M Base Extension Set
+      ext_a         : integer range 0  to 1;        -- A Base Extension Set
+      ext_c         : integer range 0  to 1;        -- C Base Extension Set
+      ext_h         : integer range 0  to 1;        -- H Extension
+      ext_sp        : integer range 0  to 1;        -- SPARROW Extension
+      ext_zcb       : integer range 0  to 1;        -- Zcb Extension
+      ext_zba       : integer range 0  to 1;        -- Zba Extension
+      ext_zbb       : integer range 0  to 1;        -- Zbb Extension
+      ext_zbc       : integer range 0  to 1;        -- Zbc Extension
+      ext_zbs       : integer range 0  to 1;        -- Zbs Extension
+      ext_zbkb      : integer range 0  to 1;        -- Zbkb Extension
+      ext_zbkc      : integer range 0  to 1;        -- Zbkc Extension
+      ext_zbkx      : integer range 0  to 1;        -- Zbkx Extension
+      ext_sscofpmf  : integer range 0  to 1;        -- Sscofpmf Extension
+      ext_sstc      : integer range 0  to 2;        -- Sctc Extension (2 : only time csr impl.)
+      ext_smaia     : integer range 0  to 1;        -- Smaia Extension
+      ext_ssaia     : integer range 0  to 1;        -- Ssaia Extension
+      ext_smstateen : integer range 0  to 1;        -- Smstateen Extension
+      ext_smrnmi    : integer range 0  to 1;        -- Smrnmi Extension
+      ext_smepmp    : integer range 0  to 1;        -- Smepmp Extension
+      ext_zicbom    : integer range 0  to 1;        -- Zicbom Extension
+      ext_zicond    : integer range 0  to 1;        -- Zicond Extension
+      ext_zimop     : integer range 0  to 1;        -- Zimop Extension
+      ext_zcmop     : integer range 0  to 1;        -- Zcmop Extension
+      ext_svinval   : integer range 0  to 1;        -- Svinval Extension
+      ext_zfa       : integer range 0  to 1;        -- Zfa Extension
+      ext_zfh       : integer range 0  to 1;        -- Zfh Extension
+      ext_zfhmin    : integer range 0  to 1;        -- Zfhmin Extension
+      ext_zfbfmin   : integer range 0  to 1;        -- Zfbfmin Extension
+      mode_s        : integer range 0  to 1;        -- Supervisor Mode Support
+      mode_u        : integer range 0  to 1;        -- User Mode Support
+      dmen          : integer range 0  to 1;        -- Using RISC-V Debug Module
+      fpulen        : integer range 0  to 128;      -- Floating-point precision
+      fpuconf       : integer range 0  to 1;        -- 0 = nanoFPUnv, 1 = GRFPUnv
+      trigger       : integer range 0  to 4096;
       -- Advanced Features
-      late_branch  : integer range 0  to 1;        -- Late Branch Support
-      late_alu     : integer range 0  to 1;        -- Late ALUs Support
+      late_branch   : integer range 0  to 1;        -- Late Branch Support
+      late_alu      : integer range 0  to 1;        -- Late ALUs Support
+      ras           : integer range 0  to 2;        -- Return Address Stack (1 - test, 2 - enable)
       -- Misc
-      pbaddr       : integer;                      -- Program buffer exe address
-      tbuf         : integer;                      -- Trace buffer size in kB
-      scantest     : integer;                      -- Scantest support
-      rfreadhold   : integer range 0  to 1 := 0;   -- Register File Read Hold
-      endian       : integer               := GRLIB_CONFIG_ARRAY(grlib_little_endian)
+      pbaddr        : integer;                      -- Program buffer exe address
+      tbuf          : integer;                      -- Trace buffer size in kB
+      scantest      : integer;                      -- Scantest support
+      rfreadhold    : integer range 0  to 1 := 0;   -- Register File Read Hold
+--      fpu_debug    : integer range 0  to 1 := 0;   -- FCSR bits for controlling the FPU
+--      fpu_lane     : integer range 0  to 1 := 0;   -- Lane where (non-memory) FPU instructions go
+      endian         : integer range 0  to 1 := GRLIB_CONFIG_ARRAY(grlib_little_endian)
       );
     port (
       clk            : in  std_ulogic;           -- clk
@@ -891,21 +899,26 @@ package noelvint is
       dco            : in  nv_dcache_out_type;   -- D$ Out Port
       rfi            : out iregfile_in_type;     -- Regfile In Port
       rfo            : in  iregfile_out_type;    -- Regfile Out Port
+      imsici         : out imsic_in_type;        -- IMSIC In Port
+      imsico         : in  imsic_out_type;       -- IMSIC Out Port
       irqi           : in  nv_irq_in_type;       -- Irq In Port
       irqo           : out nv_irq_out_type;      -- Irq Out Port
+      nirqi          : in  nv_nirq_in_type;      -- RNM Irq In Port
       dbgi           : in  nv_debug_in_type;     -- Debug In Port
       dbgo           : out nv_debug_out_type;    -- Debug Out Port
       muli           : out mul_in_type;          -- Mul Unit In Port
       mulo           : in  mul_out_type;         -- Mul Unit Out Port
       divi           : out div_in_type;          -- Div Unit In Port
       divo           : in  div_out_type;         -- Div Unit Out Port
+      sdi            : out sprw_in_vec;          -- Sparrow Unit In Port
+      sdo            : in  sprw_out_vec;         -- Sparrow Unit Out Port
       fpui           : out fpu5_in_type;         -- FPU Unit In Port
+      fpuia          : out fpu5_in_async_type;   -- FPU Unit In Port
       fpuo           : in  fpu5_out_type;        -- FPU Unit Out Port
-      sdi            : out sprw_in_vec;         -- Sparrow Unit In Port
-      sdo            : in  sprw_out_vec;        -- Sparrow Unit Out Port
+      fpuoa          : in  fpu5_out_async_type;  -- FPU Unit Out Port
       cnt            : out nv_counter_out_type;  -- Perf counters
       itracei        : out itrace_in_type;
-      itraceo        : in  itrace_out_type; 
+      itraceo        : in  itrace_out_type;
       csr_mmu        : out nv_csr_out_type;         -- CSR values for MMU
       mmu_csr        : in  nv_csr_in_type;          -- CSR values for MMU
       perf           : in  std_logic_vector(31 downto 0);
@@ -928,8 +941,8 @@ package noelvint is
       );
     port (
       clk       : in  std_ulogic;
-      di        : in  nv_trace_in_type;
-      do        : out nv_trace_out_type;
+      trace_in  : in  nv_trace_in_type;
+      trace_out : out nv_trace_out_type;
       testin    : in  std_logic_vector(TESTIN_WIDTH-1 downto 0)
       );
   end component;
@@ -971,7 +984,8 @@ package noelvint is
     generic (
       tech        : integer;
       wrfst       : integer;
-      reg0write   : integer := 0
+      reg0write   : integer := 0;
+      forward     : integer := 1  -- Turn on internal forwarding
       );
     port (
       clk      : in  std_ulogic;
@@ -1055,8 +1069,10 @@ package noelvint is
       pmp_g      : integer range 0 to  10;   -- PMP grain is 2^(pmp_g + 2) bytes
       asidlen    : integer range 0 to  16;   -- Max 9 for Sv32
       vmidlen    : integer range 0 to  14;   -- Max 7 for Sv32
+      ext_noelv  : integer range 0 to   1;   -- NOEL-V Extensions
       ext_a      : integer range 0 to   1;   -- Support for Atomic operations
       ext_h      : integer range 0 to   1;   -- Support for Hypervisor, needs tlb_pmp if any PMP.
+      ext_smepmp : integer range 0 to   1;   -- Support for Smepmp extension
       ext_zicbom : integer range 0 to   1;   -- Support for Zicbom extension
       tlb_pmp    : integer range 0 to   1;   -- Do PMP via TLB
       -- Misc
@@ -1199,19 +1215,6 @@ package noelvint is
       );
   end component;
 
-  component progbuf
-    generic (
-      size : integer range 0 to 16
-    );
-    port (
-      clk   : in  std_ulogic;
-      rstn  : in  std_ulogic;
-      pbi   : in  nv_progbuf_in_type;
-      pbo   : out nv_progbuf_out_type
-    );
-  end component;
-
-
   component nanofpunv is
     generic (
       fpulen    : integer range 0 to 128;
@@ -1221,90 +1224,44 @@ package noelvint is
       clk         : in  std_ulogic;
       rstn        : in  std_ulogic;
       holdn       : in  std_ulogic;
-      e_inst      : in  word;
-      e_valid     : in  std_ulogic;
-      e_nullify   : in  std_ulogic;
-      issue_id    : in  fpu_id;
-      csrfrm      : in  std_logic_vector(2 downto 0);
-      mode_in     : in  std_logic_vector(2 downto 0);
-      s1          : in  word64;
-      s2          : in  word64;
-      s3          : in  word64;
-      fpu_holdn   : out std_ulogic;
-      ready_flop  : out std_ulogic;
-      commit      : in  std_ulogic;
-      commit_id   : in  fpu_id;
-      lddata_id   : in  fpu_id;
-      lddata_now  : in  std_ulogic;
-      lddata      : in  word64;
-      unissue     : in  std_ulogic;
-      unissue_id  : in  fpu_id;
+      fpi         : in  fpu5_in_type;
+      fpia        : in  fpu5_in_async_type;
+      fpo         : out fpu5_out_type;
+      fpoa        : out fpu5_out_async_type;
       rs1         : out reg_t;
       rs2         : out reg_t;
       rs3         : out reg_t;
       ren         : out std_logic_vector(1 to 3);
-      rd          : out reg_t;
-      wen         : out std_ulogic;
-      stdata      : out word64;
-      flags_wen   : out std_ulogic;
-      flags       : out std_logic_vector(4 downto 0);
-      now2int     : out std_ulogic;
-      id2int      : out fpu_id;
-      stdata2int  : out word64;
-      flags2int   : out std_logic_vector(4 downto 0);
-      wb_mode     : out std_logic_vector(2 downto 0);
-      wb_id       : out fpu_id;
-      idle        : out std_ulogic;
-      events      : out word64
+      s1          : in  word64;
+      s2          : in  word64;
+      s3          : in  word64
       );
   end component;
 
-
   component pipefpunv is
     generic (
-      fpulen    : integer range 0 to 128;
-      mulconf   : integer range 0 to 1
+      fpulen      : integer range 0 to 128;
+      ext_zfa     : integer range 0 to 1;
+      ext_zfh     : integer range 0 to 1;
+      ext_zfhmin  : integer range 0 to 1;
+      ext_zfbfmin : integer range 0 to 1;
+      mulconf     : integer range 0 to 1
     );
     port (
       clk         : in  std_ulogic;
       rstn        : in  std_ulogic;
       holdn       : in  std_ulogic;
-      e_inst      : in  word;
-      e_valid     : in  std_ulogic;
-      e_nullify   : in  std_ulogic;
-      issue_id    : in  fpu_id;
-      csrfrm      : in  std_logic_vector(2 downto 0);
-      mode_in     : in  std_logic_vector(2 downto 0);
-      s1          : in  word64;
-      s2          : in  word64;
-      s3          : in  word64;
-      fpu_holdn   : out std_ulogic;
-      ready_flop  : out std_ulogic;
-      commit      : in  std_ulogic;
-      commit_id   : in  fpu_id;
-      lddata_id   : in  fpu_id;
-      lddata_now  : in  std_ulogic;
-      lddata      : in  word64;
-      unissue     : in  std_ulogic;
-      unissue_id  : in  fpu_id;
+      fpi         : in  fpu5_in_type;
+      fpia        : in  fpu5_in_async_type;
+      fpo         : out fpu5_out_type;
+      fpoa        : out fpu5_out_async_type;
       rs1         : out reg_t;
       rs2         : out reg_t;
       rs3         : out reg_t;
       ren         : out std_logic_vector(1 to 3);
-      rd          : out reg_t;
-      wen         : out std_ulogic;
-      stdata      : out word64;
-      flags_wen   : out std_ulogic;
-      flags       : out std_logic_vector(4 downto 0);
-      now2int     : out std_ulogic;
-      id2int      : out fpu_id;
-      stdata2int  : out word64;
-      flags2int   : out std_logic_vector(4 downto 0);
-      wb_mode     : out std_logic_vector(2 downto 0);
-      wb_id       : out fpu_id;
-      idle        : out std_ulogic;
-      events      : out word64;
-      ctrl        : in  std_logic_vector(8 downto 0) := "000000000"
+      s1          : in  word64;
+      s2          : in  word64;
+      s3          : in  word64
     );
   end component;
 
@@ -1322,6 +1279,7 @@ package noelvint is
       pc            : in  std_logic_vector;                 -- PC
       wregen        : in  std_ulogic;                       -- Regfile Write Enable
       wregdata      : in  std_logic_vector;                 -- Regfile Write Data
+      memen         : in  std_ulogic;                       -- Memory access
       wcsren        : in  std_ulogic;                       -- CSR Write Enable
       wcsrdata      : in  std_logic_vector;                 -- CSR Write Data
       prv           : in  std_logic_vector(1 downto 0);     -- Privileged Level
@@ -1376,13 +1334,3 @@ package noelvint is
   end component;
 
 end package;
-
-package body noelvint is
-
-  -----------------------------------------------------------------------------
-  -- Functions Definitions
-  -----------------------------------------------------------------------------
-
-
-
-end package body;

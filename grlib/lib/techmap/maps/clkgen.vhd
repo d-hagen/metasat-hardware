@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -100,6 +101,11 @@ begin
   end generate;
   xcvup : if (tech =virtexup) generate
     v : clkgen_virtexup
+    generic map (clk_mul, clk_div, sdramen,noclkfb,freq)
+    port map (clkin, clk, clkn, clk2x, sdclk ,cgi, cgo);
+  end generate;
+  xcversal : if (tech = versal) generate
+    v : clkgen_versal
     generic map (clk_mul, clk_div, sdramen,noclkfb,freq)
     port map (clkin, clk, clkn, clk2x, sdclk ,cgi, cgo);
   end generate;

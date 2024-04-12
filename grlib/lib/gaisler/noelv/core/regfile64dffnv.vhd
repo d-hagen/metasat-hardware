@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -28,15 +29,16 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 library grlib;
 use grlib.stdlib.notx;
+use grlib.riscv.reg_t;
 library gaisler;
 use gaisler.utilnv.u2i;
-use gaisler.noelvint.reg_t;
 
 entity regfile64dffnv is
   generic (
     tech        : integer;
     wrfst       : integer;
-    reg0write   : integer := 0
+    reg0write   : integer := 0;
+    forward     : integer := 1  -- Turn on internal forwarding
     );
   port (
     clk      : in  std_ulogic;
@@ -62,11 +64,6 @@ entity regfile64dffnv is
     rdata4   : out std_logic_vector
     );
 begin
-  assert wdata1'length = wdata2'length and
-         rdata1'length = rdata2'length and
-         rdata3'length = rdata4'length and
-         rdata1'length = rdata3'length and
-         wdata1'length = rdata1'length report "Bad register data size" severity failure;
 end regfile64dffnv;
 
 architecture rtl of regfile64dffnv is
@@ -98,7 +95,7 @@ begin  -- rtl
     v := r;
 
     -- Register Input Address
-    if re1 = '1' and rdhold = '0'then
+    if re1 = '1' and rdhold = '0' then
       v.raddr1  := raddr1;
     end if;
 
@@ -131,62 +128,70 @@ begin  -- rtl
       if notx(r.raddr1) then
         rdata1v := r.entry(u2i(r.raddr1));
       end if;
-      
-      if (waddr1 = r.raddr1) and we1 = '1' then
-        rdata1v := wdata1;
-      end if;
 
-      if (waddr2 = r.raddr1) and we2 = '1' then
-        rdata1v := wdata2;
+      -- Bypass value currently being written?
+      if forward = 1 then
+        if (waddr1 = r.raddr1) and we1 = '1' then
+          rdata1v := wdata1;
+        end if;
+
+        if (waddr2 = r.raddr1) and we2 = '1' then
+          rdata1v := wdata2;
+        end if;
       end if;
-      
     end if;
-    
+
     if (r.raddr2 /= "00000") or (reg0write /= 0) then
       if notx(r.raddr2) then
         rdata2v := r.entry(u2i(r.raddr2));
       end if;
-      
-      if (waddr1 = r.raddr2) and we1 = '1' then
-        rdata2v := wdata1;
-      end if;
 
-      if (waddr2 = r.raddr2) and we2 = '1' then
-        rdata2v := wdata2;
+      -- Bypass value currently being written?
+      if forward = 1 then
+        if (waddr1 = r.raddr2) and we1 = '1' then
+          rdata2v := wdata1;
+        end if;
+
+        if (waddr2 = r.raddr2) and we2 = '1' then
+          rdata2v := wdata2;
+        end if;
       end if;
-      
     end if;
 
     if (r.raddr3 /= "00000") or (reg0write /= 0) then
       if notx(r.raddr3) then
         rdata3v := r.entry(u2i(r.raddr3));
       end if;
-      
-      if (waddr1 = r.raddr3) and we1 = '1' then
-        rdata3v := wdata1;
-      end if;
 
-      if (waddr2 = r.raddr3) and we2 = '1' then
-        rdata3v := wdata2;
+      -- Bypass value currently being written?
+      if forward = 1 then
+        if (waddr1 = r.raddr3) and we1 = '1' then
+          rdata3v := wdata1;
+        end if;
+
+        if (waddr2 = r.raddr3) and we2 = '1' then
+          rdata3v := wdata2;
+        end if;
       end if;
-      
     end if;
-    
+
     if (r.raddr4 /= "00000") or (reg0write /= 0) then
       if notx(r.raddr4) then
         rdata4v := r.entry(u2i(r.raddr4));
       end if;
-      
-      if (waddr1 = r.raddr4) and we1 = '1' then
-        rdata4v := wdata1;
-      end if;
 
-      if (waddr2 = r.raddr4) and we2 = '1' then
-        rdata4v := wdata2;
+      -- Bypass value currently being written?
+      if forward = 1 then
+        if (waddr1 = r.raddr4) and we1 = '1' then
+          rdata4v := wdata1;
+        end if;
+
+        if (waddr2 = r.raddr4) and we2 = '1' then
+          rdata4v := wdata2;
+        end if;
       end if;
-      
     end if;
-    
+
     -- Output Signals
     rdata1 <= rdata1v;
     rdata2 <= rdata2v;

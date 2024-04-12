@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -101,7 +102,6 @@ signal hwdata   : std_logic_vector(dw-1 downto 0);
 
 type ram_type is array (0 to (2**ramaddr'length)-1) of std_logic_vector(ramdata'range);
 signal ram : ram_type;
-constant RAM_RES : ram_type := (others => (others => '0'));
 signal read_address : std_logic_vector(ramaddr'range);
 
 begin
@@ -314,7 +314,7 @@ begin
     end if;
 
     if (rst = '0') and (FIRST = true) then
-      ram <= RAM_RES;
+      ram <= (others => (others => '0'));
       
       L1:= new string'("");
       while not endfile(TCF) loop

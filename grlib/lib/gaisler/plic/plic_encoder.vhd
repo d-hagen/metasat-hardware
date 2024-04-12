@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -137,7 +138,7 @@ begin
     -- Index for the comparators
     for i in 0 to nsources-1 loop
       for j in 0 to nsources-1 loop
-        if (pr_ip_mask(i) >= pr_ip_mask(j)) then
+        if (unsigned(pr_ip_mask(i)) >= unsigned(pr_ip_mask(j))) then
           comps_out(i*nsources+j)   := '1';
         else
           comps_out(i*nsources+j)   := '0';

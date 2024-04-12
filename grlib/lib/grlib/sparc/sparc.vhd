@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -20,7 +21,6 @@
 -- package:     opcodes
 -- File:        opcodes.vhd
 -- Author:      Jiri Gaisler
--- Modified:    Marc Solé Bonet, Barcelona Supercomputing Center (SPARROW extension)
 -- Description: Instruction definitions according to the SPARC V8 manual.
 ------------------------------------------------------------------------------  
 
@@ -61,7 +61,6 @@ constant ANDN     : op3_type := "000101";
 constant ORN      : op3_type := "000110";
 constant IXNOR    : op3_type := "000111";
 constant ADDX     : op3_type := "001000";
-constant SPRW     : op3_type := "001001"; -- sparrow
 constant UMUL     : op3_type := "001010";
 constant SMUL     : op3_type := "001011";
 constant SUBX     : op3_type := "001100";
@@ -76,7 +75,6 @@ constant ANDNCC   : op3_type := "010101";
 constant ORNCC    : op3_type := "010110";
 constant XNORCC   : op3_type := "010111";
 constant ADDXCC   : op3_type := "011000";
-constant WRSCR    : op3_type := "011001"; -- sparrow
 constant UMULCC   : op3_type := "011010";
 constant SMULCC   : op3_type := "011011";
 constant SUBXCC   : op3_type := "011100";
@@ -94,7 +92,6 @@ constant RDY      : op3_type := "101000";
 constant RDPSR    : op3_type := "101001";
 constant RDWIM    : op3_type := "101010";
 constant RDTBR    : op3_type := "101011";
-constant RDSCR    : op3_type := "101100"; -- sparrow
 constant WRY      : op3_type := "110000";
 constant WRPSR    : op3_type := "110001";
 constant WRWIM    : op3_type := "110010";

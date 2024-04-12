@@ -5,7 +5,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -645,7 +646,7 @@ begin
 
   eth1 : if CFG_GRETH = 1 generate -- Gaisler ethernet MAC
     e1 : grethm generic map(hindex => hmi_greth1,
-	pindex => pi_greth1, paddr => 11, pirq => 12, memtech => memtech,
+	pindex => pi_greth1, paddr => 11, pirq => 5, memtech => memtech,
         mdcscaler => CPU_FREQ/1000, enable_mdio => 1, fifosize => CFG_ETH_FIFO,
         nsync => 2, edcl => CFG_DSU_ETH, edclbufsz => CFG_ETH_BUF,
         macaddrh => CFG_ETH_ENM, macaddrl => CFG_ETH_ENL, phyrstadr => 0,
@@ -662,7 +663,7 @@ begin
 
   eth2 : if CFG_GRETH2 = 1 generate -- Secondary ethernet MAC
     e2 : grethm generic map(hindex => hmi_greth2,
-	pindex => pi_greth2, paddr => 12, pirq => 13, memtech => memtech,
+	pindex => pi_greth2, paddr => 12, pirq => 6, memtech => memtech,
         mdcscaler => CPU_FREQ/1000, enable_mdio => 1, fifosize => CFG_ETH2_FIFO,
         nsync => 2, edcl => CFG_DSU_ETH, edclbufsz => CFG_ETH_BUF,
         macaddrh => CFG_ETH_ENM, macaddrl => CFG_ETH_ENL, phyrstadr => 1,

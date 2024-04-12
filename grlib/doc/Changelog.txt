@@ -1,3 +1,200 @@
+----------------------- Release 2023.4-b4288 ---------------------------
+
+2023-11-28	NOEL-V: updates
+		- Trigger updates:
+		  - Added interrupt and exception triggers
+		  - Update to mcontrol6
+		  - Fixed watchpoint triggering on sfence instructions
+		- Debug module: Added halt and resume groups
+		- Misaligned load/stores didn't write a transformed instruction 
+		  into [mh]tinst
+		- Updated performance counter event encoding
+
+2023-11-06	LEON3,LEON5: Allow clearing high bits of time stamp
+		counter through debug interface to allow clean restart
+		through GRMON.
+
+2023-11-06	LEON5: Support 63-bit wide time stamp counter in HP
+		configuration (perfcfg=0).
+
+2023-10-27	NOEL-V: updates
+		- Reenable RAS
+		- Added Svinval extension
+		- Instruction trace updated
+		- Fixed half-persision fsqrt inexact issue
+		- Fixed minor issue related to H extension (HIE, GVA, MVP, HGEIP, HGSATP)
+		- Fault type could be wrong related to page-tables
+		- Fixed access issue for Sstc CSRs
+
+2023-10-27	APLIC: Added support for interrupt domains
+
+2023-10-23	GRDMAC2: Issue fix for timeout mechanism checking TRST register
+		even when TE bit is not set in CTRL register.
+
+2023-10-02	LEON5-ALTERA-C5EKIT: Set edclsepahb signal to Ethernet
+		cores to route EDCL accesses to debug module.
+
+2023-10-02	LEON5: Instruction TCM bugfixes.
+
+		Under some conditions following a pipeline stall when executing
+		out of ITCM, the cache controller could deliver stale data
+		from the Icache RAMs instead of from the ITCM data memories.
+
+		Write to ASI 0x26 could in some cases also cause a write into
+		instruction cache data RAMs.
+
+2023-10-02	LEON5: Code reorganization. Move decoding of perfcfg generic
+		up to leon5sys level.
+
+2023-10-02	LEON3/LEON5-ALTERA-C5EKIT: Change default IRQ assignment of
+		Ethernet cores.
+
+2023-09-29	NOEL-V: updates
+		- Code rewrite to support Synopsys DC and FM better.
+
+2023-08-15	L2C-Lite: Major architectural update. Backends available:
+		AHB, AXI3, AXI4. Functional updates:
+		- Turn on/off Cache.
+		- Select replacement policy, 0 -> random, 1 -> psuedo LRU
+		  (Probe bit to see if pLRU can enabled).
+		- New flush modes: Flush, Flush+Invalidate, Invalidate,
+		  Flush address, Flush+Invalidate address.
+		- Diagnostics interface: Read/write cachelines and tag+v+d
+		  data.
+
+2023-08-15	AHB2AXIB: Added support for BUSY HTRANS.
+
+2023-07-25	AHBCTRL simulation trace:
+		Added option to select between printing either full HWDATA/
+		HRDATA contents, or the subword selected by HSIZE/HADDR/
+		ahbendian.
+
+----------------------- Release 2023.2-b4283 ---------------------------
+
+2023-06-09	LEON5 updates:
+		- Implemented data_store_error trap with configurable handling
+		  of special cases (such as interrupt between store and error)
+		- Implemented internal cache error trap for critical errors
+		  (duplicated tags detected)
+		- Add cache trap register to record delivered and pending and
+		  traps from cache controller.
+		- Support write combining mode based on explicit hint
+		  instructions instead of always waiting for following store
+		- Add full barrier and write combining hint using existing
+		  STBAR opcode (consistent with SPARC V9 MEMBAR)
+
+2023-05-25	AHBCTRL simulation trace updates:
+		- Print correct slice for narrow accesses on little endian
+		  buses.
+		- Trace SPLIT and RETRY responses in addition to OKAY and ERROR.
+		- Optionally prefix each trace line with bus index and/or a
+		  custom debug tag provided as a generic. Intended for
+		  multi-bus systems.
+
+2023-05-25	AHBJTAG and TAP techmap:
+		- TAP techmap now uses BSCANE2_TAP for all Xilinx technologies
+		  where the built-in TAP is accessed using a BSCANE2 primitive.
+		- Added new generic taptecharg in AHBJTAG which is passed to
+		  the TAP techmap. Currently used only by BSCANE2_TAP to
+		  select an alternate user scan chain.
+		- JTAGTST jread procedure now supports custom ainst/dinst/isize.
+		- AHBJTAG documentation updated.
+
+----------------------- Release 2023.1-b4282 ---------------------------
+
+2023-04-27	LEON5: Minor fix to snooping on stores. Stores and atomics to
+		ASI 1 activated the snooping and caused the cache line to be
+		invalidated unnecessarily.
+
+2023-04-27	LEON5: Bug fix for diagnostic data cache tag access (ASI 0x0E).
+		Valid bits could be read out incorrectly in configurations
+		where the valid bits are held in flip flops (cmemconf=2).
+
+2023-04-27	LEON5: Bug fixes for MMU TLB flush and probe (ASI 0x1B).
+
+2023-04-18	LEON5: Bugfix for AHB retry corner case during DCache fetch
+
+2023-04-11	LEON5: Bugfix for breaking execution from debug module while
+		an atomic operation is in progress.
+
+2023-04-06	NOEL-V: NOEL-V and RISC-V peripherals updates
+		- Added AIA interrupt controller (disabled in default config.)
+		- Added ACLINT to replacing CLINT
+		- Added UART interface register compatible with 16550 spec.
+		- Added RISC-V watchdog
+		- Debug module updates (removed internal AHB2AHB bridge)
+		- PnP for NOELVSYS is updated to place internal APB bus first.
+		- TLB flush updates (separate flush for sTLB and hTLB,
+		  Address/VMID/ASID matching)
+		- Added Diagnostic access to TLBs
+		- Update STVEC/VSTVEC to have 256 byte alignment in vectored mode.
+		- Added ISA extensions:
+		  - Zcb, Zfhmin, Zfh, Smstateen
+		  - Smepmp, Zicond, Zfa, Smrnmi (experimental) 
+		- Bug fixes:
+		  - Store byte followed by sfence.vma prevent update the cache
+		  - Instruction c.zext.w was not illegal on 32-bit version
+		  - Zicbom instructions could operate in incorrect cache line
+		  - Incorrect mask for hedeleg
+		  - Minor FPU updates
+
+2023-03-30	LEON5: Minor fixes for debug module access while cache
+		controller still has an ongoing access.
+
+2023-03-27	SYNCFIFO_2P: Add scantest generic to propagate down to
+		syncram_2p instances.
+
+2023-03-06	LEON5: Increase number of timers in the gptimer in 
+		standard LEON5SYS configurations from 2 to 3.
+
+2023-02-09	APBUART systest: Fix to the initial loop to fill the
+		holding register to avoid X issues in simulation.
+
+2023-02-07	LEON5: Bug fixes related to breaking/resuming execution
+		and single stepping.
+
+2023-01-30	APBUART: Modification of simulation mode (console=1)
+		When console=1, reads of the status register now return
+		values consistent with the transmitter shift register and
+		transmitter FIFO being empty. This should make the console=1
+		configuration compatible with existing software. Notably,
+		BCC2 was not entirely compatible prior to this change.
+
+2023-01-23	LEON5: Cache controller updates
+		- Added write combining feature for double stores, enabled
+		via LEON5 configuration register bit. Combines stores to
+		consecutive addresses into larger bursts up to cache line
+		boundary.
+		- Minor change to debug access handling in order to remove
+		some timing critical paths.
+		- Fixes to HPROT generation for store accesses, bit 1 not
+		always reflecting supervisor status correctly for that
+		store.
+
+2023-01-11	LEON5: Various improvements / fixes related to stores
+		- Make stores propagate through to the AHB bus one cycle
+		faster in some cases.
+		- Make HBURST drive HBURST_SINGLE for MMU page table
+		accesses (to allow for re-arbitration in the AHB arbiter).
+		- Ensure bus lock is always dropped between locked store
+		and any following regular stores.
+		- Bug fixes to HBUSREQ signal generation and RETRY/SPLIT
+		handling during 32-bit write burst (double store to narrow
+		area functionality added recently).
+
+2022-12-21	APBUART
+		- Fixed bug where two stopbits were only sent when parity
+		was enabled.
+		- GRIP: stopbit setting has no effect on the receiver
+		- GRIP: corrected description of receiver input filtering
+		- GRIP: parity gen
+
+2022-12-20	LEON5: Improved store performance when used with
+		32-bit AHB buses. Stores to narrow (32-bit) areas
+		now go through the store buffer/FIFO without blocking
+		the pipeline similar to the wider case, with double
+		stores performed as two-beat bursts.
+
 ----------------------- Release 2022.4-b4280 ---------------------------
 
 2022-12-07	NOEL-V: Updated NOEL-V release.
@@ -10,6 +207,20 @@
 		- Fixed issue with annulled TLB fence instructions
 		- Fixed issue with instruction paired with xTVEC CSR writes
 		- Corrected reset state of TLBs
+
+2022-11-11	SPIMCTRL: Extended with more read protocols/modes
+		The memory controller can now be configured to work with
+		the following read protocols:
+		1-1-1, 1-1-2, 1-1-4, 1-2-2, 1-4-4
+		2-2-2 (Dual SPI)
+		4-4-4 (Quad SPI)
+
+		Additional features:
+		- New 'dummycycles' setting allowing for finer control
+		over the number of dummy cycles.
+		- 4 byte address mode for reads.
+		- The configuration of the controller (e.g. DSPI/QSPI, 
+		4-byte mode) can now be changed through a register interface.
 
 2022-09-05	SPIMCTRL: Added little-endian support.
 

@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -145,6 +146,27 @@ architecture hier of leon5sys is
   signal cpuapbix: apb_slv_in_type;
   signal apbo_uart, apbo_timer, apbo_irqmp : apb_slv_out_type;
 
+  type perfcfg_table is array (0 to 2) of integer;
+  -----------------------------------------------------------------------------
+  --       perfcfg                             0     1     2
+  --                                          HP    GP   MIN
+  constant iways_tab   : perfcfg_table := (    4,    4,    1 );
+  constant iwsize_tab  : perfcfg_table := (    4,    4,    4 );
+  constant dways_tab   : perfcfg_table := (    4,    4,    1 );
+  constant dwsize_tab  : perfcfg_table := (    4,    4,    4 );
+  constant itlbnum_tab : perfcfg_table := (   24,   16,    4 );
+  constant dtlbnum_tab : perfcfg_table := (   24,   16,    4 );
+  constant widetime_tab: perfcfg_table := (    1,    0,    0 );
+  -----------------------------------------------------------------------------
+
+  constant iways    : integer := iways_tab(perfcfg);
+  constant iwaysize : integer := iwsize_tab(perfcfg);
+  constant dways    : integer := dways_tab(perfcfg);
+  constant dwaysize : integer := dwsize_tab(perfcfg);
+  constant itlbnum  : integer := itlbnum_tab(perfcfg);
+  constant dtlbnum  : integer := dtlbnum_tab(perfcfg);
+  constant widetime : integer := widetime_tab(perfcfg);
+
   type memmap_table is array(0 to 1) of integer;
   constant haddr_apbctrl : memmap_table := (16#800#,   16#FF9#);
   constant haddr_dsu     : memmap_table := (16#900#,   16#E00#);
@@ -228,7 +250,10 @@ begin
       ahbendian => 0,
       split     => ahbsplit,
       ioen      => 1,
-      ioaddr    => 16#FFF#
+      ioaddr    => 16#FFF#,
+      enbusmon  => 1,
+      assertwarn => 0,
+      asserterr => 1
       )
     port map (
       rst  => rstn,
@@ -328,7 +353,12 @@ begin
           rfconf   => rfconf,
           fpuconf  => fpuconf,
           tcmconf  => tcmconf,
-          perfcfg  => perfcfg,
+          iways    => iways,
+          iwaysize => iwaysize,
+          dways    => dways,
+          dwaysize => dwaysize,
+          itlbnum  => itlbnum,
+          dtlbnum  => dtlbnum,
           mulimpl  => mulimpl,
           rstaddr  => rstaddr_cpu(memmap),
           disas    => disas,
@@ -369,7 +399,12 @@ begin
           rfconf   => rfconf,
           fpuconf  => fpuconf,
           tcmconf  => tcmconf,
-          perfcfg  => perfcfg,
+          iways    => iways,
+          iwaysize => iwaysize,
+          dways    => dways,
+          dwaysize => dwaysize,
+          itlbnum  => itlbnum,
+          dtlbnum  => dtlbnum,
           mulimpl  => mulimpl,
           rstaddr  => rstaddr_cpu(memmap),
           disas    => disas,
@@ -418,7 +453,12 @@ begin
       dsuslvidx => nextslv+2,
       dsumstidx => ncpu+nextmst+1,
       bretryen  => breten,
-      plmdata => dbgmod_plmdata
+      plmdata => dbgmod_plmdata,
+      atkbytes => 4,
+      itentr => 256,
+      widetime => widetime,
+      cmemconf => cmemconf,
+      rfconf => rfconf
       )
     port map (
       clk      => clk,
@@ -535,7 +575,7 @@ begin
       pirq    => 8,
       sepirq  => 1,
       sbits   => 16,
-      ntimers => 2,
+      ntimers => 3,
       nbits   => 32,
       wdog    => 0,
       ewdogen => 0,

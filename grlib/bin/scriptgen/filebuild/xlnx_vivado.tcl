@@ -29,7 +29,6 @@ proc create_xlnx_vivado {} {
 }
 
 proc append_file_xlnx_vivado {f finfo} {
-	upvar vivado_contents vc
 	set i [dict get $finfo i]
 	set bn [dict get $finfo bn]
 	switch $i {
@@ -54,6 +53,9 @@ proc append_file_xlnx_vivado {f finfo} {
 			append vc "\n$VIVADOVHDL $bn $f"
 			return
 		}
+		"vhdlxise" {
+			return
+		}
 		"vhdlfpro" {
 			return
 		}
@@ -65,16 +67,9 @@ proc append_file_xlnx_vivado {f finfo} {
 			global VIVADOVHDL VIVADOLIBSKIP VIVADODIRSKIP VIVADOSKIP
 			set l [dict get $finfo l]
 			set q [dict get $finfo q]
-			set fattr [dict get $finfo fattr]
 			if {[lsearchmatch $VIVADOLIBSKIP $bn] < 0 && [lsearchmatch $VIVADODIRSKIP $l] < 0 && [lsearchmatch $VIVADOSKIP $q] < 0 } {
 				upvar vivado_contents vc
 				append vc "\n$VIVADOVHDL $bn $f"
-				if {$fattr ne ""} {
-					set vhdlstd [regexp -all -inline -- {[0-9]+} $fattr]
-					if {$vhdlstd eq "2008"} {
-						append vc "\nset_property file_type {VHDL $vhdlstd} \[get_files $f\]"
-					}
-				}
 			}
 			return
 		}
@@ -124,7 +119,7 @@ proc eof_xlnx_vivado {} {
 	VIVADO_SYNTH_FLOW VIVADO_SYNTH_STRATEGY VIVADO_IMPL_STRATEGY VIVADO_INCL_DIRS
 	upvar vivado_contents vc
 
-	append vc "\nadd_files -fileset $VIVADO_SIMSET prom.srec ram.srec"
+	append vc "\nadd_files -quiet -fileset $VIVADO_SIMSET prom.srec ram.srec"
 	if {![string equal $GRLIB_XIL_Vivado_sim_verilog_define ""]} {
 		append vc "\nset_property verilog_define {$GRLIB_XIL_Vivado_sim_verilog_define} \[get_filesets $VIVADO_SIMSET\]"
 	}
@@ -239,15 +234,6 @@ proc eof_xlnx_vivado {} {
 			append vc "\ngenerate_target  all \[get_files ./vivado/$DESIGN/$DESIGN.srcs/sources_1/ip/sem_ultra_0/sem_ultra_0.xci\] -force "
 		}
 	}
-
-	if {[string equal $BOARD "xilinx-zcu102-xczu9eg"]} {
-		if {[file exists "$GRLIB/boards/$BOARD/ahb2axi_bridge.xci"]} {
-			file copy "$GRLIB/boards/$BOARD/ahb2axi_bridge.xci" "vivado/"
-			append vc "\nimport_ip -files vivado/ahb2axi_bridge.xci -name ahb2axi_bridge"
-			append vc "\ngenerate_target  all \[get_files ./vivado/$DESIGN/$DESIGN.srcs/sources_1/ip/ahb2axi_bridge/ahb2axi_bridge.xci\] -force "
-		}
-	}
-
 	if {[file isdirectory "$GRLIB/netlists/xilinx/$NETLISTTECH" ]} {
 		append vc "\nimport_files $GRLIB/netlists/xilinx/$NETLISTTECH"
 	}
@@ -261,7 +247,6 @@ proc eof_xlnx_vivado {} {
 		set vc "synth_design -directive runtimeoptimized -resource_sharing off -keep_equivalent_registers -no_lc -rtl -name rtl_1"
 	}
 
-	append vc "\nupgrade_ip \[get_ips\]"
 	append vc "\nset_property flow {$VIVADO_SYNTH_FLOW} \[get_runs synth_1\]"
 	append vc "\nset_property strategy {$VIVADO_SYNTH_STRATEGY} \[get_runs synth_1\]"
 	append vc "\nlaunch_runs synth_1"

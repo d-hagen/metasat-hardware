@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -251,7 +252,9 @@ begin
                    rclk, raddress, vgnd, dataoutx, renable2, gnd);
   end generate;
 
-  xc2v : if (is_unisim(xtech) = 1) and (xtech /= virtex) and (xtech /= kintex7)and (is_ultrascale(xtech) /= 1)  generate
+  xc2v : if (is_unisim(xtech) = 1) and (xtech /= virtex) and
+            (xtech /= kintex7)and (is_ultrascale(xtech) /= 1) and
+            (xtech /= versal) generate 
     x0 : unisim_syncram_2p generic map (abits, dbits, isepclk, iwrfst)
          port map (rclk, renable2, raddress, dataoutx, wclk,
 		   xwrite, waddress, datain);
@@ -265,6 +268,12 @@ begin
 
   xku : if (is_ultrascale(xtech) = 1)  generate
     xku_2p : ultrascale_syncram_2p generic map (abits, dbits, isepclk)
+         port map (rclk, renable2, raddress, dataoutx,
+                   wclk, xwrite, waddress, datain);
+  end generate;
+
+  xversal : if (xtech = versal)  generate
+    xversal_2p : versal_syncram_2p generic map (abits, dbits, isepclk)
          port map (rclk, renable2, raddress, dataoutx,
                    wclk, xwrite, waddress, datain);
   end generate;
@@ -331,8 +340,8 @@ begin
   end generate;
 
   pf : if xtech = polarfire generate
-    x0 : polarfire_syncram_2p generic map (abits, dbits, isepclk, 0, pipeline, 0)
-         port map (rclk, renable2, raddress, dataoutx, open,
+    x0 : polarfire_syncram_2p generic map (abits, dbits, isepclk, pipeline, 0)
+         port map (rclk, renable2, raddress, dataoutx,
                    wclk, xwrite, waddress, datain);
   end generate;
 

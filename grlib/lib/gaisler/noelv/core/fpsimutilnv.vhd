@@ -1,9 +1,9 @@
-
 ------------------------------------------------------------------------------
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -32,8 +32,9 @@ library grlib;
 use grlib.riscv.all;
 use grlib.stdlib.tost;
 use grlib.stdlib.notx;
+use grlib.riscv.reg_t;
 library gaisler;
---use gaisler.fputilnv.all;
+use gaisler.noelvtypes.all;
 use gaisler.fputilnv.fpuop_t;
 use gaisler.fputilnv.float;
 use gaisler.fputilnv.is_inf;
@@ -42,16 +43,12 @@ use gaisler.fputilnv.is_nan;
 use gaisler.fputilnv.is_zero;
 use gaisler.fputilnv.Inf;
 use gaisler.fputilnv.NaN;
-use gaisler.noelvint.reg_t;
 use gaisler.utilnv.u2vec;
 use gaisler.utilnv.u2i;
 use gaisler.utilnv.s2i;
 use gaisler.utilnv.tost;
 use gaisler.utilnv.all_0;
 use gaisler.utilnv.all_1;
-use gaisler.nvsupport.word64;
-use gaisler.nvsupport.word;
-use gaisler.nvsupport.zerow;
 
 
 package fpsimutilnv is
@@ -78,7 +75,7 @@ package fpsimutilnv is
 end;
 
 package body fpsimutilnv is
---pragma translate_off
+-- pragma translate_off
 
 function tost(op : fpuop_t) return string is
   begin
@@ -362,5 +359,5 @@ function tost(op : fpuop_t) return string is
   end;
 
 
---pragma translate_on
+-- pragma translate_on
 end;

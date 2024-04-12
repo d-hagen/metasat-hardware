@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -37,11 +38,12 @@ use grlib.stdlib.tost_bits;
 use grlib.stdlib.notx;
 use grlib.stdlib.setx;
 library gaisler;
+use gaisler.noelvtypes.all;
 use gaisler.fputilnv.all;
 use gaisler.utilnv.log;
 use gaisler.utilnv.all_0;
 use gaisler.utilnv.to_bit;
-use gaisler.nvsupport.word64;
+--use gaisler.nvsupport.word64;
 
 entity mulfp is
   generic (
@@ -248,7 +250,6 @@ begin
         elsif sqrt = '1' then
           v.sqrt      := '1';
           v.s         := nf_sqrt3;
-          -- qqq Why are not mulctr1/2 set up somewhere?
           -- Start multiplier pipeline to get first 2 bits
           v.muli1             := (others => '0');
           v.muli1(1 downto 0) := "11";

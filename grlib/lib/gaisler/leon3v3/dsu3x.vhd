@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -1013,6 +1014,7 @@ begin
     if r2.dsuen(2) = '1' and r.slv.hsel = '1' and  r.slv.haddr(AREA_H-1 downto AREA_L) = "000" and
        r.slv.haddr(8 downto 2) = "0000010" and  r.slv.hwrite = '1' then
       if hclken = '1' then
+        v2.timer := (others => '0');    -- clear high bits
         v2.timer(tbits_dsuif-1 downto 0) := hwdata(tbits_dsuif-1 downto 0);
       else v2.timer := r2.timer; end if;
     end if;

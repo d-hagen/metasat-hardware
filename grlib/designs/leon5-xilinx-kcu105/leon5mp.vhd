@@ -4,7 +4,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -22,6 +23,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library grlib, techmap;
 use grlib.amba.all;
@@ -32,7 +34,6 @@ use techmap.allclkgen.all;
 
 library gaisler;
 use gaisler.memctrl.all;
-use gaisler.leon3.all;
 use gaisler.leon5.all;
 use gaisler.uart.all;
 use gaisler.misc.all;
@@ -40,7 +41,7 @@ use gaisler.i2c.all;
 use gaisler.net.all;
 use gaisler.jtag.all;
 use gaisler.l2cache.all;
-use gaisler.subsys.all;
+use gaisler.l2c_lite.all;
 use gaisler.axi.all;
 
 -- pragma translate_off
@@ -288,14 +289,6 @@ architecture rtl of leon5mp is
   -- Signals ------------------------------------------
   -----------------------------------------------------
 
-  signal irqi : irq_in_vector(0 to CFG_NCPU - 1);
-  signal irqo : irq_out_vector(0 to CFG_NCPU - 1);
-
-  signal sysi : leon_dsu_stat_base_in_type;
-  signal syso : leon_dsu_stat_base_out_type;
-
-  signal perf : l3stat_in_type;
-
   signal ndsuact : std_ulogic;
 
   -- Misc
@@ -307,6 +300,7 @@ architecture rtl of leon5mp is
   -- Memory
   signal mem_aximi      : axi_somi_type;
   signal mem_aximo      : axi_mosi_type;
+  signal mem_axi4mo     : axi4_mosi_type;
 
   signal migrstn        : std_ulogic;
   signal calib_done     : std_ulogic;
@@ -533,8 +527,9 @@ begin
       wbmask   => CFG_BWMASK,
       busw     => CFG_AHBW,
       fpuconf  => CFG_FPUTYPE,
-      cmemconf => 0,
-      rfconf   => 0,
+      perfcfg  => CFG_PERFCFG,
+      cmemconf => CFG_CMEMCONF,
+      rfconf   => CFG_RFCONF,
       disas    => disas,
       ahbtrace => ahbtrace,
       devid    => LEON5_XILINX_KCU105
@@ -626,75 +621,136 @@ begin
   -- L2 cache
   -----------------------------------------------------------------------------
   l2c_gen : if (CFG_L2_EN = 1) generate
-    
+   
     l2c_axi : if (CFG_L2_AXI = 1) generate
+      
       -- pragma translate_off
       l2_axi_err : process
-        begin
-          report "*** ERROR: CFG_L2_AXI= 1 is currently only supported for synthesis ***"
-            severity failure;
-          wait;      
+      begin
+        report "*** ERROR: CFG_L2_AXI= 1 is currently only supported for synthesis ***"
+          severity failure;
+        wait;      
       end process;
-      -- pragma translate_on          
-    
-      l2c0 : l2c_axi_be
-        generic map (
-          hslvidx   => hsidx_l2c,
-          axiid     => 0,
-          cen       => CFG_L2_PEN,
-          haddr     => 16#400#,
-          hmask     => 16#c00#,
-          ioaddr    => 16#FF0#,
-          cached    => CFG_L2_MAP,
-          repl      => CFG_L2_RAN,
-          ways      => CFG_L2_WAYS, 
-          linesize  => CFG_L2_LSZ,
-          waysize   => CFG_L2_SIZE,
-          memtech   => memtech,
-          sbus      => 0,
-          mbus      => 0,
-          arch      => CFG_L2_SHARE,
-          ft        => CFG_L2_EDAC,
-          stat      => 2)
-        port map(
-          rst   => rstn,
-          clk   => clkm,
-          ahbsi => ahbsi,
-          ahbso => ahbso(hsidx_l2c),
-          aximi => mem_aximi,
-          aximo => mem_aximo,
-          sto   => open);
+      -- pragma translate_on
+      --
+      l2: if (CFG_L2_LITE = 0) generate
+        
+        l2c0 : l2c_axi_be
+          generic map (
+            hslvidx   => hsidx_l2c,
+            axiid     => 0,
+            cen       => CFG_L2_PEN,
+            haddr     => 16#400#,
+            hmask     => 16#c00#,
+            ioaddr    => 16#FF0#,
+            cached    => CFG_L2_MAP,
+            repl      => CFG_L2_RAN,
+            ways      => CFG_L2_WAYS, 
+            linesize  => CFG_L2_LSZ,
+            waysize   => CFG_L2_SIZE,
+            memtech   => memtech,
+            sbus      => 0,
+            mbus      => 0,
+            arch      => CFG_L2_SHARE,
+            ft        => CFG_L2_EDAC,
+            stat      => 2)
+          port map(
+            rst   => rstn,
+            clk   => clkm,
+            ahbsi => ahbsi,
+            ahbso => ahbso(hsidx_l2c),
+            aximi => mem_aximi,
+            aximo => mem_aximo,
+            sto   => open);
+        
+      end generate l2;
+
+      l2lite: if (CFG_L2_LITE = 1) generate
+
+        l2c_lite0 : l2c_lite_axi3
+          generic map(
+            tech     => memtech,
+            hmindex  => 0,
+            hsindex  => hsidx_l2c,
+            ways     => CFG_L2_WAYS,
+            waysize  => CFG_L2_SIZE,
+            linesize => CFG_L2_LSZ,
+            repl     => 0,
+            haddr    => 16#400#,
+            hmask    => 16#C00#,
+            ioaddr   => 16#000#,
+            cached   => CFG_L2_MAP,
+            be_dw    => AHBDW)
+          port map(
+            rstn     => rstn,
+            clk      => clkm,
+            ahbsi    => ahbsi,
+            ahbso    => ahbso(hsidx_l2c),
+            aximi    => mem_aximi,
+            aximo    => mem_aximo);
+
+      end generate l2lite;
       
     end generate l2c_axi;
 
     l2c_ahb : if (CFG_L2_AXI = 0) generate
-      l2c0 : l2c generic map (
-        hslvidx   => hsidx_l2c,
-        hmstidx   => 0,
-        cen       => CFG_L2_PEN,
-        haddr     => 16#400#, hmask => 16#c00#, ioaddr => 16#FF0#,
-        cached    => CFG_L2_MAP,
-        repl      => CFG_L2_RAN,
-        ways      => CFG_L2_WAYS,
-        linesize  => CFG_L2_LSZ,
-        waysize   => CFG_L2_SIZE,
-        memtech   => memtech,
-        bbuswidth => AHBDW,
-        bioaddr   => MEMAHB_IOADDR,
-        biomask   => 16#fff#,
-        sbus      => 0,
-        mbus      => 1,
-        arch      => CFG_L2_SHARE,
-        ft        => CFG_L2_EDAC)
-        port map (
-          rst    => rstn,
-          clk    => clkm,
-          ahbsi  => ahbsi,
-          ahbso  => ahbso(hsidx_l2c),
-          ahbmi  => mem_ahbmi,
-          ahbmo  => mem_ahbmo(0),
-          ahbsov => mem_ahbso,
-          sto => l2c_stato);
+
+      l2: if (CFG_L2_LITE = 0) generate
+        l2c0 : l2c generic map (
+          hslvidx   => hsidx_l2c,
+          hmstidx   => 0,
+          cen       => CFG_L2_PEN,
+          haddr     => 16#400#, hmask => 16#c00#, ioaddr => 16#FF0#,
+          cached    => CFG_L2_MAP,
+          repl      => CFG_L2_RAN,
+          ways      => CFG_L2_WAYS,
+          linesize  => CFG_L2_LSZ,
+          waysize   => CFG_L2_SIZE,
+          memtech   => memtech,
+          bbuswidth => AHBDW,
+          bioaddr   => MEMAHB_IOADDR,
+          biomask   => 16#fff#,
+          sbus      => 0,
+          mbus      => 1,
+          arch      => CFG_L2_SHARE,
+          ft        => CFG_L2_EDAC)
+          port map (
+            rst    => rstn,
+            clk    => clkm,
+            ahbsi  => ahbsi,
+            ahbso  => ahbso(hsidx_l2c),
+            ahbmi  => mem_ahbmi,
+            ahbmo  => mem_ahbmo(0),
+            ahbsov => mem_ahbso,
+            sto => l2c_stato);
+        
+      end generate l2;
+
+      l2lite: if (CFG_L2_LITE = 1) generate
+
+        l2c_lite0 : l2c_lite_ahb
+          generic map(
+            tech     => memtech,
+            hmindex  => 0,
+            hsindex  => hsidx_l2c,
+            ways     => CFG_L2_WAYS,
+            waysize  => CFG_L2_SIZE,
+            linesize => CFG_L2_LSZ,
+            repl     => 0,
+            haddr    => 16#400#,
+            hmask    => 16#C00#,
+            ioaddr   => 16#000#,
+            cached   => CFG_L2_MAP,
+            be_dw    => AHBDW)
+          port map(
+            rstn     => rstn,
+            clk      => clkm,
+            ahbsi    => ahbsi,
+            ahbso    => ahbso(hsidx_l2c),
+            ahbmi    => mem_ahbmi,
+            ahbmo    => mem_ahbmo(0) );
+
+      end generate l2lite;
 
       memahb0 : ahbctrl -- AHB arbiter/multiplexer
         generic map (defmast => 0, split => 0,
@@ -723,7 +779,7 @@ begin
     mig_ahb: if (CFG_L2_EN = 0) or (CFG_L2_AXI = 0) generate
       
       ddrc: ahb2axi_mig4_7series generic map (
-        hindex => 0, haddr => 16#400#, hmask => 16#F00#,
+        hindex => 0, haddr => 16#400#, hmask => 16#C00#,
         pindex => pidx_mig, paddr => 4
         )
         port map (
@@ -884,9 +940,22 @@ begin
 -----------------------------------------------------------------------
 
   bpromgen : if CFG_AHBROMEN /= 0 or (simulation = true) generate
-    brom : entity work.ahbrom128
-      generic map (hindex => hsidx_ahbrom, haddr => CFG_AHBRODDR, pipe => CFG_AHBROPIP)
-      port map (rstn, clkm, ahbsi, ahbso(hsidx_ahbrom));
+
+    rom128: if AHBDW = 128 generate
+      brom128 : entity work.ahbrom128
+        generic map (hindex => hsidx_ahbrom, haddr => CFG_AHBRODDR, pipe => CFG_AHBROPIP)
+        port map (rstn, clkm, ahbsi, ahbso(hsidx_ahbrom));
+    end generate;
+    rom64: if AHBDW = 64 generate
+      brom64 : entity work.ahbrom64
+        generic map (hindex => hsidx_ahbrom, haddr => CFG_AHBRODDR, pipe => CFG_AHBROPIP)
+        port map (rstn, clkm, ahbsi, ahbso(hsidx_ahbrom));
+    end generate;
+    rom32: if AHBDW = 32 generate
+      brom32 : entity work.ahbrom
+        generic map (hindex => hsidx_ahbrom, haddr => CFG_AHBRODDR, pipe => CFG_AHBROPIP)
+        port map (rstn, clkm, ahbsi, ahbso(hsidx_ahbrom));
+    end generate;
   end generate;
 
 

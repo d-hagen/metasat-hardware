@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -122,7 +123,7 @@ package plic is
       srcbits         : integer := 4
       );
     port (
-      priority  : in  std_logic_vector(prbits-1 downto 0);
+      prio      : in  std_logic_vector(prbits-1 downto 0);
       threshold : in  std_logic_vector(prbits-1 downto 0);
       irqreq    : out std_ulogic
       );

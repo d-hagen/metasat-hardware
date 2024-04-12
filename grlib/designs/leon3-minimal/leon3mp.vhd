@@ -5,7 +5,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -164,7 +165,7 @@ begin
   -- LEON3 processor
   u0 : leon3s
     generic map (hindex=>0, fabtech=>fabtech, memtech=>memtech, dsu=>1, fpu=>0, v8=>2,
-                 mac=>0, sparrow=> 1, disas=>CFG_DISAS, isetsize=>8, dsetsize=>8,icen=>1, dcen=>1,tbuf=>2)
+                 mac=>0, isetsize=>8, dsetsize=>8,icen=>1, dcen=>1,tbuf=>2)
     port map (clkm, rstn, ahbmi, ahbmo(0), ahbsi, ahbso, irqi(0), irqo(0), dbgi(0), dbgo(0));
 
   -- LEON3 Debug Support Unit    
@@ -186,14 +187,6 @@ begin
   ahbjtag0 : ahbjtag generic map(tech => fabtech, hindex => 3)
     port map(rstn, clkm, tck, tms, tdi, tdo, ahbmi, ahbmo(3),
              open, open, open, open, open, open, open, gnd);
-
-----------------------------------------------------------------------
----  L3STAT ----------------------------------------------------------
-----------------------------------------------------------------------
-  --l3stat0 : l3stat
-  --generic map (pindex => 5, paddr => 5 , pmask => 16#FFE#, ncnt => CFG_STAT_CNT, ncpu => CFG_NCPU, 
-               --nmax => CFG_STAT_NMAX, lahben => 1, dsuen => CFG_DSU, nextev=>0)
-  --port map (rstn => rstn, clk => clkm, apbi => apbi, apbo => apbo(5), ahbsi => ahbsi, dbgo => dbgo, dsuo => dsuo);
 
 ----------------------------------------------------------------------
 ---  Memory controllers ----------------------------------------------

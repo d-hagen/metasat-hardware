@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -715,6 +716,10 @@ begin
         ip : IBUFG generic map (IOSTANDARD => "LVCMOS18") port map (O => ol, I => pad);
         bf : BUFG port map (O => o, I => ol);
       end generate;
+      cmos_12 : if voltage = x12v generate
+        ip : IBUFG generic map (IOSTANDARD => "LVCMOS12") port map (O => ol, I => pad);
+        bf : BUFG port map (O => o, I => ol);
+      end generate;
     end generate;
     gen0 : if (level /= pci33) and (level /= ttl) and (level /= cmos) generate
       ip : IBUFG port map (O => ol, I => pad);
@@ -936,6 +941,46 @@ begin
     o <= padp after 1 ns;
   end generate;
 end;
+
+library ieee;
+use ieee.std_logic_1164.all;
+library techmap;
+use techmap.gencomp.all;
+-- pragma translate_off
+library unisim;
+use unisim.IBUFDS;
+-- pragma translate_on
+
+
+entity versal_inpad_ds is
+  generic (level : integer := lvds; voltage : integer := x25v);
+  port (padp, padn : in std_ulogic; o : out std_ulogic);
+end;
+
+architecture rtl of versal_inpad_ds is
+
+  component IBUFDS
+  generic ( CAPACITANCE : string := "DONT_CARE";
+	    DIFF_TERM : boolean := FALSE; IBUF_DELAY_VALUE : string := "0";
+	    IFD_DELAY_VALUE : string := "AUTO"; IOSTANDARD : string := "DEFAULT");
+     port ( O : out std_ulogic; I : in std_ulogic; IB : in std_ulogic);
+  end component;
+
+  attribute syn_noprune : boolean;
+  attribute syn_noprune of IBUFDS : component is true;
+
+begin
+  xlvds : if level = lvds generate
+    lvds_25 : if voltage = x25v generate
+      ip : IBUFDS generic map (DIFF_TERM => true, IOSTANDARD =>"LVDS_25")
+	   port map (O => o, I => padp, IB => padn);
+    end generate;
+  end generate;
+  beh : if level /= lvds generate
+    o <= padp after 1 ns;
+  end generate;
+end rtl;
+
 
 library ieee;
 use ieee.std_logic_1164.all;

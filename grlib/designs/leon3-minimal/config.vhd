@@ -11,13 +11,13 @@ use techmap.gencomp.all;
 
 package config is
 -- Technology and synthesis options
-  constant CFG_FABTECH : integer := inferred;
-  constant CFG_MEMTECH : integer := inferred;
-  constant CFG_PADTECH : integer := inferred;
+  constant CFG_FABTECH : integer := artix7;
+  constant CFG_MEMTECH : integer := artix7;
+  constant CFG_PADTECH : integer := artix7;
   constant CFG_NOASYNC : integer := 0;
   constant CFG_SCAN : integer := 0;
 -- Clock generator
-  constant CFG_CLKTECH : integer := inferred;
+  constant CFG_CLKTECH : integer := virtex;
   constant CFG_CLKMUL : integer := (1);
   constant CFG_CLKDIV : integer := (10);
   constant CFG_OCLKDIV : integer := 1;

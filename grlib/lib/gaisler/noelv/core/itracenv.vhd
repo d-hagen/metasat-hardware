@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -64,7 +65,9 @@ use grlib.riscv.PRIV_LVL_U;
 use grlib.riscv.opcode_type;
 use grlib.riscv.funct3_type;
 use grlib.riscv.priv_lvl_type;
+use grlib.riscv.reg_t;
 library gaisler;
+use gaisler.noelvtypes.all;
 use gaisler.noelv.XLEN;
 use gaisler.noelvint.itrace_in_type;
 use gaisler.noelvint.itrace_in_none;
@@ -72,17 +75,15 @@ use gaisler.noelvint.itrace_out_type;
 use gaisler.noelvint.itrace_out_none;
 use gaisler.noelvint.fpu5_out_type;
 use gaisler.noelvint.fpu5_out_none;
-use gaisler.noelvint.cause_type;
 use gaisler.noelvint.trace_type;
 use gaisler.noelvint.trace_fpu;
 use gaisler.noelvint.trace_fpu_none;
 use gaisler.noelvint.trace_info;
 use gaisler.noelvint.trace_addr;
-use gaisler.noelvint.TRACE_SEL;
-use gaisler.noelvint.fpu_id;
-use gaisler.noelvint.reg_t;
 use gaisler.utilnv.all_0;
 use gaisler.utilnv.all_1;
+use gaisler.utilnv.get_hi;
+use gaisler.utilnv.get_lo;
 use gaisler.utilnv.hi_h;
 use gaisler.utilnv.lo_h;
 use gaisler.utilnv.uadd;
@@ -91,18 +92,14 @@ use gaisler.utilnv.sext;
 use gaisler.utilnv.u2i;
 use gaisler.utilnv.u2vec;
 use gaisler.utilnv.to_bit;
+use gaisler.utilnv.cond;
 use gaisler.nvsupport.is_fpu_fsd;
 use gaisler.nvsupport.rd_gen;
 use gaisler.nvsupport.is_csr;
-use gaisler.nvsupport.word;
-use gaisler.nvsupport.wordx;
-use gaisler.nvsupport.word16;
-use gaisler.nvsupport.word64;
-use gaisler.nvsupport.zerow64;
 -- pragma translate_off
 use gaisler.nvsupport.is_fpu_rd;
-use gaisler.fputilnv.show_float;
 use gaisler.fputilnv.fpreg2st;
+use gaisler.fputilnv.tost_float;
 -- pragma translate_on
 
 entity itracenv is
@@ -149,24 +146,36 @@ architecture rtl of itracenv is
 
   constant trace_prv           : std_logic_vector(  1 downto   0) := (others => '0');
   constant trace_v             : integer                          := 2;
+  constant trace_irq           : integer                          := 3;
   constant trace_cause         : std_logic_vector(cause_type'length - 1 - 1 + 4 downto 4) := (others => '0');
-  constant trace_irq           : integer                          := 11;
-  constant trace_fpu_id        : std_logic_vector( 16 downto  12) := (others => '0');
-  constant trace_fpu_rd        : std_logic_vector( 24 downto  20) := (others => '0');
-  constant trace_fpu_available : integer                          := 28;
-  constant trace_swap          : integer                          := 29;
+  constant trace_skips         : std_logic_vector( 11 downto   9) := (others => '0');  -- Not used here!
+  constant trace_fpu_available : integer                          := 12;
+  constant trace_swap          : integer                          := 13;
+  constant trace_skipx         : integer                          := 14;
+  constant trace_tdelta        : integer                          := 15;
+  constant trace_fpu_id        : std_logic_vector( 20 downto  16) := (others => '0');
+  constant trace_fpu_rd        : std_logic_vector( 28 downto  24) := (others => '0');
+  constant trace_adelta        : integer                          := 29;
   constant trace_timestamp     : std_logic_vector( 63 downto  32) := (others => '0');
   
   constant trace_lane0         : std_logic_vector(255 downto  64) := (others => '0');
   constant trace_lane1         : std_logic_vector(511 downto 320) := (others => '0');
 
+  constant trace_skipres       : integer                          := 0;
   constant trace_pc32          : std_logic_vector( 31 downto   1) := (others => '0');
   constant trace_pc            : std_logic_vector( 54 downto   1) := (others => '0');
+--  constant trace_pc            : std_logic_vector( 42 downto   1) := (others => '0');
+--  constant trace_inst_xlo      : std_logic_vector( 58 downto  43) := (others => '0');
+  constant trace_skipresh      : integer                          := 58;
+  constant trace_skipinst      : integer                          := 59;
+  constant trace_result_v      : integer                          := 60;
+  constant trace_xdata_v       : integer                          := 61;
   constant trace_exception     : integer                          := 62;
   constant trace_valid         : integer                          := 63;
   constant trace_compressed    : std_logic_vector( 65 downto  64) := (others => '0');
   constant trace_cinst         : std_logic_vector( 79 downto  64) := (others => '0');
   constant trace_inst          : std_logic_vector( 95 downto  64) := (others => '0');
+  constant trace_xdata_h       : std_logic_vector(127 downto  96) := (others => '0');
   constant trace_result32      : std_logic_vector(159 downto 128) := (others => '0');
   constant trace_result_hi     : std_logic_vector(191 downto 160) := (others => '0');
   constant trace_result        : std_logic_vector(191 downto 128) := (others => '0');
@@ -221,8 +230,6 @@ architecture rtl of itracenv is
 
   signal r, rin : itrace_regs;
 
-  -- qqq Should this do something else?
-  --     Not easily copied from iunv!
   function to_addr(addr : std_logic_vector) return std_logic_vector is
   begin
     return uext(addr, 64);
@@ -232,23 +239,25 @@ architecture rtl of itracenv is
 
 -- pragma translate_off
   -- Types copied from iunv.
-  subtype word3          is std_logic_vector(2 downto 0);
-  constant lanes          : std_logic_vector(0 to 1 - single_issue) := (others => '0');
-  subtype lanes_type     is std_logic_vector(lanes'high downto lanes'low);
-  type word_lanes_type   is array (lanes'range) of word;
-  type wordx_lanes_type  is array (lanes'range) of wordx;
-  type word16_lanes_type is array (lanes'range) of word16;
-  type word3_lanes_type  is array (lanes'range) of word3;
+  constant lanes             : std_logic_vector(0 to 1 - single_issue) := (others => '0');
+  subtype lanes_type        is std_logic_vector(lanes'high downto lanes'low);
+  -- These would be nicer with just (lanes'range),
+  -- but for some reason Vivado XSIM 2018.1 is then likely to crash.
+  subtype word_lanes_type   is word_arr(lanes'low to lanes'high);
+  subtype wordx_lanes_type  is wordx_arr(lanes'low to lanes'high);
+  subtype word16_lanes_type is word16_arr(lanes'low to lanes'high);
+  type word3_lanes_type     is array (lanes'low to lanes'high) of word3;
 
   -- Signals consumed by the disassembly units.
-  signal hart           : std_logic_vector(3 downto 0) := u2vec(hindex, 4);
-  signal disas_en       : std_ulogic                   := '0';
-  signal disas_iv       : lanes_type                   := (others => '0');
-  signal dis_mcycle     : word64                       := zerow64;
-  signal dis_minstret   : word64                       := zerow64;
-  signal dis_dual_issue : word64                       := zerow64;
+  signal hart           : word4      := u2vec(hindex, 4);
+  signal disas_en       : std_ulogic := '0';
+  signal disas_iv       : lanes_type := (others => '0');
+  signal dis_mcycle     : word64     := zerow64;
+  signal dis_minstret   : word64     := zerow64;
+  signal dis_dual_issue : word64     := zerow64;
   signal wren           : lanes_type;
   signal wren_f         : lanes_type;
+  signal memen          : lanes_type;
   signal wcen           : lanes_type;
   signal way            : word3_lanes_type;
   signal inst           : word_lanes_type;
@@ -275,17 +284,17 @@ begin
     -- Non-constant
     variable v            : itrace_regs;
     variable wcsr         : wordx;
-    variable tmode_dis    : std_logic_vector(4 downto 0);
+    variable tmode_dis    : word5;
     variable info         : trace_info;
     variable fpu          : trace_fpu;
-    variable odata        : std_logic_vector(itraceo.idata'range);
+    variable odata        : trace_data;
     variable lane         : std_logic_vector(trace_lane0'length - 1
 -- pragma translate_off
                                              + trace_csrw'length + trace_inst_lo'length
 -- pragma translate_on
                                              downto 0);
-    variable taddr        : std_logic_vector(itracei.dm_tbufaddr'range);
-    variable write        : std_logic_vector(TRACE_SEL - 1 downto 0);
+    variable taddr        : trace_addr;
+    variable write        : trace_sel;
     variable enable       : std_ulogic;
     variable tactive      : std_ulogic;
     variable tfpuact      : std_ulogic;
@@ -304,7 +313,7 @@ begin
     variable dm_trace     : std_ulogic;
     -- Filtering
     variable active       : boolean;
-    variable trigger      : std_logic_vector(1 downto 0);  --word2;
+    variable trigger      : word2;
     variable halt         : boolean;
     variable match_ops    : boolean;
     variable match_op     : boolean;
@@ -356,7 +365,7 @@ begin
 
     info        := r_itracei.info;
     fpu         := trace_fpu_none;
-    wcsr      := info.lanes(memory_lane).xdata;
+    wcsr        := info.lanes(memory_lane).xdata;
 
     taddr       := r.tcnt;
 
@@ -444,17 +453,24 @@ begin
       lane                          := (others => '0');
       lane(trace_pc'range)          := pc(trace_pc'range);
       lane(trace_inst'range)        := inst;
+      lane(trace_result_v)          := info.lanes(i).int_res;
       lane(trace_result'range)      := uext(info.lanes(i).result, 64);
       if XLEN = 32 and i = fpu_lane and is_fpu_fsd(info.lanes(i).inst) then
         lane(trace_result_hi'range) := hi_h(info.lanes(i).result);
       end if;
       if i = 0 then
+--        lane(trace_inst_xlo'range)  := get_lo(info.lanes(i).inst, 16);
+        lane(trace_xdata_v)         := info.lanes(0).csr_write;
+        lane(trace_xdata_h'range)   := get_lo(info.lanes(0).xdata, 32);
         odata(trace_lane0'range)    := lane(trace_lane0'length - 1 downto 0);
 -- pragma translate_off
         odata(trace_inst_lo0'range) := info.lanes(i).inst(15 downto 0);
         odata(trace_csrw0'range)    := uext(info.lanes(i).xdata, 64);
 -- pragma translate_on
       else
+--        lane(trace_inst_xlo'range)  := get_lo(info.lanes(i).inst, 16);
+        lane(trace_xdata_v)         := info.lanes(0).memory;
+        lane(trace_xdata_h'range)   := get_hi(info.lanes(0).xdata, 32);
         odata(trace_lane1'range)    := lane(trace_lane0'length - 1 downto 0);
 -- pragma translate_off
         odata(trace_inst_lo1'range) := info.lanes(i).inst(15 downto 0);
@@ -598,46 +614,48 @@ begin
       variable funct3 : funct3_type;
       variable ucinst : word;
       variable i      : integer;
-      variable data   : std_logic_vector(rin.itraceo.idata'range);
+      variable data   : trace_data;
       variable lane   : std_logic_vector(trace_lane0'length + trace_csrw0'length + trace_inst_lo0'length - 1 downto 0);
     begin
       if rising_edge(clk) and rstn = '1' then
-        data   := rin.itraceo.idata;
-        dis_mcycle     <= uadd(dis_mcycle, 1);
+        data               := rin.itraceo.idata;
+        dis_mcycle <= uadd(dis_mcycle, 1);
         if not (rin.itraceo.enable = '1' and all_1(rin.itraceo.write)) then
-          disas_en <= '0';
-          disas_iv <= (others => '0');
-          wren     <= (others => '0');
-          wren_f   <= (others => '0');
-          wcen     <= (others => '0');
-          trap     <= (others => '0');
+          disas_en         <= '0';
+          disas_iv         <= (others => '0');
+          wren             <= (others => '0');
+          wren_f           <= (others => '0');
+          memen            <= (others => '0');
+          wcen             <= (others => '0');
+          trap             <= (others => '0');
         else
           disas_en <= '1';
           if data(trace_fpu_available) = '1' then
-            fpu := data(trace_fpu_result'range);
+            fpu            := data(trace_fpu_result'range);
             print("FPU " & tost(data(trace_fpu_id'range)) & " " &
-                           fpreg2st(data(trace_fpu_rd'range)) & " = " & tost(fpu));
+                           fpreg2st(data(trace_fpu_rd'range)) & " = " &
+                           tost(fpu) & " " & tost_float(fpu));
           end if;
 
           for j in lanes'range loop
-            i             := j;
+            i              := j;
             if data(trace_swap) = '1' then
-              i           := lanes'high - j;
+              i            := lanes'high - j;
             end if;
-            lane          := data(trace_inst_lo0'range) & data(trace_csrw0'range) & data(trace_lane0'range);
+            lane           := data(trace_inst_lo0'range) & data(trace_csrw0'range) & data(trace_lane0'range);
             if i = 1 then
-              lane        := data(trace_inst_lo1'range) & data(trace_csrw1'range) & data(trace_lane1'range);
+              lane         := data(trace_inst_lo1'range) & data(trace_csrw1'range) & data(trace_lane1'range);
             end if;
-            way(j)        <= u2vec(i, 3);
-            disas_iv(j)   <= lane(trace_valid);
-            cinst(j)      <= lane(trace_cinst'range);
-            ucinst        := lane(trace_inst'range);
-            comp(j)       <= '0';
+            way(j)         <= u2vec(i, 3);
+            disas_iv(j)    <= lane(trace_valid);
+            cinst(j)       <= lane(trace_cinst'range);
+            ucinst         := lane(trace_inst'range);
+            comp(j)        <= '0';
             if lane(trace_compressed'range) /= "11" then
-              comp(j)     <= '1';
+              comp(j)      <= '1';
               ucinst(15 downto 0) := lane(trace_inst_lo'range);
             end if;
-            inst(j)       <= ucinst;
+            inst(j)        <= ucinst;
             if lane(trace_valid) = '1' then
               if lane(trace_compressed'range) /= "11" then
 --                report "disas " & tost(j) & " C " & tost(lane(trace_cinst'range)) & " " & tost(ucinst);
@@ -645,42 +663,53 @@ begin
 --                report "disas " & tost(j) & "   " & tost(ucinst);
               end if;
             end if;
-            fsd(j)        <= '0';
+            fsd(j)         <= '0';
             if XLEN = 32 then
-              fsd(j)        <= to_bit(i = fpu_lane and is_fpu_fsd(ucinst));  -- qqq Both lanes a problem?
-              pc(j)       <= lane(trace_pc32'range) & '0';
-              wdata(j)    <= lane(trace_result32'range);
-              fsd_hi(j)   <= lane(trace_result_hi'range);
-              wcsr(j)     <= uext(lane(trace_csrw32'range), wcsr(0));
-              tval(j)     <= lane(trace_result32'range);
+              fsd(j)       <= to_bit(i = fpu_lane and is_fpu_fsd(ucinst));
+              pc(j)        <= lane(trace_pc32'range) & '0';
+              wdata(j)     <= uext(lane(trace_result32'range), wdata(0));
+              fsd_hi(j)    <= uext(lane(trace_result_hi'range), fsd_hi(0));
+              wcsr(j)      <= uext(lane(trace_csrw32'range), wcsr(0));
+              tval(j)      <= uext(lane(trace_result32'range), tval(0));
             else
-              pc(j)       <= sext(lane(trace_pc'range) & '0', pc(0));
-              wdata(j)    <= lane(trace_result'range);
-              fsd_hi(j)   <= (others => '0');
-              wcsr(j)     <= uext(lane(trace_csrw'range), wcsr(0));
-              tval(j)     <= lane(trace_result'range);
+              pc(j)        <= sext(lane(trace_pc'range) & '0', pc(0));
+              wdata(j)     <= uext(lane(trace_result'range), wdata(0));
+              fsd_hi(j)    <= (others => '0');
+              wcsr(j)      <= uext(lane(trace_csrw'range), wcsr(0));
+              tval(j)      <= uext(lane(trace_result'range), tval(0));
             end if;
 
-            wren(j)       <= rd_gen(ucinst) and lane(trace_valid);
-            wren_f(j)     <= to_bit(i = fpu_lane and is_fpu_rd(ucinst)) and lane(trace_valid);
-            wcen(j)       <= to_bit(is_csr(ucinst)) and lane(trace_valid);
-            trap(j)       <= lane(trace_exception);
+            wren(j)        <= rd_gen(ucinst) and lane(trace_valid);
+            wren_f(j)      <= to_bit(i = fpu_lane and is_fpu_rd(ucinst)) and lane(trace_valid);
+--            wcen(j)        <= to_bit(is_csr(ucinst)) and lane(trace_valid);
+            trap(j)        <= lane(trace_exception);
           end loop;
+          wcen             <= (others => '0');
+          memen            <= (others => '0');
+          if data(trace_lane0'low + trace_valid) = '1' then
+            if data(trace_lane0'low + trace_xdata_v) = '1' then
+              wcen(u2i(data(trace_swap))) <= '1';
+            end if;
+            if data(trace_lane1'low + trace_xdata_v) = '1' then
+              memen(u2i(data(trace_swap))) <= '1';
+            end if;
+          end if;
 
           if data(trace_valid0) = '1' and data(trace_valid1) = '1' then
-            dis_dual_issue <= uadd(dis_dual_issue, 1);
+            dis_dual_issue <= uadd(dis_dual_issue, 2);
             dis_minstret   <= uadd(dis_minstret, 2);
           elsif data(trace_valid0) = '1' or data(trace_valid1) = '1' then
             dis_minstret   <= uadd(dis_minstret, 1);
           end if;
 --          report "cause " & tost(cause(0)) & " " & tost(cause(1)) & " " & tost_bits(trap);
 
-          cause          <= data(trace_irq) & data(trace_cause'range);
-          wb_prv         <= data(trace_prv'range);
-          wb_v           <= data(trace_v);
+          cause            <= data(trace_irq) & data(trace_cause'range);
+          wb_prv           <= data(trace_prv'range);
+          wb_v             <= data(trace_v);
         end if;
       end if;
     end process;
+
     iw_gen: for i in lanes'range generate
       iw : entity grlib.cpu_disas
         generic map(
@@ -702,6 +731,7 @@ begin
           fsd         => fsd(i),
           fsd_hi      => fsd_hi(i),
           wregen_f    => wren_f(i),
+          memen       => memen(i),
           wcsren      => wcen(i),
           wcsrdata    => wcsr(i),
           prv         => wb_prv,

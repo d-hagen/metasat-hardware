@@ -14,9 +14,7 @@ VHDLSYNFILES=config.vhd ahbrom.vhd leon3mp.vhd
 VHDLSIMFILES=testbench.vhd
 SIMTOP=testbench
 CLEAN=soft-clean
-TECHLIBS = inferred
-
-DIRADD += sparrow/proc/leon3
+TECHLIBS = unisim 
 
 # Libraries, directories and files in GRLIB that should not be compiled for this design
 LIBSKIP = core1553bbc core1553brm core1553brt gr1553 corePCIF \

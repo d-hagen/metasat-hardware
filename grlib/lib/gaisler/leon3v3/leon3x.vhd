@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -50,7 +51,6 @@ entity leon3x is
     v8         :     integer range 0 to 63    := 0;
     cp         :     integer range 0 to 1     := 0;
     mac        :     integer range 0 to 1     := 0;
-    sparrow    :     integer range 0 to 1     := 0; --sparrow
     pclow      :     integer range 0 to 2     := 2;
     notag      :     integer range 0 to 1     := 0;  -- unused
     nwp        :     integer range 0 to 4     := 0;
@@ -186,7 +186,7 @@ begin
      -- leon3 processor core (iu, caches & mul/div)
      p0 : proc3
        generic map (
-         hindex, fabtech, memtech, nwindows, dsu, fpuarch, v8, cp, mac, sparrow, pclow,
+         hindex, fabtech, memtech, nwindows, dsu, fpuarch, v8, cp, mac, pclow,
          0, nwp, icen, irepl, isets, ilinesize, isetsize, isetlock, dcen,
          drepl, dsets, dlinesize, dsetsize, dsetlock, dsnoop, ilram, ilramsize,
          ilramstart, dlram, dlramsize, dlramstart, mmuen, itlbnum, dtlbnum,

@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -41,6 +42,7 @@ use techmap.gencomp.all;
 library gaisler;
 use gaisler.leon5.all;
 use gaisler.leon5int.all;
+use gaisler.cpucore5int.all;
 use gaisler.arith.all;
 -- pragma translate_off
 use grlib.sparc_disas.all;
@@ -210,6 +212,7 @@ architecture rtl of iu5 is
     signed, enaddr, read, write, lock , dsuen : std_logic;
     size                                      : std_logic_vector(1 downto 0);
     asi                                       : std_logic_vector(7 downto 0);
+    bar                                       : std_logic_vector(2 downto 0);
   end record;
 
   constant dc_in_none : dc_in_type := (
@@ -220,7 +223,8 @@ architecture rtl of iu5 is
     lock   => '0',
     dsuen  => '0',
     size   => (others => '0'),
-    asi    => (others => '0'));
+    asi    => (others => '0'),
+    bar    => (others => '0'));
 
   type pipeline_ctrl_type is record
     pc            : pctype;
@@ -264,6 +268,7 @@ architecture rtl of iu5 is
     ctx_switch    : std_logic;
     spec_access   : std_logic_vector(1 downto 0);
     unpcti        : std_logic_vector(1 downto 0);
+    imexcdata     : std_logic_vector(7 downto 0);
     --statistics
     dual_issued   : std_logic;
     btb_miss      : std_logic;
@@ -349,7 +354,8 @@ architecture rtl of iu5 is
     dual_issued   => '0',
     btb_miss      => '0',
     mexc          => '0',
-    single_issue  => '0'
+    single_issue  => '0',
+    imexcdata     => (others => '0')
     );
 
   
@@ -381,6 +387,7 @@ architecture rtl of iu5 is
     cwp                     : cwptype;
     way                     : std_logic_vector(IWAYMSB downto 0);
     mexc                    : std_logic;
+    imexcdata               : std_logic_vector(7 downto 0);
     delay_slot              : std_logic;
     delay_slot_annuled      : std_logic;
     bht_taken               : std_logic;
@@ -417,6 +424,12 @@ architecture rtl of iu5 is
   end record;
 
   type atomic_state is (idle, count, ld_exe, ld_mem, ld_exc);
+
+  type step_reg_type is record
+    en      : std_logic;
+    counter : std_logic_vector(31 downto 0);
+    dbgm    : std_logic;
+  end record;
 
   type regacc_reg_type is record
     ctrl                : pipeline_ctrl_type;
@@ -457,6 +470,7 @@ architecture rtl of iu5 is
     fpc_ctrl            : fpc_ctrl_type;
     fpustdata           : std_logic_vector(63 downto 0);
     fp_stdata_latched   : std_logic;
+    step                : step_reg_type;
   end record;
 
   type execute_reg_type is record
@@ -663,12 +677,6 @@ architecture rtl of iu5 is
     hissue_deadlock : std_logic;
   end record;
 
-  type step_reg_type is record
-    en      : std_logic;
-    counter : std_logic_vector(31 downto 0);
-    dbgm    : std_logic;
-  end record;
-
   type write_reg_type is record
     s               : special_register_type;
     icc_dannul      : std_logic_vector(3 downto 0);
@@ -677,12 +685,12 @@ architecture rtl of iu5 is
     wb_data         : wb_data_type;
     we              : we_data_type;
     waddr           : rf_wa_data_type;
-    step            : step_reg_type;
     tdata           : std_logic_vector(383 downto 0);
     fp_exc_ack      : std_logic_vector(1 downto 0);
     tco             : trace_control_out_type; 
     fpu_unissue     : std_logic;
     fpu_unissue_sid : std_logic_vector(4 downto 0);
+    trapackidata    : std_logic_vector(7 downto 0);
   end record;
 
   type registers is record
@@ -755,8 +763,7 @@ architecture rtl of iu5 is
   begin
     err := not r.w.s.et;
     if (((dbgi.cmd = CPUCMD_BREAK) and (tt = ("00" & TT_WATCH))) or
-        ((dbgi.bsoft = '1') and (tt = ("10000001"))) or
-        (r.w.step.dbgm = '1' and r.w.step.en = '1')             
+        ((dbgi.bsoft = '1') and (tt = ("10000001")))
         ) then
       err := '0';
     end if;
@@ -786,7 +793,7 @@ architecture rtl of iu5 is
     variable area : std_logic_vector(2 downto 0);
   begin
     s               := r.w.s;
-    step            := r.w.step;
+    step            := r.a.step;
     pc              := r.f.pc;
     npc             := ir.addr;
     wr              := '0';
@@ -1058,9 +1065,9 @@ architecture rtl of iu5 is
       when "101" =>
         case dbgi.mosi.addr(5-2 downto 2-2) is
           when "0000" =>
-            data(0) := r.w.step.en;
+            data(0) := r.a.step.en;
           when "0001" =>
-            data := r.w.step.counter;
+            data := r.a.step.counter;
           when others =>
             null;
         end case;
@@ -1414,6 +1421,7 @@ architecture rtl of iu5 is
     v.d.cwp                 := (others => '0');
     v.d.way                 := (others => '0');
     v.d.mexc                := '0';
+    v.d.imexcdata           := (others => '0');
     v.d.b2bstore_en         := '1';
     v.d.specload_en         := '1';
     v.d.dual_ldissue_en     := '1';
@@ -1479,6 +1487,11 @@ architecture rtl of iu5 is
     v.a.bp_disabled         := '0';
     v.a.spec_check          := "00";
     v.a.bht_ctrl            := v.d.bht_ctrl;
+    v.a.step := (
+      en => '0',
+      counter => (others => '0'),
+      dbgm => '0'
+      );
     v.e.ctrl                := pipeline_ctrl_none;
     v.e.ex_op1              := (others => (others => '0'));
     v.e.ex_op2              := (others => (others => '0'));
@@ -1665,11 +1678,6 @@ architecture rtl of iu5 is
     v.w.rd                := (others => (others => '0'));
     v.w.wb_data           := (others => (others => '0'));
     v.w.waddr             := (others => (others => '0'));
-    v.w.step := (
-      en => '0',
-      counter => (others => '0'),
-      dbgm => '0'
-      );
     v.w.fp_exc_ack        := "00";
     v.w.tdata             := (others => '0');
     v.w.tco.inst_filter   := (others=>'0');
@@ -2648,7 +2656,8 @@ architecture rtl of iu5 is
                  wpr    : watchpoint_registers;
                  debug  : l5_debug_in_type;
                  dsur   : dsu_registers;
-                 pccomp : std_logic_vector(3 downto 0))
+                 pccomp : std_logic_vector(3 downto 0);
+                 stepcomp: std_ulogic)
     return std_logic is
     variable exc : std_logic;
   begin
@@ -2660,6 +2669,21 @@ architecture rtl of iu5 is
         end if;
       end if;
     end loop;
+
+    -- Breaking via debug module
+    if debug.cmd(2)='1' or debug.cmd(1 downto 0)="11" then
+      exc := '1';
+    end if;
+
+    -- Single step counter expired
+    if stepcomp='1' then
+      exc := '1';
+    end if;
+
+    -- Can not handle breaking in the middle of atomic operation
+    if r.a.astate /= idle then
+      exc := '0';
+    end if;
 
     -- Can not handle breaking on RETT
     --   if r.a.ctrl.rett_op = '1' then
@@ -2702,7 +2726,7 @@ architecture rtl of iu5 is
 -- Check for illegal and privileged instructions
 
   procedure exception_detect(lane :     integer range 0 to 1; r : registers; wpr : watchpoint_registers; dbgi : l5_debug_in_type; fpu5i : fpc5_out_type;
-  trap                            : out std_logic; tt : out std_logic_vector(5 downto 0); pccomp : in std_logic_vector(3 downto 0)) is
+  trap                            : out std_logic; tt : out std_logic_vector(5 downto 0); pccomp : in std_logic_vector(3 downto 0); stepcomp: in std_ulogic) is
     variable illegal_inst, privileged_inst  : std_logic;
     variable cp_disabled, fp_disabled, fpop : std_logic;
     variable op                             : std_logic_vector(1 downto 0);
@@ -2846,7 +2870,7 @@ architecture rtl of iu5 is
           end case;
       end case;
 
-      wph := wphit(lane, r, wpr, dbgi, dsur, pccomp);
+      wph := wphit(lane, r, wpr, dbgi, dsur, pccomp, stepcomp);
 
 
       trap := '1';
@@ -5209,7 +5233,7 @@ architecture rtl of iu5 is
       end if;
     end if;
 
-    if dco.iuctrl.single_issue = '1' or r.w.step.en = '1' then
+    if dco.iuctrl.single_issue = '1' or r.a.step.en = '1' then
       conflict     := '1';
       fpc_conflict := '1';
     end if;
@@ -6305,15 +6329,24 @@ architecture rtl of iu5 is
   procedure dcache_gen(r     :     registers;
                        etrap :     std_logic;
                        valid :     std_logic;
+                       l1valid:    std_logic;
                        dci   : out dc_in_type) is
     variable op       : std_logic_vector(1 downto 0);
     variable op3      : std_logic_vector(5 downto 0);
     variable su, rfe3 : std_logic;
+    variable l1op       : std_logic_vector(1 downto 0);
+    variable l1op3      : std_logic_vector(5 downto 0);
+    variable rs1, l1rs1 : std_logic_vector(4 downto 0);
 
-    
+    variable bar: std_logic_vector(2 downto 0);
+
   begin
     op         := r.e.ctrl.inst(0)(31 downto 30);
     op3        := r.e.ctrl.inst(0)(24 downto 19);
+    rs1        := r.e.ctrl.inst(0)(18 downto 14);
+    l1op       := r.e.ctrl.inst(1)(31 downto 30);
+    l1op3      := r.e.ctrl.inst(1)(24 downto 19);
+    l1rs1      := r.e.ctrl.inst(1)(18 downto 14);
     dci.signed := '0';
     dci.lock   := '0';
     dci.dsuen  := '0';
@@ -6422,6 +6455,19 @@ architecture rtl of iu5 is
       end if;
     end if;
 
+    -- Memory barrier / write combining hint
+    bar    := "000";
+    if valid='1' and op=FMT3 and op3=RDY and rs1="01111" then
+      bar(0) := bar(0) or r.e.ctrl.inst(0)(1);
+      bar(1) := bar(1) or r.e.ctrl.inst(0)(6);
+      bar(2) := bar(2) or r.e.ctrl.inst(0)(8);
+    end if;
+    if l1valid='1' and l1op=FMT3 and l1op3=RDY and l1rs1="01111" then
+      bar(0) := bar(0) or r.e.ctrl.inst(1)(1);
+      bar(1) := bar(1) or r.e.ctrl.inst(1)(6);
+      bar(2) := bar(2) or r.e.ctrl.inst(1)(8);
+    end if;
+    dci.bar := bar;
   end;
 
   procedure gen_stdata(r : in registers; iustdata, fpstdata : in word64; stdataout : out word64) is
@@ -6557,8 +6603,10 @@ architecture rtl of iu5 is
 
   procedure mem_trap(r     :     registers; wpr : watchpoint_registers;
   annul, holdn             : in  std_logic;
+  dtrapet1, dtrapet0         : in  std_ulogic;
+  dtraptt                   : in  std_logic_vector(5 downto 0);
   trapout                  : out std_logic_vector(1 downto 0);
-  iflush, nullify, werrout : out std_logic;
+  iflush, nullify          : out std_logic;
   tt                       : out tt_array_type) is
     variable cwpx    : std_logic_vector(5 downto NWINLOG2);
     variable op_0    : std_logic_vector(1 downto 0);
@@ -6567,7 +6615,7 @@ architecture rtl of iu5 is
     variable op_1    : std_logic_vector(1 downto 0);
     variable op2_1   : std_logic_vector(2 downto 0);
     variable op3_1   : std_logic_vector(5 downto 0);
-    variable werr    : std_logic;
+    variable cctrap  : std_logic;
     variable trap    : std_logic_vector(1 downto 0);
     variable wprmask : std_logic_vector(31 downto 2);
     variable tt_a    : tt_array_type;
@@ -6586,12 +6634,38 @@ architecture rtl of iu5 is
 
     trap    := r.m.ctrl.trap;
     tt_a    := r.m.ctrl.tt;
-    werr    := (dco.werr or r.m.werr) and not r.w.s.dwt;
     wprmask := (others => '0');
 
-    
+    -- Determine if we there is a deferred trap from the cache controller
+    -- (data_store_error) to deliver
+    cctrap := '0';
+    if dtrapet0='1' or (dtrapet1='1' and r.m.irqen='1' and r.m.irqen2='1' and r.w.s.et='1') then
+      cctrap := '1';
+    end if;
+    if r.w.s.dwt='1' and dtraptt=TT_DSEX then
+      cctrap := '0';
+    end if;
+    -- block data_store_trap delivery in same special cases as IRQ are blocked
+    -- (irq_allowed in irq_trap)
+    if is_atomic(r.m.ctrl.inst(0))='1' then
+      cctrap := '0';
+    end if;
+    if r.m.ctrl.unpcti/="00" then
+      cctrap := '0';
+    end if;
+    if r.m.ctrl.inst_valid = "10" and is_div(r.m.ctrl.inst(1)) = '1' then
+      --don't take interrupt on finished division operation
+      cctrap := '0';
+    end if;
+
     --lane 0 trap checks
-    if annul = '0' and (r.m.ctrl.trap(0) = '0' or r.m.ctrl.tt(0) = TT_FPEXC) and r.m.ctrl.inst_valid(0) = '1' then
+    if annul = '0' and r.m.ctrl.inst_valid(0)='1' and cctrap='1' then
+      trap(0) := '1';
+      tt_a(0) := dtraptt;
+      if op_0=LDST then
+        nullify := '1';
+      end if;
+    elsif annul = '0' and (r.m.ctrl.trap(0) = '0' or r.m.ctrl.tt(0) = TT_FPEXC) and r.m.ctrl.inst_valid(0) = '1' then
       case op_0 is
         when LDST =>
           case op3_0 is
@@ -6667,7 +6741,10 @@ architecture rtl of iu5 is
     end if;
 
     --lane 1 trap checks
-    if annul = '0' and r.m.ctrl.trap(1) = '0' and r.m.ctrl.inst_valid(1) = '1' then
+    if annul = '0' and r.m.ctrl.inst_valid(1) = '1' and cctrap='1' then
+      trap(1) := '1';
+      tt_a(1) := dtraptt;
+    elsif annul = '0' and r.m.ctrl.trap(1) = '0' and r.m.ctrl.inst_valid(1) = '1' then
       case op_1 is
         when FMT3 =>
           case op3_1 is
@@ -6700,17 +6777,12 @@ architecture rtl of iu5 is
       end case;
     end if;
 
-    if annul = '0' and r.m.ctrl.inst_valid(0) = '1' and is_flush(r.m.ctrl.inst(0)) = '1' and r.m.ctrl.trap(0) = '0' then
+    if annul = '0' and r.m.ctrl.inst_valid(0) = '1' and is_flush(r.m.ctrl.inst(0)) = '1' and r.m.ctrl.trap(0) = '0' and cctrap = '0' then
       iflush := '1';
-    end if;
-
-    if (rstn = '0') or (r.x.rstate = dsu2) then
-      werr := '0';
     end if;
 
     trapout := trap;
     tt      := tt_a;
-    werrout := werr;
   end;
 
   procedure irq_trap(v        : in  registers;
@@ -7217,6 +7289,7 @@ begin
     variable vir                    : irestart_register;
     variable icnt, fcnt             : std_logic;
     variable pccomp                 : pccomp_type;
+    variable stepcomp               : std_logic_vector(0 to 1);
     variable iustall                : std_logic;
     variable vu                     : ungated_registers;
     variable dbgcmd                 : std_logic_vector(2 downto 0);
@@ -7523,6 +7596,7 @@ begin
     variable xc_ldd                                         : std_logic;
     variable xc_inull                                       : std_logic;
     variable xc_mmucacheclr                                 : std_logic;
+    variable xc_trapack                                     : std_ulogic;
     variable exc_op1, exc_op2                               : operand_pair_type;
     variable logic_exc_op1_alu0, logic_exc_op2_alu0         : std_logic_vector(31 downto 0);
     variable exc_logic_res                                  : operand_pair_type;
@@ -7691,10 +7765,15 @@ begin
     v.x.nerror     := rp.error;
     xc_mmucacheclr := '0';
     xc_ldd         := '0';
+    xc_trapack     := '0';
 
     xc_vectt := "00" & r.x.ctrl.tt(0);
     if xc_trapl = '1' then
       xc_vectt := "00" & r.x.ctrl.tt(1);
+    end if;
+    -- Re-encode user defined traps in 0x30-0x3F range into 0x60-0x6F region
+    if xc_vectt(5 downto 4)="11" then
+      xc_vectt(6 downto 4) := "110";
     end if;
     if r.x.mexc = '1' and xc_trapl = '0' then
       xc_vectt := "00" & TT_DAEX;
@@ -7766,33 +7845,6 @@ begin
       dbgm    := dbgm_l0 or dbgm_l1;
     end if;
 
-    --Right not single step mode is only run with single issue
-    if r.w.step.en = '1' then
-      if r.w.step.counter = x"00000000" and r.x.rstate = run then
-        v.w.step.dbgm := '1';
-      end if;
-      if (r.x.ctrl.inst_valid /= "00") and r.w.step.dbgm = '0' and xc_trap = '0' and r.x.rstate = run then
-        step_add         := std_logic_vector(unsigned('1'&r.w.step.counter)-1);
-        v.w.step.counter := step_add(31 downto 0);
-        if r.w.step.counter = x"00000001" then
-          v.w.step.dbgm := '1';
-        end if;
-      end if;
-      if r.w.step.dbgm = '1' then
-        if (r.x.ctrl.inst_valid /= "00") and xc_trap = '0' then
-          dbgm          := '1';
-          xc_vectt      := "00" & TT_WATCH;
-          v.w.step.dbgm := '0';
-          if r.x.ctrl.inst_valid(0) = '1' then
-            dbgm_l0 := '1';
-          end if;
-          if r.x.ctrl.inst_valid(1) = '1' then
-            dbgm_l1 := '1';
-          end if;
-        end if;
-      end if;
-    end if;
-
     if dbgi.mosi.accen = '0' or r.x.miso.accrdy = '1' then
       v.x.miso.accrdy := '0';
     end if;
@@ -7829,8 +7881,6 @@ begin
           if (dbgm_l0 = '0' and dbgm_l1 = '1') or (r.x.ctrl.swap = '1' and dbgm_l1 = '1') then
             v.x.npc := npc_lane1;
           end if;
-          vdsu.tt      := xc_vectt;
-          vdsu.brktype := "00";
 
           if dbgm_l0 = '0' and dbgm_l1 = '1' and r.x.ctrl.swap = '0' then
             --it is not possible to enter debug mode if the old instruction has
@@ -7853,36 +7903,34 @@ begin
             end if;
           end if;
 
+          vdsu.tt      := xc_vectt;
+          vdsu.brktype := "00";
           if dbgerr(r, dbgi, xc_vectt) = '1' then
             v.x.cpustate := CPUSTATE_ERRMODE;
           else
             v.x.cpustate := CPUSTATE_STOPPED;
           end if;
-        elsif ((pwrd = '1') or (((dbgi.cmd(2) = '1') or (dbgi.cmd(1 downto 0) = "11")) and r.x.ctrl.inst_valid /= "00")) then
+          if xc_vectt=("00" & TT_WATCH) and (dbgi.cmd(2)='1' or dbgi.cmd(1 downto 0)="11") then
+            if dbgi.cmd(2)='1' then
+              v.x.cpustate := dbgi.cmd(1 downto 0);
+              vdsu.brktype := "11";
+            else
+              v.x.cpustate := CPUSTATE_STOPPED;
+              vdsu.brktype := "10";
+            end if;
+          end if;
+
+        elsif (pwrd = '1') then
           v.x.annul_all := '1';
           vir.addr      := r.x.ctrl.inst_pc(0);
           v.x.rstate    := dsu1;
           v.x.npc       := npc_lane0;
           vdsu.tt       := "00" & TT_WATCH;
-          if pwrd = '1' then
-            v.x.cpustate := CPUSTATE_INSLEEP;
-            vp.pwd       := '1';
-            vdsu.brktype := "01";
-          elsif dbgi.cmd(2) = '1' then
-            v.x.cpustate := dbgi.cmd(1 downto 0);
-            vdsu.brktype := "11";
-            if r.x.ctrl.inst_valid(0) = '0' or (r.x.ctrl.inst_valid(1) = '1' and r.x.ctrl.swap = '1') then
-              vir.addr := r.x.ctrl.inst_pc(1);
-              v.x.npc  := npc_lane1;
-            end if;
-          else
-            v.x.cpustate := CPUSTATE_STOPPED;
-            vdsu.brktype := "10";
-            if r.x.ctrl.inst_valid(0) = '0' or (r.x.ctrl.inst_valid(1) = '1' and r.x.ctrl.swap = '1') then
-              vir.addr := r.x.ctrl.inst_pc(1);
-              v.x.npc  := npc_lane1;
-            end if;
-          end if;
+
+          v.x.cpustate := CPUSTATE_INSLEEP;
+          vp.pwd       := '1';
+          vdsu.brktype := "01";
+
         elsif (xc_trap) = '0' then
           xc_wreg    := r.x.ctrl.rdw(0) and r.x.ctrl.inst_valid(0);
           xc_wreg_l1 := r.x.ctrl.rdw(1) and r.x.ctrl.inst_valid(1);
@@ -7950,6 +7998,12 @@ begin
           if xc_trapl = '1' then
             v.x.npc := npc_lane1;
           end if;
+          -- Save PC into ir.addr for use with xc_trapack to cache controller
+          if xc_trapl = '0' then
+            vir.addr := r.x.ctrl.inst_pc(0);
+          else
+            vir.addr := r.x.ctrl.inst_pc(1);
+          end if;
           assert r.w.s.et = '1';
         end if;
 
@@ -7978,7 +8032,9 @@ begin
         else
           v.w.s.cwp := r.w.s.cwp - 1;
         end if;
-        
+
+        xc_trapack := '1';
+
       when dsu1 =>
         vp.pwd                           := rp.pwd;
         xc_exception                     := '1';
@@ -8068,7 +8124,6 @@ begin
         v.x.rstate                       := run;
         v.x.annul_all                    := '0';
         v.x.debug_ret2                   := '1';
-        v.w.step.dbgm                    := '0';
 
       when dsu3 =>
         xc_exception                     := '1';
@@ -8076,7 +8131,7 @@ begin
         xc_trap_address(31 downto PCLOW) := r.f.pc;
         -- Debug register access
         if r.x.miso.accrdy = '0' then
-          diagwr(r, dsur, ir, dbgi, wpr, v.w.s, v.w.step, vwpr, vdsu.asi, vdsu.asihiad, xc_trap_address,
+          diagwr(r, dsur, ir, dbgi, wpr, v.w.s, v.a.step, vwpr, vdsu.asi, vdsu.asihiad, xc_trap_address,
                  vir.addr, xc_wreg, xc_waddr_t, xc_result, fpcdbgwr,
                  v.d.b2bstore_en, v.d.specload_en, v.d.dual_ldissue_en, v.d.br_flush);
           xc_waddr := xc_waddr_t(RFBITS-1 downto 0);
@@ -8129,6 +8184,7 @@ begin
     if (r.x.rstate = dsu2) then
       v.w.except := '0';
     end if;
+    v.w.trapackidata := r.x.ctrl.imexcdata;
 
     ---------------------------------------------------------------------------
     -- LATE ALUcc (EXCEPTION)
@@ -8528,10 +8584,15 @@ begin
       end if;
     end if;
 
+    itr_valid(0) := r.x.ctrl.inst_valid(0) and not(mask_we1) and holdn;
+    itr_valid(1) := r.x.ctrl.inst_valid(1) and not(mask_we2) and holdn;
     --when step.dbgm is set the instruction is going to cause debug mode hence
     --don't log
-    itr_valid(0) := r.x.ctrl.inst_valid(0) and not(mask_we1) and not(r.w.step.dbgm) and holdn;
-    itr_valid(1) := r.x.ctrl.inst_valid(1) and not(mask_we2) and not(r.w.step.dbgm) and holdn;
+    for lane in 0 to 1 loop
+      if r.a.step.en='1' and r.x.ctrl.trap(lane)='1' and r.x.ctrl.tt(lane)=TT_WATCH then
+        itr_valid(lane) := '0';
+      end if;
+    end loop;
 
     itrace(r,
            r.x.ctrl.swap,
@@ -8585,6 +8646,10 @@ begin
 
     dci.intack      <= r.x.intack and holdn;
     dci.mmucacheclr <= xc_mmucacheclr;
+    dci.trapack     <= xc_trapack;
+    dci.trapacktt   <= r.w.s.tt;
+    dci.trapackpc   <= ir.addr;
+    dci.trapackidata <= r.w.trapackidata;
 
     mask_we_dbg <= (mask_we2) & (mask_we1);
     
@@ -8723,8 +8788,9 @@ begin
       v.x.muldiv_result := mulo.result(31 downto 0);
     end if;
 
-    mem_trap(r, wpr, v.x.annul_all, holdn, v.x.ctrl.trap, me_iflush,
-             me_nullify, v.m.werr, v.x.ctrl.tt);
+    mem_trap(r, wpr, v.x.annul_all, holdn, dco.dtrapet1, dco.dtrapet0, dco.dtraptt,
+             v.x.ctrl.trap, me_iflush,
+             me_nullify, v.x.ctrl.tt);
     me_newtrap := v.x.ctrl.trap;
     me_newtt := v.x.ctrl.tt;
 
@@ -9086,16 +9152,10 @@ begin
     dci.edata         <= me_edata;
     dci.specread      <= v.x.speculative_load;
     dci.specreadannul <= specreadannul;
+    dci.bar           <= r.m.dci.bar;
 
     if (not ASYNC_RESET) and (not RESET_ALL) and (xc_rstn = '0') then
       v.x.ctrl := pipeline_ctrl_none;
-    end if;
-
-
-    
-    if dco.badtag = '1' then
-      v.x.ctrl.trap(0) := '1';
-      v.x.ctrl.tt(0)   := TT_IINST;
     end if;
 
     v.x.tt_ticc := '0';
@@ -9634,7 +9694,7 @@ begin
       end if;
     end if;
 
-    dcache_gen(r, v_x_trap , v.m.ctrl.inst_valid(0), ex_dci);
+    dcache_gen(r, v_x_trap , v.m.ctrl.inst_valid(0), v.m.ctrl.inst_valid(1), ex_dci);
     dbg_cache(holdn, dbgi, r, dsur, v.m.result(0), ex_dci, v_m_result0, v.m.dci);
 
     v.m.dc_nullify := '0';
@@ -9794,8 +9854,36 @@ begin
     end if;
 
 
-    exception_detect(0, r, wpr, dbgi, fpu5o, v.e.ctrl.trap(0), v.e.ctrl.tt(0), pccomp(0));
-    exception_detect(1, r, wpr, dbgi, fpu5o, v.e.ctrl.trap(1), v.e.ctrl.tt(1), pccomp(1));
+    --Right not single step mode is only run with single issue
+    stepcomp := "00";
+    if r.a.step.en = '1' then
+      if r.a.astate /= idle then
+        null; -- only count down step counter on first cycle of atomic
+      elsif r.a.step.counter=x"00000000" then
+        stepcomp(0) := r.a.ctrl.inst_valid(0);
+        stepcomp(1) := r.a.ctrl.inst_valid(1);
+      elsif r.a.step.counter=x"00000001" then
+        if r.a.ctrl.inst_valid /= "00" then
+          v.a.step.counter := (others => '0');
+        end if;
+        if r.a.ctrl.inst_valid="11" then
+          if r.a.ctrl.swap='1' then
+            stepcomp(0) := '1';
+          else
+            stepcomp(1) := '1';
+          end if;
+        end if;
+      else
+        if r.a.ctrl.inst_valid="11" then
+          v.a.step.counter := sub(r.a.step.counter, 2);
+        elsif r.a.ctrl.inst_valid /= "00" then
+          v.a.step.counter := sub(r.a.step.counter, 1);
+        end if;
+      end if;
+    end if;
+
+    exception_detect(0, r, wpr, dbgi, fpu5o, v.e.ctrl.trap(0), v.e.ctrl.tt(0), pccomp(0), stepcomp(0));
+    exception_detect(1, r, wpr, dbgi, fpu5o, v.e.ctrl.trap(1), v.e.ctrl.tt(1), pccomp(1), stepcomp(1));
 
     --forwarding
     --lane0
@@ -10413,7 +10501,8 @@ begin
         end if;
       end loop;
       v.d.way  := ico.way(IWAYMSB downto 0);  --hit way
-      v.d.mexc := ico.mexc;                   --icache access exception      
+      v.d.mexc := ico.mexc;                   --icache access exception
+      v.d.imexcdata := ico.mexcdata;
     end if;
 
     if de_hold_pc = '0' then
@@ -11742,6 +11831,7 @@ begin
     v.a.ctrl.rd(0)         := '1'&de_waddr(0)(RFBITS-1 downto 0);
     v.a.ctrl.rd(1)         := '1'&de_waddr(1)(RFBITS-1 downto 0);
     v.a.ctrl.rdw           := de_rdw;
+    v.a.ctrl.imexcdata     := r.d.imexcdata;
     delay_inst0_tmp        := v.a.ctrl.delay_inst(0);
     v.a.ctrl.swap          := '0';
     v_a_branch0_tmp        := v.a.ctrl.branch(0);
@@ -13232,11 +13322,11 @@ begin
             r.x.rstate <= rin.x.rstate;
           end if;
           r.x.miso <= rin.x.miso;
-          r.m.werr <= rin.m.werr;
           r.m.casz <= rin.m.casz;
           if (holdn or ico.mds) = '0' then
             r.d.inst <= rin.d.inst;
             r.d.mexc <= rin.d.mexc;
+            r.d.imexcdata <= rin.d.imexcdata;
             r.d.way  <= rin.d.way;
           end if;
           if (holdn or dco.mds) = '0' then

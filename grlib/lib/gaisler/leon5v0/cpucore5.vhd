@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -32,6 +33,7 @@ use grlib.amba.all;
 use grlib.stdlib.all;
 library gaisler;
 use gaisler.leon5int.all;
+use gaisler.cpucore5int.all;
 use gaisler.arith.all;
 
 entity cpucore5 is
@@ -46,7 +48,12 @@ entity cpucore5 is
     rfconf  : integer;
     fpuconf : integer;
     tcmconf : integer;
-    perfcfg : integer;
+    iways   : integer;
+    iwaysize: integer;
+    dways   : integer;
+    dwaysize: integer;
+    itlbnum : integer;
+    dtlbnum : integer;
     mulimpl : integer;
     rstaddr : integer;
     disas   : integer;
@@ -75,25 +82,6 @@ entity cpucore5 is
 end;
 
 architecture hier of cpucore5 is
-
-  type perfcfg_table is array (0 to 2) of integer;
-  -----------------------------------------------------------------------------
-  --       perfcfg                             0     1     2
-  --                                          HP    GP   MIN
-  constant iways_tab   : perfcfg_table := (    4,    4,    1 );
-  constant iwsize_tab  : perfcfg_table := (    4,    4,    4 );
-  constant dways_tab   : perfcfg_table := (    4,    4,    1 );
-  constant dwsize_tab  : perfcfg_table := (    4,    4,    4 );
-  constant itlbnum_tab : perfcfg_table := (   24,   16,    4 );
-  constant dtlbnum_tab : perfcfg_table := (   24,   16,    4 );
-  -----------------------------------------------------------------------------
-
-  constant iways    : integer := iways_tab(perfcfg);
-  constant iwaysize : integer := iwsize_tab(perfcfg);
-  constant dways    : integer := dways_tab(perfcfg);
-  constant dwaysize : integer := dwsize_tab(perfcfg);
-  constant itlbnum  : integer := itlbnum_tab(perfcfg);
-  constant dtlbnum  : integer := dtlbnum_tab(perfcfg);
 
   constant dtcmen    : integer := boolean'pos( (tcmconf mod 32) /= 0);
   constant dtcmabits : integer := (1-dtcmen) + (tcmconf mod 32);
@@ -153,6 +141,20 @@ architecture hier of cpucore5 is
   signal c2c_mosi   : l5_intreg_mosi_type;
   signal c_perf     : std_logic_vector(31 downto 0);
   signal iu_perf    : std_logic_vector(63 downto 0);
+
+
+  -- Safeguard to create an array length mismatch error if the user tries
+  -- to enable FT features in a non-FT release where these features are not
+  -- implemented. Otherwise in such configuration the FT setting is
+  -- ignored.
+
+  constant FTIMPL : integer := 0
+                               ;
+  constant FTEN  : integer := boolean'pos(cmemconf > 15 or rfconf > 15);
+
+  constant dummy_ft_consistency_check:
+    std_logic_vector(FTIMPL*FTEN downto FTEN) := "0";
+
 
 begin
 

@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -683,6 +684,11 @@ component virtex4_inpad_ds
   port (padp, padn : in std_ulogic; o : out std_ulogic);
 end component; 
 
+component versal_inpad_ds
+  generic (level : integer := lvds; voltage : integer := x25v);
+  port (padp, padn : in std_ulogic; o : out std_ulogic);
+end component versal_inpad_ds;
+
 component virtex4_clkpad_ds is
   generic (level : integer := lvds; voltage : integer := x33v);
   port (padp, padn : in std_ulogic; o : out std_ulogic);
@@ -1056,6 +1062,12 @@ component nexus_iopad is
   port (pad   : inout std_ulogic; --From/To external
         i, en : in std_ulogic;    --From internal design
         o     : out std_ulogic);  --To internal design
+end component;
+
+component nexus_toutpad is
+  port ( pad : out std_ulogic; --To external
+         i   : in std_ulogic;  --From internal design
+         en  : in std_ulogic); -- Tri-state control
 end component;
 
 end;

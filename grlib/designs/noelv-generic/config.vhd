@@ -26,10 +26,12 @@ package config is
   constant CFG_NOELV : integer := 1;
   constant CFG_NOELV_XLEN : integer := (64);
   constant CFG_NCPU : integer := (1);
-  constant CFG_CFG : integer := (0)*256 + (0)*128 + (0)*2 + (0);
+  constant CFG_CFG : integer := (3)*256 + (0)*128 + (0)*2 + (0);
   constant CFG_NODBUS : integer := 1;
   constant CFG_DISAS : integer := 3*0;
-  constant CFG_SPARROW : integer := 1;
+-- Interrupts
+  constant CFG_APLIC_NDOM : integer := (4);
+  constant CFG_NEIID : integer := (63);
 -- L2 Cache
   constant CFG_L2_EN : integer := 0;
   constant CFG_L2_SIZE : integer := 64;
@@ -58,9 +60,9 @@ package config is
 -- DSU UART
   constant CFG_AHB_UART : integer := 1;
 -- JTAG based DSU interface
-  constant CFG_AHB_JTAG : integer := 0;
+  constant CFG_AHB_JTAG : integer := 1;
 -- Ethernet DSU
-  constant CFG_DSU_ETH : integer := 0 + 0 + 0;
+  constant CFG_DSU_ETH : integer := 1 + 0 + 0;
   constant CFG_ETH_BUF : integer := 2;
   constant CFG_ETH_IPM : integer := 16#C0A8#;
   constant CFG_ETH_IPL : integer := 16#0033#;
@@ -70,13 +72,13 @@ package config is
   constant CFG_AHBSTAT : integer := 1;
   constant CFG_AHBSTATN : integer := (1);
 -- Gaisler Ethernet core
-  constant CFG_GRETH : integer := 0;
+  constant CFG_GRETH : integer := 1;
   constant CFG_GRETH1G : integer := 0;
   constant CFG_ETH_FIFO : integer := 8;
   constant CFG_GRETH_FMC : integer := 0;
   constant CFG_ETH_PHY_ADDR : integer := (1);
 -- GPIO port
-  constant CFG_GRGPIO_ENABLE : integer := 0;
+  constant CFG_GRGPIO_ENABLE : integer := 1;
   constant CFG_GRGPIO_IMASK : integer := 16#FFFE#;
   constant CFG_GRGPIO_WIDTH : integer := (20);
 -- GRLIB debugging

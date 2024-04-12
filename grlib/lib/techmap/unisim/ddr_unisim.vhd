@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -104,12 +105,7 @@ architecture rtl of unisim_iddr_reg is
   signal D_delay : std_ulogic;
    
 begin
-    KU : if (tech = kintexu) generate
-	    U0 : IDDRE1 generic map( IS_CB_INVERTED => '1')
-		    Port map(Q1 => Q1, Q2 => Q2, C => C1, CB => C1, D => D, R => R);
-    end generate;
-
-    VUP : if (tech = virtexup) generate
+    KU : if (tech = kintexu) or (tech = virtexup) generate
 	    U0 : IDDRE1 generic map( IS_CB_INVERTED => '1')
 		    Port map(Q1 => Q1, Q2 => Q2, C => C1, CB => C1, D => D, R => R);
     end generate;

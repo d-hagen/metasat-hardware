@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -56,9 +57,9 @@ architecture sim of aximem is
   constant axi_somi_idle : axi_somi_type := (
     aw => (ready => '1'),
     w => (ready => '1'),
-    b => (id => "0000", resp => "00", valid => '0'),
+    b => (id => "00000000", resp => "00", valid => '0'),
     ar => (ready => '1'),
-    r => (id => "0000", data => (others => '0'), resp => "00", last => '0', valid => '0')
+    r => (id => "00000000", data => (others => '0'), resp => "00", last => '0', valid => '0')
     );
 
   signal rbin: ramback_in_array(1 to 1) := (others => ramback_in_none);
@@ -66,7 +67,7 @@ architecture sim of aximem is
 
   type rwq_entry is record
     valid: boolean;
-    id: std_logic_vector(3 downto 0);
+    id: std_logic_vector(7 downto 0);
     addr: std_logic_vector(31 downto 0);
     len: std_logic_vector(3 downto 0);
     size: std_logic_vector(2 downto 0);
@@ -76,7 +77,7 @@ architecture sim of aximem is
 
   type wdataq_entry is record
     valid: boolean;
-    id: std_logic_vector(3 downto 0);
+    id: std_logic_vector(7 downto 0);
     data: std_logic_vector(axibits-1 downto 0);
     strb: std_logic_vector(axibits/8-1 downto 0);
   end record;

@@ -1,5 +1,5 @@
-VER=$(VNAME)2022.4
-BID=4280
+VER=$(VNAME)2023.4
+BID=4288
 CC=gcc
 SED=sed
 
@@ -16,6 +16,7 @@ endif
 ifeq ("$(GRLIB_SIMULATOR)","")
 GRLIB_SIMULATOR = ModelSim
 endif
+
 
 # Select LEON3 version
 # The switch between gaisler/leon3 and gaisler/leon3pkgv1v2 is handled
@@ -186,6 +187,7 @@ help:
 	@echo "   make quartus         : synthesize and place&route using Quartus"
 	@echo "   make quartus-map     : synthesize design using Quartus"
 	@echo "   make quartus-synp    : synthesize with synplify, place&route with Quartus"
+	@echo "   make radiant         : synthesize and place&route and generate bitstreams with Radiant"
 	@echo "   make synplify        : synthesize design using synplify"
 	@echo "   make vivado          : synthesize and place&route with Xilinx Vivado"
 	@echo "   make nanoxpython     : synthesize and place&route with NanoXplore NanoXmap"
@@ -331,7 +333,7 @@ riviera-run: riviera_ws
 ifeq ("$(VSIMOPT)","")
 	vsimsa -c -do "$(RIVIERA_DO); do $(realpath $(GRLIB))/bin/runvsim.do"
 else
-	vsimsa -c $(ASIMOPT) -do "$(RIVIERA_DO); $(ASIMDO)" 
+	vsimsa -c $(ASIMOPT) -do "$(RIVIERA_DO); $(ASIMDO)"
 endif
 
 riviera-launch: riviera_ws
@@ -371,14 +373,20 @@ SIMPRIMSRC = $(XILINX)/vhdl/src/simprims/simprim_Vpackage.vhd  \
 	$(XILINX)/vhdl/src/simprims/simprim_VITAL.vhd
 
 vsim: make.work
+ifeq ("$(VMAKESKIP)","")
 	@make -f make.work
+endif
 
 make.work: compile.vsim modelsim
 	@make -f make.vsim
+ifeq ("$(VMAKESKIP)","")
 	@echo "" > make.work
 	@for i in `cat libs.txt`; do vmake $$i >> make.work ; done
 	@cat make.work | sed 's/\([a-zA-Z]\)\(:[\\\/]\)/\/cygdrive\/\L\1\//' > make.work2
 	@mv make.work2 make.work
+else
+	@echo "Note: Skipping vmake"
+endif
 
 # If we have paths with ':' we assume that we are running on Cygwin:
 vsim-fix:
@@ -475,10 +483,10 @@ fpro-clean:
 # Outdated files are resolved by "GHDLM".
 
 GHDL ?= ghdl
-GHDLI = $(GHDL) -i -g
-GHDLM = $(GHDL) -m -g
+GHDLI = $(GHDL) -i
+GHDLM = $(GHDL) -m
 GHDLIOPT ?= --mb-comments
-GHDLMOPT ?= -fexplicit --ieee=synopsys --mb-comments --warn-no-binding -O2
+GHDLMOPT ?= -fexplicit --ieee=synopsys --mb-comments --warn-no-binding --warn-no-hide -O2
 GHDLRUNOPT ?= --assert-level=error --ieee-asserts=disable
 
 # Compile design
@@ -531,11 +539,7 @@ export FOUNDRY=$(GRLIB_LATTICE_RADIANT)/ispfpga
 #Setting Modelsim path by checking where vsim is, unless already set
 GRLIB_LATTICE_RADIANT_SIM_PATH?=$(dir $(shell which vsim))
 
-$(TOP)_radiant.rdf: $(TOP)_radiant.tcl
-	@for ipx in ${LATTICE_IP}; do \
-		echo "Copying IP $${ipx} from boards/$(BOARD)"; \
-		cp -r "$(GRLIB)/boards/$(BOARD)/$${ipx}" . ; \
-	done;
+$(TOP)_radiant.rdf: $(TOP)_radiant.tcl $(TOP)_radiant_build.tcl radiant-ips
 	@mkdir -p $(TOP)_radiant
 	@echo "Calling radiant in CLI mode to create project"
 	@if test -r "$(GRLIB_LATTICE_RADIANT)/bin/lin64/radiantc"; then \
@@ -546,6 +550,36 @@ $(TOP)_radiant.rdf: $(TOP)_radiant.tcl
 		echo "radiant executable not found"; \
 	fi;
 	@echo "radiant finished"
+
+#radiant-ips just takes care of generating the Lattice IPs from the cfg files
+#set in LATTICE_IP in the design Makefile
+radiant-ips: $(TOP)_radiant_gen_ips.tcl
+	@for ip_cfg in ${LATTICE_IP}; do \
+		if [ ! -d "./lattice_ips/$${ip_cfg}" ]; then \
+			echo "Copying IP cfg $${ip_cfg} from boards/$(BOARD)/lattice_ips to lattice_ips/ in project folder"; \
+			mkdir -p lattice_ips/$${ip_cfg}; \
+			cp "$(GRLIB)/boards/$(BOARD)/lattice_ips/$${ip_cfg}.cfg" lattice_ips/$${ip_cfg}/. ; \
+		else \
+			echo "IP cfg $${ip_cfg} already in lattice_ips folder. We use that one."; \
+		fi; \
+	done;
+	@if test -r "$(GRLIB_LATTICE_RADIANT)/bin/lin64/radiantc"; then \
+		radiantc $(TOP)_radiant_gen_ips.tcl; \
+	elif test -r "$(GRLIB_LATTICE_RADIANT)/bin/nt64/pnmainc.exe"; then \
+		pnmainc.exe $(TOP)_radiant_gen_ips.tcl; \
+	else \
+		echo "radiant executable not found"; \
+	fi;
+	@echo "radiant IP generation finished"
+
+radiant: $(TOP)_radiant.rdf
+	@if test -r "$(GRLIB_LATTICE_RADIANT)/bin/lin64/radiant"; then \
+		radiantc $(TOP)_radiant_build.tcl; \
+	elif test -r "$(GRLIB_LATTICE_RADIANT)/bin/nt64/pnmain.exe"; then \
+		pnmainc.exe $(TOP)_radiant_build.tcl; \
+	else \
+		echo "radiant executable not found"; \
+	fi;
 
 radiant-launch: $(TOP)_radiant.rdf
 	@if test -r "$(GRLIB_LATTICE_RADIANT)/bin/lin64/radiant"; then \
@@ -560,27 +594,33 @@ install-radiant-simlibs:
 ifeq ("$(GRLIB_LATTICE_RADIANT)","")
 	@echo "GRLIB_LATTICE_RADIANT env variable needs to be set to radiant installation directory"
 else
-	@echo "Using simulator at $(GRLIB_LATTICE_RADIANT_SIM_PATH)"
-	@echo "The simulator can be set via"
-	@echo "Building simulation libraries for $(GRLIB_LATTICE_RADIANT_SIM_DEVICE)"
-	@echo "Calling cmpl_libs.tcl to build libraries in $(GRLIB)/lib/tech/lattice/"
-	tclsh $(GRLIB_LATTICE_RADIANT)/cae_library/simulation/scripts/cmpl_libs.tcl \
-	-sim_path $(GRLIB_LATTICE_RADIANT_SIM_PATH) \
-	-target_path $(GRLIB)/lib/tech/lattice \
-	-device $(GRLIB_LATTICE_RADIANT_SIM_DEVICE)
+	@if [ ! -d $(GRLIB)/lib/tech/lattice/$(GRLIB_LATTICE_RADIANT_SIM_DEVICE) ]; then \
+		echo "Using simulator at $(GRLIB_LATTICE_RADIANT_SIM_PATH)"; \
+		echo "The simulator can be set via"; \
+		echo "Building simulation libraries for $(GRLIB_LATTICE_RADIANT_SIM_DEVICE)" ; \
+		echo "Calling cmpl_libs.tcl to build libraries in $(GRLIB)/lib/tech/lattice/" ; \
+		tclsh $(GRLIB_LATTICE_RADIANT)/cae_library/simulation/scripts/cmpl_libs.tcl \
+		-sim_path $(GRLIB_LATTICE_RADIANT_SIM_PATH) \
+		-target_path $(GRLIB)/lib/tech/lattice \
+		-device $(GRLIB_LATTICE_RADIANT_SIM_DEVICE) ; \
+	else \
+		echo "Library $(GRLIB_LATTICE_RADIANT_SIM_DEVICE) already compiled. If you want to re-compile it, " ; \
+		echo "you need first to manually delete it from: $(GRLIB)/lib/tech/lattice/  Skipping compilation." ; \
+	fi;
 endif
 
-map-radiant-simlibs: modelsim.ini
+map-radiant-simlibs: modelsim.ini install-radiant-simlibs radiant-ips
 	@echo "Mapping radiant libs"
-	@for d in lifcl lfd2nx lfcpnx ; do \
-		if [ -d $(GRLIB)/lib/tech/lattice/$$d ]; then \
-			vmap $$d $(GRLIB)/lib/tech/lattice/$$d ; \
-		fi; \
-	done;
+	@if [ -d $(GRLIB)/lib/tech/lattice/$(GRLIB_LATTICE_RADIANT_SIM_DEVICE) ]; then \
+		vmap nexus_sim $(GRLIB)/lib/tech/lattice/$(GRLIB_LATTICE_RADIANT_SIM_DEVICE) ; \
+	fi;
 
 remove-radiant-simlibs:
 	@echo "Removing simulation libraries under $(GRLIB)/lib/tech/lattice/"
 	@-rm -rf $(GRLIB)/lib/tech/lattice/{ice40up*,lfd2nx*,lfcpnx*,lfmxo5*,lifcl*,modelsim.ini,tplus.f,uaplatform.f,vmap.log}
+
+remove-radiant-ips:
+	-rm -rf lattice_ips
 
 radiant-clean:
 	-rm -rf $(TOP)_radiant* reportview.xml .recovery .setting.ini .ng_run_manager.ini
@@ -1041,7 +1081,7 @@ else
 endif
 
 remove-secureip uninstall-secureip remove-unisim uninstall-unisim:
-	@-rm $(GRLIB)/lib/tech/secureip/ise/*.vp $(GRLIB)/lib/tech/secureip_ver/ise/*.vp 
+	@-rm $(GRLIB)/lib/tech/secureip/ise/*.vp $(GRLIB)/lib/tech/secureip_ver/ise/*.vp
 	@-rm -r $(GRLIB)/lib/tech/unisims_ver/ise $(GRLIB)/lib/tech/xilinxcorelib_ver/ise
 	@-rm $(GRLIB)/lib/tech/unisim/ise/*.vhd
 
@@ -1069,7 +1109,7 @@ GRLIB_XIL_compxlib_Simulator=questasim
 endif
 endif
 
-# Simulator vivado 
+# Simulator vivado
 ifeq ("$(GRLIB_XIL_simlib_Simulator)","")
 # Set default to ModelSim for GRLIB_XIL_simlib_Simulator
 export GRLIB_XIL_simlib_Simulator=modelsim
@@ -1163,7 +1203,7 @@ endif
 clean-xilinx-lib:
 	-rm -rf xilinx_lib compxlib.* .cxl.*.version
 
-ip_7series_generate: vivado/$(TOP)_vivado.tcl $(VHDLSYNFILES) $(VERILOGSYNFILES) 
+ip_7series_generate: vivado/$(TOP)_vivado.tcl $(VHDLSYNFILES) $(VERILOGSYNFILES)
 ifeq ($(CONFIG_MIG_7SERIES),y)
 	@if [ -d ./vivado/$(DESIGN)/$(DESIGN).srcs/sources_1/ip ]; then \
 	echo "Xilinx IPs already generated!"; else \
@@ -1289,7 +1329,7 @@ endif
 PLANAHEAD_SIMSET=sim_1
 
 planahead-launch: planahead/$(TOP)_planAhead.tcl $(VHDLSYNFILES) $(VERILOGSYNFILES)
-	planAhead -mode gui -source ./planahead/$(TOP)_planAhead.tcl 
+	planAhead -mode gui -source ./planahead/$(TOP)_planAhead.tcl
 	@if test -r ./planahead/$(DESIGN)/$(DESIGN).runs/impl_1/$(TOP).bit; then \
 	  cp ./planahead/$(DESIGN)/$(DESIGN).runs/impl_1/$(TOP).bit . ; \
 	  cp ./planahead/$(DESIGN)/$(DESIGN).runs/impl_1/$(TOP).msk . ; \
@@ -1634,7 +1674,7 @@ remove-dare:
 ######### Microsemi targets ###############
 PROASIC3LIBS = proasic3 proasic3e proasic3l
 XLIBEROLIBSKIP = $(ASICLIBS) $(LATTICELIBS) $(GLS_LIBS) \
-	$(ALTERALIBS) $(XILINXLIBS) $(PROASIC3LIBS) fusion smartfusion2 axcelerator rtg4 polarfire 
+	$(ALTERALIBS) $(XILINXLIBS) $(PROASIC3LIBS) fusion smartfusion2 axcelerator rtg4 polarfire
 LIBEROLIBSKIP = $(XLIBEROLIBSKIP:%=%|) dummy
 LIBERODIRSKIPX = $(ASICLIBS) $(XILINXLIBS) $(ALTERALIBS) $(LATTICELIBS)
 LIBERODIRSKIP = $(LIBERODIRSKIPX:%=%|) dummy
@@ -1802,20 +1842,46 @@ rc-clean:
 
 #########    NanoXplore  targets   ############
 
-install-nxlibrary: 
+# There are some issues with supporting installing simulation libraries for
+# multiple tool versions:
+# 1. In NanoXmap 2 only a single nxLibrary.vhdp is provided while in later
+#  versions there are separate nxLibrary-Medium.vhdl, nxLibrary-Large.vdhp
+#  and nxLibrary-Ultra.vhdp files. (nxLibrary.vhdp remains, but is a symbolic
+#  link to nxLibrary-Medium.vhdp).
+# 2. Some tool versions seem to lack share/modelsim in favour of share/backannoted
+#  [sic?]. The spelling of "backannoted" varies with version.
+# 3. The GRLIB techmap layer assumes the existence of NG-ULTRA primitives and
+#  will not compile when these are not present.
+# 4. The .vhdp files from later tool versions require VHDL 2008.
+# The following has been successfully tested with nxdesignsuite-22.3.0.2 and
+# NXmap-22.1.0.1 (though ModelSim does report some unresolved warnings).
+install-nxlibrary:
 ifeq ("$(NANOXLIBPATH)","")
 	@echo "NANOXLIBPATH is not set. NanoXplore library installation failed"
 else
-	-@cp $(NANOXLIBPATH)/nxLibrary.vhdp $(GRLIB)/lib/tech/nx/components/nxLibrary.vhdp
-	-@cp $(NANOXLIBPATH)/nxLibrary.vhdp $(GRLIB)/lib/tech/nx/components/nxLibrary-Medium.vhdp
-	-@cp $(NANOXLIBPATH)/nxLibrary.vhdp $(GRLIB)/lib/tech/nx/components/nxLibrary-Large.vhdp
+ifeq ("$(wildcard $(NANOXLIBPATH)/nxLibrary-Ultra.vhdp)","")
+	@echo "ERROR: Could not find nxLibrary-Ultra.vhdp in $(NANOXLIBPATH)"
+	@echo " This suggests an old tool version without NG-ULTRA support. The GRLIB"
+	@echo " techmap layer for NanoXplore will fail to compile. "
+	@echo "NanoXplore library installation failed"
+else
+	@cp $(NANOXLIBPATH)/nxLibrary.vhdp $(GRLIB)/lib/tech/nx/components/nxLibrary.vhdp
+	@echo "Copied nxLibrary.vhdp"
+	@cp $(NANOXLIBPATH)/nxLibrary-Medium.vhdp $(GRLIB)/lib/tech/nx/components/nxLibrary-Medium.vhdp
+	@echo "Copied nxLibrary-Medium.vhdp"
+	@cp $(NANOXLIBPATH)/nxLibrary-Large.vhdp $(GRLIB)/lib/tech/nx/components/nxLibrary-Large.vhdp
+	@echo "Copied nxLibrary-Large.vhdp"
+	@cp $(NANOXLIBPATH)/nxLibrary-Ultra.vhdp $(GRLIB)/lib/tech/nx/components/nxLibrary-Ultra.vhdp
+	@echo "Copied nxLibrary-Ultra.vhdp"
 	@echo "NanoXplore library installed in GRLIB"
+endif
 endif
 
 remove-nxlibrary:
-	-@rm $(GRLIB)/lib/tech/nx/components/nxLibrary.vhdp
-	-@rm $(GRLIB)/lib/tech/nx/components/nxLibrary-Medium.vhdp
-	-@rm $(GRLIB)/lib/tech/nx/components/nxLibrary-Large.vhdp
+	rm -f $(GRLIB)/lib/tech/nx/components/nxLibrary.vhdp
+	rm -f $(GRLIB)/lib/tech/nx/components/nxLibrary-Medium.vhdp
+	rm -f $(GRLIB)/lib/tech/nx/components/nxLibrary-Large.vhdp
+	rm -f $(GRLIB)/lib/tech/nx/components/nxLibrary-Ultra.vhdp
 	@echo "NanoXplore libraries removed from GRLIB"
 
 
@@ -1840,7 +1906,7 @@ nanoxpython: nanoxmap-gen
 nx-prog-fpga:
 	nxbase2_cli -i -c "chip bitstream load  $(TOP)_bitfile.nxb"
 
-#Write the generate bitstream into the SPI flash daughter board and validate the memory content 
+#Write the generate bitstream into the SPI flash daughter board and validate the memory content
 nx-prog-prom:
 	nxbase2_cli -i -c "board spi flash program  $(TOP)_bitfile.nxb" -c "board spi flash validate $(TOP)_bitfile.nxb"
 
@@ -1885,7 +1951,7 @@ empty:=
 s:= $(empty) $(empty)
 u:= |
 
-scripts: $(prereqtools) 
+scripts: $(prereqtools)
 
 $(targettools): scriptgendone
 
@@ -1930,7 +1996,7 @@ none-clean:
 
 ######## xconfig targets   ####################
 
-ifneq ($(CURLIB), $(GRLIB))
+ifneq ("$(GRLIB)", "")
   include $(GRLIB)/bin/Makefile.config
 endif
 
@@ -1958,7 +2024,20 @@ main.tk : config.in tkparse.exe $(CONFDEP) $(HELPDEP)
 	./tkparse.exe config.in $(GRLIB) $(EXTRALIBS) > main.tk
 
 $(GRLIB)/bin/Makefile.config:
-	make -C $(GRLIB) -f bin/Makefile cfgdep
+	@printf "CONFDEP = "  > $(GRLIB)/bin/Makefile.config
+	@for i in `find $(GRLIB)/lib -name '*.in' -print | grep -v vhd | xargs`; do \
+	  echo -n $$i >> $(GRLIB)/bin/Makefile.config ; \
+	  printf " \\"  >> $(GRLIB)/bin/Makefile.config ; \
+	  printf "\n"  >> $(GRLIB)/bin/Makefile.config ; \
+	done;
+	@printf "  \n" >> $(GRLIB)/bin/Makefile.config
+	@printf "HELPDEP = "  >> $(GRLIB)/bin/Makefile.config
+	@for i in `find $(GRLIB)/lib -name '*.in.help' -print | xargs`; do \
+	  echo -n $$i >> $(GRLIB)/bin/Makefile.config ; \
+	  printf " \\"  >> $(GRLIB)/bin/Makefile.config ; \
+	  printf "\n"  >> $(GRLIB)/bin/Makefile.config ; \
+	done;
+	@printf "  \n" >> $(GRLIB)/bin/Makefile.config
 
 xconfig: lconfig.tk $(GRLIB)/bin/Makefile.config
 	@if test -r "/usr/bin/wish84.exe"; then /usr/bin/wish84.exe -f lconfig.tk; \

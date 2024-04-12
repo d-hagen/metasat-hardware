@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -74,6 +75,19 @@ architecture rtl of syncram128bw is
   end component;
 
 
+  component versal_syncram128bw
+  generic ( abits : integer := 9);
+  port (
+    clk     : in  std_ulogic;
+    address : in  std_logic_vector (abits -1 downto 0);
+    datain  : in  std_logic_vector (127 downto 0);
+    dataout : out std_logic_vector (127 downto 0);
+    enable  : in  std_logic_vector (15 downto 0);
+    write   : in  std_logic_vector (15 downto 0)
+  );
+  end component;
+
+
   component altera_syncram128bw
   generic ( abits : integer := 9);
   port (
@@ -128,11 +142,15 @@ begin
   end generate;
   
   s64 : if has_sram128bw(tech) = 1 generate
-    xc2v : if (is_unisim(tech) = 1)  and (is_ultrascale(tech) = 0) generate 
+    xc2v : if (is_unisim(tech) = 1)  and (is_ultrascale(tech) = 0) and (tech /= versal) generate 
       x0 : unisim_syncram128bw generic map (abits)
          port map (clk, address, datain, dataoutx, xenable, xwrite);
     end generate;
-    xu : if (is_unisim(tech) = 1)  and (is_ultrascale(tech) = 1) generate 
+    xu : if (is_unisim(tech) = 1)  and (is_ultrascale(tech) = 1) and (tech /= versal) generate 
+      x0 : ultrascale_syncram128bw generic map (abits)
+         port map (clk, address, datain, dataoutx, xenable, xwrite);
+    end generate;
+    xversal : if (tech = versal) generate
       x0 : ultrascale_syncram128bw generic map (abits)
          port map (clk, address, datain, dataoutx, xenable, xwrite);
     end generate;

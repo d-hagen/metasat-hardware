@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -22,7 +23,6 @@
 -- Author:      Jiri Gaisler, Edvin Catovic, Gaisler Research
 -- Modified:    Magnus Hjorth, Cobham Gaisler (LEON-REX extension)
 --              Alen Bardizbanyan, Cobham Gaisler (ITRACE filtering extensions)
---              Marc Solé Bonet, Barcelona Supercomputing Center (SPARROW extension)
 -- Description: LEON3 7-stage integer pipline
 ------------------------------------------------------------------------------
 
@@ -44,9 +44,6 @@ use gaisler.arith.all;
 -- pragma translate_off
 use grlib.sparc_disas.all;
 -- pragma translate_on
-library bsc;
-use bsc.sparrow.all;
-
 
 entity iu3 is
   generic (
@@ -56,7 +53,6 @@ entity iu3 is
     fpu      : integer range 0 to 15 := 0;
     v8       : integer range 0 to 63 := 0;
     cp, mac  : integer range 0 to 1 := 0;
-    sparrow  : integer range 0 to 1 := 0; -- sparrow
     dsu      : integer range 0 to 1 := 0;
     nwp      : integer range 0 to 4 := 0;
     pclow    : integer range 0 to 2 := 2;
@@ -99,8 +95,6 @@ entity iu3 is
     mulo  : in  mul32_out_type;
     divi  : out div32_in_type;
     divo  : in  div32_out_type;
-    sdi   : out sprw_in_type; -- sparrow
-    sdo   : in  sprw_out_type; -- sparrow
     fpo   : in  fpc_out_type;
     fpi   : out fpc_in_type;
     cpo   : in  fpc_out_type;
@@ -143,7 +137,6 @@ architecture rtl of iu3 is
         conv_std_logic_vector(NWIN,RFBITS-4) & "0000";
   constant FPEN   : boolean := (fpu /= 0);
   constant CPEN   : boolean := (cp = 1);
-  constant SPRWEN : boolean := (sparrow = 1); -- sparrow
   constant MULEN  : boolean := (v8 /= 0);
   constant MULTYPE: integer := (v8 / 16);
   constant DIVEN  : boolean := (v8 /= 0);
@@ -192,7 +185,6 @@ architecture rtl of iu3 is
     wreg  : std_ulogic;
     wicc  : std_ulogic;
     wy    : std_ulogic;
-    sprw  : std_ulogic;
     ld    : std_ulogic;
     pv    : std_ulogic;
     rett  : std_ulogic;
@@ -407,14 +399,12 @@ architecture rtl of iu3 is
     stwin  : cwptype;                   -- starting window
     cwpmax : cwptype;                   -- max cwp value
     ducnt  : std_ulogic;
-    sprwctrl: sprw_ctrl_reg_type;       -- sparrow control register 
   end record;
   
   type write_reg_type is record
     s      : special_register_type;
     result : word;
     wa     : rfatype;
-    sprw   : std_ulogic;
     wreg   : std_ulogic;
     except : std_ulogic;
     twcwp  : cwptype;                   -- trap wrap CWP (for regfile partitioning)
@@ -1057,7 +1047,6 @@ architecture rtl of iu3 is
     wreg  => '0',
     wicc  => '0',
     wy    => '0',
-    sprw  => '0',
     ld    => '0',
     pv    => '0',
     rett  => '0',
@@ -1277,7 +1266,6 @@ architecture rtl of iu3 is
     s.stwin  := (others => '0');
     s.cwpmax := CWPMAX;
     s.ducnt  := '1';
-    s.sprwctrl := sprw_ctrl_reg_res; -- sparrow
     return s;
   end function special_register_res;
   --constant write_reg_res : write_reg_type := (
@@ -1294,7 +1282,6 @@ architecture rtl of iu3 is
     w.s      := special_register_res;
     w.result := (others => '0');
     w.wa     := (others => '0');
-    w.sprw   := '0';
     w.wreg   := '0';
     w.except := '0';
     w.twcwp:= (others => '0');
@@ -1577,8 +1564,6 @@ begin
         if notag = 1 then illegal_inst := '1'; end if;
       when UMAC | SMAC => 
         if not MACEN then illegal_inst := '1'; end if;
-      when SPRW | WRSCR | RDSCR => -- sparrow: add SPRW and WR/RDSCR to legal instruction if SPARROW enabled
-        if not SPRWEN then illegal_inst := '1'; end if;
       when UMUL | SMUL | UMULCC | SMULCC => 
         if not MULEN then illegal_inst := '1'; end if;
       when UDIV | SDIV | UDIVCC | SDIVCC => 
@@ -1850,18 +1835,11 @@ end;
   variable ldlock, icc_check, bicc_hold, chkmul, y_check : std_logic;
   variable icc_check_bp, y_hold, mul_hold, bicc_hold_bp, fins, call_hold  : std_ulogic;
   variable de_fins_holdx : std_ulogic;
-  variable spcheck : std_ulogic; --sparrow
-  variable sprw_op1 : std_logic_vector(4 downto 0); -- sparrow
-  variable sprw_op2 : std_logic_vector(2 downto 0); -- sparrow
   begin
     op := inst(31 downto 30); op3 := inst(24 downto 19); 
     op2 := inst(24 downto 22); cond := inst(28 downto 25); 
     rs1 := inst(18 downto 14); i := inst(13);
-
-    sprw_op2 := r.a.ctrl.inst(12 downto 10); -- sparrow
-    sprw_op1 := r.a.ctrl.inst(9 downto 5); -- sparrow
-    spcheck := '0'; -- sparrow
-    ldcheck1 := '0'; ldcheck2 := '0'; ldcheck3 := '0'; ldlock := '0'; 
+    ldcheck1 := '0'; ldcheck2 := '0'; ldcheck3 := '0'; ldlock := '0';
     ldchkra := '1'; ldchkex := '1'; icc_check := '0'; bicc_hold := '0';
     y_check := '0'; y_hold := '0'; bp := '0'; mul_hold := '0';
     icc_check_bp := '0'; nobp := '0'; fins := '0'; call_hold := '0';
@@ -1885,7 +1863,7 @@ end;
         when RDY => 
           ldcheck1 := '0'; ldcheck2 := '0';
           if MACPIPE then y_check := '1'; end if;
-        when RDWIM | RDTBR | RDSCR =>  --sparrow: RDSCR
+        when RDWIM | RDTBR => 
           ldcheck1 := '0'; ldcheck2 := '0';
         when RDPSR => 
           ldcheck1 := '0'; ldcheck2 := '0'; icc_check := '1';
@@ -1893,8 +1871,6 @@ end;
           if DIVEN then y_check := '1'; nobp := op3(4); end if; -- no BP on divcc
         when FPOP1 | FPOP2 => ldcheck1:= '0'; ldcheck2 := '0'; fins := BPRED;
         when JMPL => call_hold := '1'; nobp := BPRED;
-        when WRSCR =>
-            spcheck := '1';
         when others => 
         end case;
       when LDST =>
@@ -1948,16 +1924,6 @@ end;
         (MACPIPE and r.e.mac='1' and ldcheck3='1' and r.e.ctrl.rd=rfrd)
         )
     then ldlock := '1'; end if;
-
-    -- sparrow: bypass between stages only possible if second stage is nop
-    -- then if not nop we hold pc to use the bypass
-    if SPRWEN then
-        if (r.a.ctrl.sprw and r.a.ctrl.wreg and ldchkra) = '1' and sprw_op2(1 downto 0) /= "00" and
-            (((ldcheck1 = '1') and (r.a.ctrl.rd = rfa1)) or
-            ((ldcheck2 = '1') and (r.a.ctrl.rd = rfa2))) 
-        then ldlock := '1'; end if;
-    end if;
-
 
     de_fins_holdx := BPRED and fins and (r.a.bp or r.e.bp); -- skip BP on FPU inst in branch target address
     de_fins_hold := de_fins_holdx;
@@ -2178,29 +2144,6 @@ end;
 
   end;
 
-  --SPARROW control signals generation
-  procedure sprw_gen(inst : word; sprwen : out std_ulogic) is
-  variable enable_sprw : std_ulogic;
-  variable op : std_logic_vector(1 downto 0);
-  variable op3 : std_logic_vector(5 downto 0);
-  begin
-    op  := inst(31 downto 30);
-    op3 := inst(24 downto 19);
-
-    enable_sprw := '0';
-
-    case op is 
-    when FMT3 =>
-        case op3 is
-        when SPRW =>
-            enable_sprw := '1';
-        when others =>
-        end case;
-    when others => 
-    end case;
-    sprwen := enable_sprw;
-  end;
-
 -- register write address generation
 
   procedure rd_gen(r : registers; inst : word; wreg, ld : out std_ulogic; 
@@ -2240,7 +2183,6 @@ end;
             end if;
           else write_reg := '1'; end if;
         when RETT | WRPSR | WRY | WRWIM | WRTBR | TICC | FLUSH => null;
-        when WRSCR => null; -- sparrow: added WRSCR to no dest reg
         when FPOP1 | FPOP2 => null;
         when CPOP1 | CPOP2 => null;
         when SAVE | IADD =>
@@ -2305,7 +2247,6 @@ end;
       when RDTBR => spr(31 downto 4) := r.w.s.tba & r.w.s.tt;
       when RDWIM => spr(NWIN-1 downto 0) := r.w.s.wim;
                     if RFPART then spr(NWIN-1 downto 0) := r.w.s.wim and not xc_wimmask; end if;
-      when RDSCR => if SPRWEN then spr := to_word(r.w.s.sprwctrl); end if; -- sparrow
       when others =>
       end case;
     return(spr);
@@ -2409,10 +2350,6 @@ end;
       when XORCC | IXOR | WRPSR | WRWIM | WRTBR | WRY  => 
         aluop := EXE_XOR; alusel := EXE_RES_LOGIC;
       when RDPSR | RDTBR | RDWIM => aluop := EXE_SPR;
-      -- sparrow --
-      when WRSCR => if SPRWEN then aluop := EXE_XOR; alusel := EXE_RES_LOGIC; end if;
-      when RDSCR => if SPRWEN then aluop := EXE_SPR; end if;
-      -------------
       when RDY => aluop := EXE_RDY;
       when ISLL => aluop := EXE_SLL; alusel := EXE_RES_SHIFT; shleft := '1'; 
                    shcnt := not iop2(4 downto 0); invop2 := '1';
@@ -3123,8 +3060,6 @@ end;
           s.wim := r.x.result(NWIN-1 downto 0);
         when WRTBR =>
           s.tba := r.x.result(31 downto 12);
-        when WRSCR => -- sparrow
-          if SPRWEN then s.sprwctrl := to_scr(r.x.result); end if;
         when SAVE =>
           if (not AWPEN) or r.w.s.aw='0' then
             if RFPART and (r.w.s.cwp=CWPMIN) then s.cwp := r.w.s.cwpmax;
@@ -3976,7 +3911,7 @@ begin
   BLOCKBPMISS <= '0' when bp = 0 else '1' when bp = 1 else r.w.s.dbprepl;
 
   comb : process(ico, dco, rfo, r, wpr, ir, dsur, rstn, holdn, irqi, dbgi, fpo, cpo, tbo, tbo_2p,
-                 mulo, divo, sdo, dummy, rp, BPRED, BLOCKBPMISS) -- sparrow
+                 mulo, divo, dummy, rp, BPRED, BLOCKBPMISS)
 
   variable v    : registers;
   variable vp  : pwd_register_type;
@@ -4020,7 +3955,6 @@ begin
   variable ex_dci : dc_in_type;
   variable ex_force_a2, ex_load, ex_ymsb : std_ulogic;
   variable ex_op1, ex_op2, ex_result, ex_result2, ex_result3, mul_op2 : word;
-  variable ex_result4 : word; -- sparrow
   variable ex_shcnt : std_logic_vector(4 downto 0);
   variable ex_dsuen : std_ulogic;
   variable ex_ldbp2 : std_ulogic;
@@ -4112,8 +4046,6 @@ begin
       end if;
     elsif MACEN and MACPIPE and ((not r.x.ctrl.annul and r.x.mac) = '1') then
       xc_result := mulo.result(31 downto 0);
-    elsif SPRWEN and (r.x.ctrl.sprw and (not r.x.ctrl.annul)) = '1'  then -- sparrow
-        xc_result := sdo.result; 
     else xc_result := r.x.result; end if;
     xc_df_result := xc_result;
 
@@ -4313,7 +4245,6 @@ begin
         v.w.s.cwp := RRES.w.s.cwp;
         v.w.s.icc := RRES.w.s.icc;
       end if;
-      v.w.s.sprwctrl := RRES.w.s.sprwctrl; -- sparrow
       v.w.s.dbp := RRES.w.s.dbp;
       v.w.s.dbprepl := RRES.w.s.dbprepl;
       v.w.s.rexdis := RRES.w.s.rexdis;
@@ -4447,16 +4378,8 @@ begin
           ex_op2 := not ex_op2; ex_shcnt := not ex_shcnt;
         end if;
       end if;
-    if SPRWEN then sdi.bp  <= r.e.ldbp2 & r.e.ldbp1; end if; -- sparrow bypass mem to module
-    else
-        if SPRWEN then 
-            sdi.bp  <= "00"; -- sparrow no bypass mem to module
-        end if;
     end if;
 
-    if SPRWEN then
-        sdi.bpv <= r.x.data(0); -- sparrow data bypassed from mem
-    end if;
 
     ex_add_res := (ex_op1 & '1') + (ex_op2 & r.e.alucin);
 
@@ -4531,37 +4454,14 @@ begin
     
     exception_detect(r, wpr, dbgi, r.a.ctrl.trap, r.a.ctrl.tt, 
                      pccomp, v.e.ctrl.trap, v.e.ctrl.tt);
-
-    -- sparrow: bypass data from module 1st stage
-    if SPRWEN and r.e.ctrl.sprw = '1' then 
-        ex_result4 := sdo.s1bp;
-    else ex_result4 := ex_result3;
-    end if;
-
-    -- sparrow: bypass data from module 2nd stage
-    if SPRWEN and r.m.ctrl.sprw = '1' then
-        me_bp_res := sdo.s2bp;
-    else me_bp_res := v.x.result;
-    end if;
-
-    op_mux(r, rfo.data1, ex_result4, me_bp_res, xc_df_result, zero32, 
+    op_mux(r, rfo.data1, ex_result3, v.x.result, xc_df_result, zero32, 
         r.a.rsel1, v.e.ldbp1, ra_op1, '0');
-    op_mux(r, rfo.data2,  ex_result4, me_bp_res, xc_df_result, r.a.imm, 
+    op_mux(r, rfo.data2,  ex_result3, v.x.result, xc_df_result, r.a.imm, 
         r.a.rsel2, ex_ldbp2, ra_op2, '1');
     alu_op(r, ra_op1, ra_op2, v.m.icc, v.m.y(0), ex_ldbp2, v.e.op1, v.e.op2,
            v.e.aluop, v.e.alusel, v.e.aluadd, v.e.shcnt, v.e.sari, v.e.shleft,
            v.e.ymsb, v.e.mul, ra_div, v.e.mulstep, v.e.mac, v.e.ldbp2, v.e.invop2
            );
-    -- sparrow: configure SPARROW module input
-    if SPRWEN then
-        sdi.ra <= ra_op1;
-        sdi.rb <= ra_op2;
-        sdi.op2 <= r.a.ctrl.inst(12 downto 10);
-        sdi.op1 <= r.a.ctrl.inst(9 downto 5);
-        sdi.rc_we <= r.a.ctrl.sprw and (not r.a.ctrl.annul);
-        sdi.ctrl <= r.w.s.sprwctrl;
-    end if;
-
     cin_gen(r, v.m.icc(0), v.e.alucin);
     bp_miss_ra(r, ra_bpmiss, de_bpannul);
     v.e.bp := r.a.bp and not ra_bpmiss;
@@ -4634,23 +4534,12 @@ begin
     v.a.rfa2 := de_raddr2(RFBITS-1 downto 0); 
 
     rd_gen(r, de_inst, v.a.ctrl.wreg, v.a.ctrl.ld, de_rd, de_rexen);
-    
-    -- sparrow: call to sprw_gen
-    if SPRWEN then sprw_gen(de_inst, v.a.ctrl.sprw); end if;
-
     if r.d.annul='1' then de_rexen:='0'; end if;
     regaddr(de_cwp, de_rd, r.d.stwin, r.d.cwpmax, v.a.ctrl.rd);
     
     fpbranch(de_inst, fpo.cc, de_fbranch);
     fpbranch(de_inst, cpo.cc, de_cbranch);
-
-    -- sparrow: choose normal immediate or sprw one
-    if SPRWEN and v.a.ctrl.sprw = '1' then 
-        v.a.imm := imm_sprw(de_inst(9 downto 5), de_inst(4 downto 0));
-    else 
-        v.a.imm := imm_data(r, de_inst, de_reximmexp, de_reximmval);
-    end if;
-
+    v.a.imm := imm_data(r, de_inst, de_reximmexp, de_reximmval);
       de_iperr := '0';
     lock_gen(r, de_rs2, de_rd, v.a.rfa1, v.a.rfa2, v.a.ctrl.rd, de_inst, 
         fpo.ldlock, v.e.mul, ra_div, de_wcwp, v.a.ldcheck1, v.a.ldcheck2, de_ldlock, 
@@ -4664,8 +4553,6 @@ begin
 
     v.a.bp := v.a.bp and not v.a.ctrl.annul;
     v.a.nobp := v.a.nobp and not v.a.ctrl.annul;
-   
-    if SPRWEN then v.a.ctrl.sprw := v.a.ctrl.sprw and not v.a.ctrl.annul; end if; -- sparrow
 
     v.a.ctrl.inst := de_inst;
     v.a.decill := de_rexillinst or (de_rexen and r.w.s.rextrap);

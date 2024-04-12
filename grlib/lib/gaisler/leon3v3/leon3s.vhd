@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -43,7 +44,6 @@ entity leon3s is
     v8         :     integer range 0 to 63    := 0;
     cp         :     integer range 0 to 1     := 0;
     mac        :     integer range 0 to 1     := 0;
-    sparrow    :     integer range 0 to 1     := 0; --sparrow
     pclow      :     integer range 0 to 2     := 2;
     notag      :     integer range 0 to 1     := 0;
     nwp        :     integer range 0 to 4     := 0;
@@ -122,7 +122,6 @@ begin
       v8         => v8,
       cp         => cp,
       mac        => mac,
-      sparrow    => sparrow,
       pclow      => pclow,
       notag      => notag,
       nwp        => nwp,

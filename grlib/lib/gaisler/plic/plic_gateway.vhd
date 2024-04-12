@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -117,17 +118,24 @@ begin
     -- Irq edge detection
     v.irqsync           := irqi;
 
+    
     -- Irq pending counter with edge-triggered interrupts
-    if r.irqsync = '0' and irqi = '1' then
+    if (r.irqsync = '0' and irqi = '1') and 
+       (r.decr = '1' and r.pending /= zeros) then
+      -- pending should increase due to the new interrupt
+      -- but decrease becasue one interrupt was claimed.
+      -- As a result v.pending value doesn't change
+      null;
+    elsif r.irqsync = '0' and irqi = '1' then
       if r.pending /= max then
         v.pending       := r.pending + 1;
       end if;
-    end if;
-
-    if (r.decr = '1' and r.pending /= zeros) then
+    elsif (r.decr = '1' and r.pending /= zeros) then
       v.pending       := r.pending - 1;
     end if;
-    
+
+
+
     ---------------------------------------------------
     -- Interrupt Generation
     ---------------------------------------------------

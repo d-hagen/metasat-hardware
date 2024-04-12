@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -764,6 +765,8 @@ architecture sim of spi_flash is
                 exit receiving;
               when GOTONRMADDR =>
                 deltaaddr4b := 0;
+                exit receiving;
+              when NOPCMD =>
                 exit receiving;
               when others =>
                 assert false report "Unsupported read command. CMD received:  " & tost(indata) severity warning;

@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -53,6 +54,9 @@ begin
             or (tech = kintexu) or (tech = virtexup) generate
     u0 : virtex4_inpad_ds generic map (level, voltage) port map (padp, padn, o);
   end generate;
+  xcversal : if (tech = versal) generate
+    u0 : versal_inpad_ds generic map (level, voltage) port map (padp, padn, o);
+  end generate  ;
   axc : if (tech = axcel) or (tech = axdsp) generate
     u0 : axcel_inpad_ds generic map (level, voltage) port map (padp, padn, o);
   end generate;

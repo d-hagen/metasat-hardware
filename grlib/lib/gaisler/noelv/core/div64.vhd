@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -34,7 +35,8 @@ use grlib.config.all;
 use grlib.stdlib.tost;
 library gaisler;
 use gaisler.noelv.all;
-use gaisler.noelvint.all;
+use gaisler.noelvint.div_in_type;
+use gaisler.noelvint.div_out_type;
 use gaisler.utilnv.all_0;
 use gaisler.utilnv.to_bit;
 use gaisler.utilnv.u2i;

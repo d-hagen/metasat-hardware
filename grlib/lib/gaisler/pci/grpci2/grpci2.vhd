@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -4135,7 +4136,7 @@ ar_atp_trans_gated_and.mstswdis           <= ar.atp_trans.mstswdis;
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
 
-acomb : process(ar, rst, pr_pta_trans_gated_and, dmao0, dmao1, tm_fifoo_pta, ms_fifoo_pta, md_fifoo_ptd, ahbsi, apbi, dirq, pcii.int, pt_fifoo_ad, pt_fifoo_sig, pr.ptta_trans, pcisig, lahbm_rst, lahbs_rst, lahb_rst, iotmact)
+acomb : process(ar, rst, pr_pta_trans_gated_and, dmao0, dmao1, tm_fifoo_pta, ms_fifoo_pta, md_fifoo_ptd, ahbsi, apbi, tbapbi, dirq, pcii.int, pt_fifoo_ad, pt_fifoo_sig, pr.ptta_trans, pcisig, lahbm_rst, lahbs_rst, lahb_rst, iotmact)
 variable av       : amba_reg_type;
 variable pta_trans: pci_to_ahb_trans_type;
 variable first    : std_logic;
