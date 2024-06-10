@@ -17,8 +17,21 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-const char* kernel_file = "kernel.bin";
-uint32_t count = 0;
+#ifndef ARG_K
+#define ARG_K "kernel.bin"
+#endif
+
+#ifndef ARG_N
+#define ARG_N 0
+#endif
+
+#ifdef NFILESYS
+#include "kernel.h"
+#else
+const char* kernel_file = ARG_K;
+#endif
+
+uint32_t count = ARG_N;
 
 std::vector<TYPE> src_data;
 std::vector<TYPE> ref_data;
@@ -27,6 +40,7 @@ vx_device_h device = nullptr;
 std::vector<uint8_t> staging_buf;
 kernel_arg_t kernel_arg = {};
 
+#ifndef NFILESYS
 static void show_usage() {
    std::cout << "Vortex Test." << std::endl;
    std::cout << "Usage: [-k: kernel] [-n words] [-h: help]" << std::endl;
@@ -53,6 +67,7 @@ static void parse_args(int argc, char **argv) {
     }
   }
 }
+#endif
 
 void cleanup() {
   if (device) {
@@ -128,7 +143,9 @@ int run_test(const kernel_arg_t& kernel_arg,
 
 int main(int argc, char *argv[]) {  
   // parse command arguments
+#ifndef NFILESYS
   parse_args(argc, argv);
+#endif
 
   if (count == 0) {
     count = 1;
@@ -156,7 +173,11 @@ int main(int argc, char *argv[]) {
 
   // upload program
   std::cout << "upload program" << std::endl;  
-  RT_CHECK(vx_upload_kernel_file(device, kernel_file));
+#ifdef NFILESYS
+    RT_CHECK(vx_upload_kernel_bytes(device, kernel_bin, kernel_bin_len));
+#else
+    RT_CHECK(vx_upload_kernel_file(device, kernel_file));
+#endif
 
   // allocate device memory
   std::cout << "allocate device memory" << std::endl;

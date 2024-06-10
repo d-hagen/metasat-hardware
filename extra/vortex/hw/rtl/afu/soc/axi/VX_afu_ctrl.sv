@@ -23,7 +23,7 @@ module VX_afu_ctrl #(
 	input  wire                                 clk,
 	input  wire                                 reset,
 	// Debug
-        input wire [`XLEN-1:0]                      debug_regs [3+`ISSUE_WIDTH * 3],
+        //input wire [`XLEN-1:0]                      debug_regs [3+`ISSUE_WIDTH * 3],
 
 	// AXI4 master interface
 	output wire                                 m_axi_mem_awvalid,
@@ -264,16 +264,16 @@ module VX_afu_ctrl #(
 						`endif
 					end
 					default: begin
-						if (raddr >= MMIO_DEBUG && raddr < (MMIO_DEBUG + 4 * NUM_DEBUG_REGS)) begin
-							rdata <= {WORDS{32'(debug_regs[debug_sel])}};
-							`ifdef DBG_TRACE_AFU
-								`TRACE(2, ("%d: READ DEBUG Register %d: data=0x%0h\n", $time, raddr[`CLOG2(NUM_DEBUG_REGS)-1:0]/4, instr));
-							`endif
-						end else begin
+						//if (raddr >= MMIO_DEBUG && raddr < (MMIO_DEBUG + 4 * NUM_DEBUG_REGS)) begin
+						//	rdata <= {WORDS{32'(debug_regs[debug_sel])}};
+						//	`ifdef DBG_TRACE_AFU
+						//		`TRACE(2, ("%d: READ DEBUG Register %d: data=0x%0h\n", $time, raddr[`CLOG2(NUM_DEBUG_REGS)-1:0]/4, instr));
+						//	`endif
+						//end else begin
 							`ifdef DBG_TRACE_AFU
 								`TRACE(2, ("%d: Unknown MMIO Rd: addr=0x%0h\n", $time, raddr));
 							`endif
-						end
+						//end
 					end
 				endcase
 			end

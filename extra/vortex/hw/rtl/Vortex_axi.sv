@@ -25,7 +25,7 @@ module Vortex_axi import VX_gpu_pkg::*; #(
     input  wire                         clk,
     input  wire                         reset,
     // Debug
-    output wire [`XLEN-1:0]             debug_regs [3+`ISSUE_WIDTH * 3],
+    //output wire [`XLEN-1:0]             debug_regs [3+`ISSUE_WIDTH * 3],
 
     // AXI write request address channel    
     output wire                         m_axi_awvalid [AXI_NUM_BANKS],
@@ -196,7 +196,7 @@ module Vortex_axi import VX_gpu_pkg::*; #(
 
         .clk            (clk),
         .reset          (reset),
-	.debug_regs     (debug_regs),
+	//.debug_regs     (debug_regs),
 
         .mem_req_valid  (mem_req_valid),
         .mem_req_rw     (mem_req_rw),

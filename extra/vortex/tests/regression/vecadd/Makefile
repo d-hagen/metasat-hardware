@@ -8,7 +8,7 @@ OPTS ?= -n16
 
 include ../common.mk
 
-RISCV_TOOLCHAIN_PATH = /home/msole/metasat/software/tools/compiler/riscv-vortex-toolchain
+RISCV_TOOLCHAIN_PATH = /workspace/riscv-vortex-toolchain
 RISCV_PREFIX = riscv32-unknown-elf
 
 VX_CC  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-gcc

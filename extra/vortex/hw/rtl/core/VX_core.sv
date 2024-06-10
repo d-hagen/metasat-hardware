@@ -27,7 +27,7 @@ module VX_core import VX_gpu_pkg::*; #(
     input wire              reset,
 
     // Debug
-    output wire [`XLEN-1:0] debug_regs [3+`ISSUE_WIDTH * 3],
+    //output wire [`XLEN-1:0] debug_regs [3+`ISSUE_WIDTH * 3],
 
 `ifdef PERF_ENABLE
     VX_mem_perf_if.slave    mem_perf_if,
@@ -298,7 +298,7 @@ module VX_core import VX_gpu_pkg::*; #(
         end //always
     end //for
 
-    assign debug_regs = {debug_fetch, debug_decode, debug_issue, debug_commit, debug_stall};
+    //assign debug_regs = {debug_fetch, debug_decode, debug_issue, debug_commit, debug_stall};
 		    
 
 `ifdef SM_ENABLE

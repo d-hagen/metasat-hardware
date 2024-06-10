@@ -15,6 +15,8 @@ VX_CFLAGS += -march=rv32imaf -mabi=ilp32f
 STARTUP_ADDR ?= 0x60000000
 endif
 
+RTEMS_PATH ?=/workspace/rtems/6-new-binutils
+RTEMS_BSP ?=riscv/noel64imafdc
 RISCV_PREFIX ?= riscv$(XLEN)-unknown-elf
 RISCV_SYSROOT ?= $(RISCV_TOOLCHAIN_PATH)/$(RISCV_PREFIX)
 
@@ -102,8 +104,16 @@ run-opae: $(PROJECT) kernel.bin
 run-rtlsim: $(PROJECT) kernel.bin   
 	LD_LIBRARY_PATH=$(VORTEX_RT_PATH)/rtlsim:$(LD_LIBRARY_PATH) ./$(PROJECT) $(OPTS)
 
-soc: $(SRCS) kernel.h kernel.dump
+bare: $(SRCS) kernel.h kernel.dump
 	$(CXX) $(CXXFLAGS) $(SRCS) $(VORTEX_RT_PATH)/soc/libvortex.a -o $(PROJECT)
+
+.waf_config: $(SRCS) kernel.h kernel.dump
+	touch .waf_config
+	../../rtems/waf configure --rtems-bsps=$(RTEMS_BSP) --rtems=$(RTEMS_PATH)
+
+rtems: .waf_config
+	../../rtems/waf --verbose
+
 
 run-xrt: $(PROJECT) kernel.bin
 ifeq ($(TARGET), hw)
@@ -116,7 +126,7 @@ endif
 	$(CXX) $(CXXFLAGS) -MM $^ > .depend;
 
 clean:
-	rm -rf $(PROJECT) *.o .depend
+	rm -rf $(PROJECT) *.o .depend .waf_config  build/ .lock-waf_linux_build
 
 clean-all: clean
 	rm -rf *.elf *.bin *.dump kernel.h

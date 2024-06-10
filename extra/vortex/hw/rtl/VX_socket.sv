@@ -21,8 +21,6 @@ module VX_socket import VX_gpu_pkg::*; #(
     // Clock
     input wire              clk,
     input wire              reset,
-    // Debug
-    output wire [`XLEN-1:0] debug_regs [3+`ISSUE_WIDTH * 3],
 
 `ifdef PERF_ENABLE
     VX_mem_perf_if.slave    mem_perf_if,
@@ -226,8 +224,6 @@ module VX_socket import VX_gpu_pkg::*; #(
 
             .clk            (clk),
             .reset          (core_reset),
-
-	    .debug_regs     (debug_regs),
 
         `ifdef PERF_ENABLE
             .mem_perf_if    (mem_perf_tmp_if),

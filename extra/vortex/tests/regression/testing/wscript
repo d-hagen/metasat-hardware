@@ -1,0 +1,43 @@
+#
+# Hello world Waf script
+#
+from __future__ import print_function
+
+rtems_version = "6"
+
+try:
+    import rtems_waf.rtems as rtems
+except:
+    print('error: no rtems_waf git submodule')
+    import sys
+    sys.exit(1)
+
+import os
+
+CPPFLAGS = '-DARG_N=32 -DNFILESYS'
+
+def init(ctx):
+    rtems.init(ctx, version = rtems_version, long_commands = True)
+
+def bsp_configure(conf, arch_bsp):
+    # Add BSP specific configuration checks
+    pass
+
+def options(opt):
+    rtems.options(opt)
+
+def configure(conf):
+    conf.env.append_value('INCLUDES', ['.','../../rtems', '../../../runtime/include'])
+    rtems.configure(conf, bsp_configure = bsp_configure)
+
+def build(bld):
+    rtems.build(bld)
+
+    bld(features = 'c cprogram',
+        target = '../../thread_test',
+        cppflags = CPPFLAGS,
+        source = ['../../rtems/apptask.c',
+                  '../../rtems/init.c',
+                  'main.cpp'],
+        ldflags ='-L/workspace/vortex/runtime/soc -lvortex -lstdc++ -lm')
+

@@ -6,6 +6,8 @@ VX_SRCS = kernel.cpp
 
 OPTS ?= -n16
 
+ARG_N ?= 10
+
 include ../common.mk
 
 RISCV_TOOLCHAIN_PATH = /home/msole/metasat/software/tools/compiler/riscv-vortex-toolchain

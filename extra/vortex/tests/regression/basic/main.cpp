@@ -1,3 +1,4 @@
+#include<stdio.h>
 #include <iostream>
 #include <unistd.h>
 #include <string.h>
@@ -6,26 +7,44 @@
 #include <vector>
 #include "common.h"
 
-#define RT_CHECK(_expr)                                         \
-   do {                                                         \
-     int _ret = _expr;                                          \
-     if (0 == _ret)                                             \
-       break;                                                   \
-     printf("Error: '%s' returned %d!\n", #_expr, (int)_ret);   \
-	 cleanup();			                                              \
-     exit(-1);                                                  \
-   } while (false)
+#define RT_CHECK(_expr)                                            \
+    do {                                                           \
+        int _ret = _expr;                                          \
+        if (0 == _ret)                                             \
+        break;                                                     \
+        printf("Error: '%s' returned %d!\n", #_expr, (int)_ret);   \
+        cleanup();                                                 \
+        exit(-1);                                                  \
+    } while (false)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-const char* kernel_file = "kernel.bin";
-int test = -1;
-uint32_t count = 0;
+#ifndef ARG_T
+#define ARG_T -1
+#endif
+
+#ifndef ARG_K
+#define ARG_K "kernel.bin"
+#endif
+
+#ifndef ARG_N
+#define ARG_N 0
+#endif
+
+#ifdef NFILESYS
+#include "kernel.h"
+#else
+const char* kernel_file = ARG_K;
+#endif
+
+int test = ARG_T;
+uint32_t count = ARG_N;
 
 vx_device_h device = nullptr;
 std::vector<uint8_t> staging_buf;
 kernel_arg_t kernel_arg = {};
 
+#ifndef NFILESYS
 static void show_usage() {
    std::cout << "Vortex Test." << std::endl;
    std::cout << "Usage: [-t testno][-k: kernel][-n words][-h: help]" << std::endl;
@@ -55,6 +74,7 @@ static void parse_args(int argc, char **argv) {
     }
   }
 }
+#endif
 
 void cleanup() {
   if (device) {
@@ -214,7 +234,9 @@ int run_kernel_test(const kernel_arg_t& kernel_arg,
 
 int main(int argc, char *argv[]) {
   // parse command arguments
+#ifndef NFILESYS
   parse_args(argc, argv);
+#endif
 
   if (count == 0) {
     count = 1;
@@ -222,6 +244,7 @@ int main(int argc, char *argv[]) {
 
   // open device connection
   std::cout << "open device connection" << std::endl;
+  for(int l = 0; l < 200; l++);
   RT_CHECK(vx_dev_open(&device));
 
   uint64_t num_cores;
@@ -252,21 +275,22 @@ int main(int argc, char *argv[]) {
   // run tests  
   if (0 == test || -1 == test) {
     std::cout << "run memcopy test" << std::endl;
-    RT_CHECK(run_memcopy_test(kernel_arg.src_addr, 0x0badf00d40ff40ff, num_blocks));
+    RT_CHECK(run_memcopy_test(kernel_arg.src_addr, 0x600df00d40f0483f, num_blocks));
   }
 
   if (1 == test || -1 == test) {
     // upload program
     std::cout << "upload program" << std::endl;  
+#ifdef NFILESYS
+    RT_CHECK(vx_upload_kernel_bytes(device, kernel_bin, kernel_bin_len));
+#else
     RT_CHECK(vx_upload_kernel_file(device, kernel_file));
+#endif
 
     // upload kernel argument
     std::cout << "upload kernel argument" << std::endl;
-    {
-      auto buf_ptr = (void*)staging_buf.data();
-      memcpy(buf_ptr, &kernel_arg, sizeof(kernel_arg_t));
-      RT_CHECK(vx_copy_to_dev(device, KERNEL_ARG_DEV_MEM_ADDR, staging_buf.data(), sizeof(kernel_arg_t)));
-    }
+    memcpy(staging_buf.data(), &kernel_arg, sizeof(kernel_arg_t));
+    RT_CHECK(vx_copy_to_dev(device, KERNEL_ARG_DEV_MEM_ADDR, staging_buf.data(), sizeof(kernel_arg_t)));
 
     std::cout << "run kernel test" << std::endl;
     RT_CHECK(run_kernel_test(kernel_arg, buf_size, num_points));

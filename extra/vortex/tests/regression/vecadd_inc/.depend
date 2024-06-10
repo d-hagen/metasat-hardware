@@ -1,0 +1,3 @@
+main.o: main.cpp \
+ /home/msole/metasat/hardware/extra/vortex/runtime/include/vortex.h \
+ common.h kernel.h

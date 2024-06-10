@@ -20,7 +20,7 @@ module Vortex import VX_gpu_pkg::*; (
     input  wire                             clk,
     input  wire                             reset,
     // Debug
-    output wire [`XLEN-1:0]                 debug_regs [3+`ISSUE_WIDTH * 3],
+    //output wire [`XLEN-1:0]                 debug_regs [3+`ISSUE_WIDTH * 3],
 
     // Memory request
     output wire                             mem_req_valid,
@@ -152,7 +152,7 @@ module Vortex import VX_gpu_pkg::*; (
 
             .clk                (clk),
             .reset              (cluster_reset),
-	    .debug_regs         (debug_regs),
+	    //.debug_regs         (debug_regs),
 
         `ifdef PERF_ENABLE
             .mem_perf_if        (mem_perf_if),

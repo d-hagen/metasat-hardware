@@ -15,7 +15,41 @@ H_FILES := VX_config.h VX_types.h vortex_afu.h
 # Position independent code
 #CXXFLAGS += -fPIC
 
+VX_CONFIG = /home/msole/metasat/hardware/metasat/metasat-xilinx-vcu118/vx_config.inc
+
 # Add external configuration
+ifneq ("$(wildcard $(VX_CONFIG))","")
+    include $(VX_CONFIG)
+else
+    # Design configuration
+    XLEN ?= 32
+    NUM_CORES ?= 1
+
+endif
+    # cluster configuration
+    CONFIGS_1c  := -DNUM_CLUSTERS=1 -DNUM_CORES=1
+    CONFIGS_2c  := -DNUM_CLUSTERS=1 -DNUM_CORES=2
+    CONFIGS_4c  := -DNUM_CLUSTERS=1 -DNUM_CORES=4
+    CONFIGS_8c	:= -DNUM_CLUSTERS=1 -DNUM_CORES=8
+    CONFIGS_16c	:= -DNUM_CLUSTERS=1 -DNUM_CORES=16 -DL2_ENABLE
+    CONFIGS_32c := -DNUM_CLUSTERS=2 -DNUM_CORES=16 -DL2_ENABLE
+    CONFIGS_64c := -DNUM_CLUSTERS=4 -DNUM_CORES=16 -DL2_ENABLE
+    CONFIGS += $(CONFIGS_$(NUM_CORES)c)
+    CONFIGS += -DNUM_WARPS=$(NUM_WARPS) -DNUM_THREADS=$(NUM_THREADS) -DNUM_BARRIERS=$(NUM_BARRIERS)
+    CONFIGS += -DSTARTUP_ADDR=$(STARTUP_ADDR) -DSTACK_BASE_ADDR=$(STACK_BASE_ADDR)
+    CONFIGS += -DMEM_BLOCK_SIZE=$(MEM_BLOCK_SIZE)
+
+ifeq ($(EXT_F_EN), 0)
+    CONFIGS += -DEXT_F_DISABLE=1
+endif
+ifeq ($(EXT_M_EN), 0)
+    CONFIGS += -DEXT_M_DISABLE=1
+endif
+
+ifeq ($(DBG_TRACE_EN), 1)
+    CONFIGS += $(DBG_TRACE_FLAGS)
+endif
+
 CXXFLAGS += $(CONFIGS)
 
 # Dump perf stats

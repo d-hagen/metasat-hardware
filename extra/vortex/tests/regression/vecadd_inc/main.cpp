@@ -250,8 +250,8 @@ int main(int argc, char *argv[]) {
       // cleanup
       //std::cout << "cleanup" << std::endl;  
       cleanup();
-      printf("CPU time: %lg ms\n", elapsed_cpu);
-      printf("GPU time: %lg ms\n", elapsed_gpu);
+      printf("CPU time: %lg us\n", elapsed_cpu);
+      printf("GPU time: %lg us\n", elapsed_gpu);
 
       //std::cout << "PASSED!" << std::endl;
       count*=10;

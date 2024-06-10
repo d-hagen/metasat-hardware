@@ -74,7 +74,7 @@ module vortex_afu #(
 );
 	assign interrupt = 0;
 
-	wire [`XLEN-1:0]                    debug_regs [3+`ISSUE_WIDTH * 3];
+	//wire [`XLEN-1:0]                    debug_regs [3+`ISSUE_WIDTH * 3];
 
 	// AXI Control unit
 	wire                                m_axi_ctrl_awvalid;
@@ -135,7 +135,7 @@ module vortex_afu #(
 	) afu_ctrl (
 		.clk            	(clk),
 		.reset          	(reset),
-		.debug_regs             (debug_regs),
+		//.debug_regs             (debug_regs),
 
 		.m_axi_mem_awvalid	(m_axi_ctrl_awvalid),
 		.m_axi_mem_awaddr	(m_axi_ctrl_awaddr),
@@ -241,7 +241,7 @@ module vortex_afu #(
 	) vortex_axi (
 		.clk            (clk),
 		.reset          (reset || vx_reset),
-		.debug_regs     (debug_regs),
+		//.debug_regs     (debug_regs),
 
 		.m_axi_awvalid (m_axi_vx_awvalid),
 		.m_axi_awready (m_axi_vx_awready),
