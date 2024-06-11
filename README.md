@@ -2,7 +2,7 @@
 
 ## Generating Vortex Verilator files
 
-The simulation of Vortex using Verilator has been tested with Verilator 5.025 devel rev v5.024-86-gd4c3e35f9, which has been installed from the (https://github.com/verilator/verilator)[Verilator GitHub repository].
+The simulation of Vortex using Verilator has been tested with Verilator 5.025 devel rev v5.024-86-gd4c3e35f9, which has been installed from the [Verilator GitHub repository](https://github.com/verilator/verilator).
 Older versions of Verilator do not support some of the SystemVerilog features used in Vortex.
 
 To properly use the simulation a Vortex configuration file is necessary, such as the one in `metasat-hardware/metasat/metasat-xilinx-vcu118/vx_config.inc`.
