@@ -401,7 +401,7 @@ extern int vx_copy_to_dev(vx_device_h hdevice, uint64_t dev_addr, const void* ho
         return -1;
     });
 
-    DBGPRINT("COPY_TO_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n", dev_addr, (uintptr_t)host_ptr, size);
+    DBGPRINT("COPY_TO_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n", dev_addr, (uintptr_t)host_ptr, asize);
     
     return 0;
 }
@@ -422,11 +422,11 @@ extern int vx_copy_from_dev(vx_device_h hdevice, void* host_ptr, uint64_t dev_ad
     if (dev_addr + asize > device->global_mem_size)
         return -1;
 
-    CHECK_ERR(device->download((uint32_t*)host_ptr, dev_addr, asize), {
+    CHECK_ERR(device->download((uint32_t*)host_ptr, dev_addr, size), {
         return -1;
     });
 
-    DBGPRINT("COPY_FROM_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n", dev_addr, (uintptr_t)host_ptr, asize);
+    DBGPRINT("COPY_FROM_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n", dev_addr, (uintptr_t)host_ptr, size);
     
     return 0;
 }
@@ -440,7 +440,6 @@ extern int vx_start(vx_device_h hdevice) {
     CHECK_ERR(device->write_register(MMIO_CMD_TYPE, CMD_RUN), {
         return -1;
     });
-    
     DBGPRINT("START\n",NULL);
 
     return 0;
@@ -479,7 +478,8 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
     
         timeout -= sleep_time_ms;
     };
-
+    CHECK_ERR(device->write_register(MMIO_CMD_TYPE, 7), { return -1; }); 
+    
     return 0;
 }
 
