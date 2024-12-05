@@ -126,18 +126,6 @@ architecture rtl of metasatcore is
 
   constant nextslv  : integer := 4;
 
-
-  constant GPU_RAMADDR      : integer := GPU_RAMADDR_SYN
--- pragma translate_off
-  - GPU_RAMADDR_SYN + GPU_RAMADDR_SIM
--- pragma translate_on
-  ;
-  constant GPU_RAMSIZE      : integer := GPU_RAMSIZE_SYN
--- pragma translate_off
-  - GPU_RAMSIZE_SYN + GPU_RAMSIZE_SIM
--- pragma translate_on
-  ;
-
   constant ndbgmst  : integer := 3 + CFG_LOCAL_AHB_JTAG_RV ;
 
   constant mig_hconfig : ahb_config_type := (
@@ -319,8 +307,8 @@ begin
           console  => CFG_DUART,
           pirq     => APBUART_PIRQ+i,
           parity   => 1,
-          flow     => 0,
-          fifosize => 1, 
+          flow     => 1,
+          fifosize => 8, 
           abits    => 8,
           sbits    => 12)
         port map (
@@ -375,7 +363,7 @@ begin
           haddr     => L2C_HADDR,
           hmask     => L2C_HMASK,
           ioaddr    => L2C_IOADDR,
-	  cached    => CFG_L2_MAP,
+          cached    => CFG_L2_MAP,
           be_dw     => CFG_AHBDW)
         port map(
           rstn   => rstn,
@@ -425,7 +413,7 @@ begin
           haddr     => L2C_HADDR,
           hmask     => L2C_HMASK,
           ioaddr    => L2C_IOADDR,
-	  cached    => CFG_L2_MAP,
+          cached    => CFG_L2_MAP,
           be_dw     => CFG_AHBDW)
         port map(
           rstn    => rstn,

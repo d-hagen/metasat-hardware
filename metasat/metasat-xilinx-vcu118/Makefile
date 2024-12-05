@@ -107,7 +107,7 @@ VSIMOPT+= $(SIMTOP)
 
 ### Synthesize Options ###
 
-#VIVADO_SYNTH_STRATEGY = Flow_RuntimeOptimized
+VIVADO_SYNTH_STRATEGY = Flow_PerfOptimized_high
 VIVADO_IMPL_STRATEGY = Performance_SpreadSLLs#Area_ExploreSequential
 
 ### End of Synthesize Options ###

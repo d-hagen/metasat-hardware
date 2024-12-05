@@ -294,6 +294,7 @@ module VX_afu_ctrl #(
 	wire [`CLOG2(WORDS)-1:0] sel_word;
 	wire s_axi_ctrl_aw_fire;
 	wire s_axi_ctrl_w_fire;
+	wire s_axi_ctrl_b_fire;
 
 	assign s_axi_ctrl_awready = (wstate == WSTATE_IDLE);
 	assign s_axi_ctrl_wready  = (wstate == WSTATE_DATA);
@@ -303,6 +304,7 @@ module VX_afu_ctrl #(
 
 	assign s_axi_ctrl_aw_fire = s_axi_ctrl_awvalid && s_axi_ctrl_awready;
 	assign s_axi_ctrl_w_fire  = s_axi_ctrl_wvalid && s_axi_ctrl_wready;
+	assign s_axi_ctrl_b_fire  = s_axi_ctrl_bvalid && s_axi_ctrl_bready;
 
 
 	assign sel_word = `CLOG2(WORDS)'(waddr >> 2);
@@ -341,7 +343,7 @@ module VX_afu_ctrl #(
 			if (s_axi_ctrl_w_fire) begin
 				case (waddr)
 					MMIO_CMD_TYPE: begin
-						cmd_type <= CMD_BITS'(32'(s_axi_ctrl_wdata >> (sel_word * 32)) & wmask) | (cmd_addr & ~wmask);
+						cmd_type <= CMD_BITS'(32'(s_axi_ctrl_wdata >> (sel_word * 32)) & wmask);
 						`ifdef DBG_TRACE_AFU
 							`TRACE(2, ("%d: WRITE MMIO_CMD_TYPE: data=%0d\n", $time, CMD_BITS'(s_axi_ctrl_wdata >> (sel_word * 32))));
 						`endif
@@ -445,8 +447,8 @@ module VX_afu_ctrl #(
 		end
 	end
 
-	// Get Command if valid write to MMIO_CMD_TYPE
-	wire cmd_trigger = s_axi_ctrl_bready && s_axi_ctrl_bvalid && (MMIO_CMD_TYPE == waddr);
+	// Get Command if valid write completed to MMIO_CMD_TYPE
+	wire cmd_trigger = s_axi_ctrl_b_fire && (MMIO_CMD_TYPE == waddr);
 
 	always @(posedge clk) begin
 		if (reset) begin

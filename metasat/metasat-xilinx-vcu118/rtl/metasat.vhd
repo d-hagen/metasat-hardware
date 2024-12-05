@@ -95,10 +95,10 @@ entity metasat is
     -- Push Buttons (Active High)
     button      : in    std_logic_vector(4 downto 0);
     -- RS-485 interfaces
-    --uart485_rsde        : out std_logic_vector(1 downto 0);  -- RS-485 UART driver enable
-    --uart485_rsre        : out std_logic_vector(1 downto 0);  -- RS-485 UART receiver enable
-    --uart485_rstx        : out std_logic_vector(1 downto 0);  -- RS-485 UART tx data
-    --uart485_rsrx        : in std_logic_vector(1 downto 0);   -- RS-485 UART rx data
+    uart485_rsde        : out std_logic_vector(1 downto 0);  -- RS-485 UART driver enable
+    uart485_rsre        : out std_logic_vector(1 downto 0);  -- RS-485 UART receiver enable
+    uart485_rstx        : out std_logic_vector(1 downto 0);  -- RS-485 UART tx data
+    uart485_rsrx        : in std_logic_vector(1 downto 0);   -- RS-485 UART rx data
     -- CPU DDR4 (MIG) 
     ddr4_c1_dq     : inout std_logic_vector(63 downto 0);
     ddr4_c1_dqs_c  : inout std_logic_vector(7 downto 0);  -- Data Strobe
@@ -178,13 +178,14 @@ architecture rtl of metasat is
   signal gpu_migrstn    : std_ulogic;
 
   -- UART
-  signal dsu_sel        : std_ulogic;
+  signal dsu_sel    : std_ulogic;
   signal uart_rx    : std_logic_vector(0 downto 0);
   signal uart_ctsn  : std_logic_vector(0 downto 0);
   signal uart_tx    : std_logic_vector(0 downto 0);
   signal uart_rtsn  : std_logic_vector(0 downto 0);
   signal duart_rx   : std_ulogic;
   signal duart_tx   : std_ulogic;
+
   -- GPIO
   --signal gpio_i         : std_logic_vector(CFG_GRGPIO_WIDTH-1 downto 0);
   --signal gpio_o         : std_logic_vector(CFG_GRGPIO_WIDTH-1 downto 0);
@@ -425,6 +426,11 @@ begin
     generic map (tech => padtech, level => cmos, voltage => x12v)
     port map (switch(3), dsu_sel);
 
+  dsusel_pad : outpad
+    generic map (tech => padtech, level => cmos, voltage => x18v)
+    port map (led(4), dsu_sel);
+
+
   uart_tx_int     <= duart_tx       when dsu_sel = '1' else uart_tx(0);
   uart_rtsn_int   <= '1'            when dsu_sel = '1' else uart_rtsn(0);  
   uart_rx(0)      <= uart_rx_int    when dsu_sel = '0' else '1';
@@ -444,17 +450,20 @@ begin
     generic map (level => cmos, voltage => x18v, tech => padtech)
     port map (dsurtsn, uart_rtsn_int);
 
-  dsusel_pad : outpad
-    generic map (tech => padtech, level => cmos, voltage => x18v)
-    port map (led(4), dsu_sel);
-
 ----------------------------------------------------------------------
 ---  RS-485 UARTs  ---------------------------------------------------
 ----------------------------------------------------------------------
---  rs485pads_en : if (CFG_APB_UART /= 0) generate
---    rs485_apbuart_loop : for i in 1 downto 0 generate
---
---      uart485_i(i).extclk <= '0';
+  rs485pads_en : if (CFG_APB_UART /= 0) generate
+    rs485_apbuart_loop : for i in 1 downto 0 generate
+
+      uart485_i(i).extclk <= '0';
+
+      -- NEW --
+      uart485_rsde(i) <= uart485_o(i).txen;
+      uart485_rsre(i) <= uart485_o(i).rxen;
+      uart485_rstx(i) <= uart485_o(i).txd;
+      uart485_i(i).rxd <= uart485_rsrx(i);
+      -- END --
 --      -- RS-485 UART driver enable
 --      uart485_rsde_pad : outpad 
 --        generic map (tech => padtech, level => cmos, voltage => x18v)
@@ -474,9 +483,9 @@ begin
 --      uart485_txd2_pad : outpad 
 -- 	generic map (tech => padtech, level => cmos, voltage => x18v)
 --	port map (pad => uart485_rstx(i), i => uart485_o(i).txd);
---
---    end generate;
---  end generate;
+
+    end generate;
+  end generate;
 
   -----------------------------------------------------------------------------
   -- DDR4 Memory Controller (MIG) ---------------------------------------------
