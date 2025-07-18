@@ -4,16 +4,16 @@ This project builds and simulates a RISC-V SoC based on the NOEL-V core from GRL
 
 ## Structure
 
-- **../../grlib**: IP library providing the NOEL-V core and other components.
+- **../../grlib/**: IP library providing the NOEL-V core and other components.
 - **../../extra/**: Includes external Vortex accelerator integration.
 - **rtl/**: Custom RTL components.
 - **cfg/config_local.vhd**: Local configuration file.
-- `config.vhd`: Configuration for the NOEL-V CPU cores.
-- `vx_config.inc`: Configuration for the Vortex GPU accelerator.
+- **config.vhd**: Configuration for the NOEL-V CPU cores.
+- **vx_config.inc**: Configuration for the Vortex GPU accelerator.
 
 ## Features
 
-- RISC-V NOEL-V 64-bit core.
+- Quad-core RISC-V NOEL-V 64-bit core.
 - Integration of Vortex GPU accelerator.
 - DDR4 memory via Xilinx MIG.
 - GRETH Ethernet via SGMII.
@@ -25,9 +25,9 @@ This project builds and simulates a RISC-V SoC based on the NOEL-V core from GRL
 | `metasat-sim`    | Build and run simulation                |
 | `metasat-synth`  | Synthesize with Vivado (generates bitstream) |
 | `metasat-vivado` | Open Vivado project                     |
-| `vortex`         | Build Vortex integration                |
+| `vortex`         | Generate Vortex integration files       |
 | `patch_vortex_sim` | Patch simulation makefile for Vortex |
-| `vortex-clean`   | Clean Vortex integration                |
+| `vortex-clean`   | Clean Vortex integration files          |
 
 ## Prerequisites
 
