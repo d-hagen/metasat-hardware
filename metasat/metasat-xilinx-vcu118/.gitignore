@@ -4,7 +4,7 @@
 #don't ignore default files
 !.gitignore
 !Makefile
-!README.txt
+!README.md
 !.config
 !config.vhd
 !grlib_config.vhd
