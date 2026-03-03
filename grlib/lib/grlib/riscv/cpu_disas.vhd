@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -59,6 +59,7 @@ port (
   fsd_hi        : in  std_logic_vector;                 -- High half of fsd on RV32
   wregen_f      : in  std_ulogic;                       -- FPU Regfile Write Enable
   memen         : in  std_ulogic;                       -- Memory access
+  cfi           : in  std_ulogic;                       -- Actual CFI instruction (not Zimop/Zcmop)
   wcsren        : in  std_ulogic;                       -- CSR Write Enable
   wcsrdata      : in  std_logic_vector;                 -- CSR Write Data
   prv           : in  std_logic_vector(1 downto 0);     -- Privileged Level
@@ -117,6 +118,7 @@ begin
           wcsrdata,               -- CSR Write Data
           wcsren,                 -- CSR Write Enable
           memen,                  -- Memory access
+          cfi,                    -- Actual CFI instruction (not Zimop/Zcmop)
           inst,                   -- Instruction
           cinst,                  -- Compressed Instruction
           comp,                   -- Compressed Flag

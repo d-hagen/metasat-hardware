@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -53,11 +53,11 @@ end btbdmnv;
 architecture rtl of btbdmnv is
 
   constant INDEX_LOW  : integer := 2+dissue;
-  constant INDEX_HIGH : integer := INDEX_LOW + log2ext(nentries) - 1;                                
+  constant INDEX_HIGH : integer := INDEX_LOW + log2ext(nentries) - 1;
 
   subtype target is std_logic_vector(PCBITS-1 downto 0);
   type btbtarget is array (0 to NENTRIES-1) of target;
-  
+
   subtype tag is std_logic_vector(PCBITS-2-INDEX_HIGH downto 0);
   type btbtag is array (0 to NENTRIES-1) of tag;
 

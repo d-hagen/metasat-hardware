@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -334,6 +334,25 @@ component polarfire_tap is
     tapo_shft   : out std_ulogic;
     tapo_upd    : out std_ulogic;
     tapo_inst   : out std_logic_vector(7 downto 0));
+end component;
+
+component nexus_tap is
+  port (
+    tck         : in std_ulogic;
+    tms         : in std_ulogic;
+    tdi         : in std_ulogic;
+    tdo         : out std_ulogic;
+    tapo_tck    : out std_ulogic;
+    tapo_tdi    : out std_ulogic;
+    tapo_rst    : out std_ulogic;
+    tapo_capt   : out std_ulogic;
+    tapo_shft   : out std_ulogic;
+    tapo_upd    : out std_ulogic;
+    tapo_xsel1  : out std_ulogic;
+    tapo_xsel2  : out std_ulogic;
+    tapi_tdo1   : in std_ulogic;
+    tapi_tdo2   : in std_ulogic;
+    tdoen       : out std_ulogic);
 end component;
 
 -------------------------------------------------------------------------------

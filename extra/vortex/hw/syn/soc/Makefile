@@ -16,7 +16,6 @@ RTL_DIR = ../../rtl
 AFU_DIR = $(RTL_DIR)/afu/soc/axi
 SCRIPT_DIR = ../../scripts
 THIRD_PARTY_DIR = ../../../third_party
-VLG_OBJ=obj_dir
 
 RMDIR = rm -rf
 ECHO = @echo
@@ -31,6 +30,14 @@ else
     # Design configuration
     XLEN ?= 32
     NUM_CORES ?= 1
+    NUM_WARPS ?= 4
+    NUM_THREADS ?= 4
+    NUM_BARRIERS ?= 4
+    STARTUP_ADDR ?= 1610612736
+    STACK_BASE_ADDR ?= 2130706432
+    MEM_BLOCK_SIZE ?= 16
+    EXT_F_EN ?= 0
+    EXT_M_EN ?= 1
 
 endif
     # Control RTL debug tracing states
@@ -97,10 +104,6 @@ else
     CFLAGS += -DNDEBUG
 endif
     
-AXIDW = 128
-AXIID = 8
-
-
 
 .PHONY: all clean gen-sources
 
@@ -108,19 +111,12 @@ all: sources.txt
 
 sources.txt:
 	mkdir -p $(BUILD_DIR); $(SCRIPT_DIR)/gen_sources.sh -P $(CFLAGS) -C$(BUILD_DIR) -Osources.txt
+	@rm -rf obj_dir
 
 grlib: sources.txt
 	@echo "Generating svlogsyn.txt file"
 	@sed '/^+/d' $< > $(SVLOGSYN)
 	@sed -i 's|$(CURDIR)|..|' $(SVLOGSYN)
-
-verilator: sources.txt
-	@sed -i 's/parameter C_S_AXI_CTRL_ADDR_WIDTH = [0-9]\+,/parameter C_S_AXI_CTRL_ADDR_WIDTH = 32,/' src/vortex_afu.sv
-	@sed -i 's/parameter C_S_AXI_CTRL_DATA_WIDTH = [0-9]\+,/parameter C_S_AXI_CTRL_DATA_WIDTH = $(AXIDW),/' src/vortex_afu.sv
-	@sed -i 's/parameter C_M_AXI_MEM_ID_WIDTH    = [0-9]\+,/parameter C_M_AXI_MEM_ID_WIDTH    = $(AXIID),/' src/vortex_afu.sv
-	@sed -i 's/parameter C_M_AXI_MEM_ADDR_WIDTH  = [0-9]\+,/parameter C_M_AXI_MEM_ADDR_WIDTH  = 32,/' src/vortex_afu.sv
-	@sed -i 's/parameter C_M_AXI_MEM_DATA_WIDTH  = .*)/parameter C_M_AXI_MEM_DATA_WIDTH  = $(AXIDW)/' src/vortex_afu.sv
-	verilator --sc --sv --Mdir $(VLG_OBJ) --exe -f sources.txt --top vortex_afu -Wno-SYMRSVDWORD -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-CASEINCOMPLETE -Wno-UNOPTFLAT
-
+	
 clean:
-	$(RMDIR) $(BUILD_DIR) $(SVLOGSYN) sources.txt $(VLG_OBJ)
+	$(RMDIR) $(BUILD_DIR) $(SVLOGSYN) sources.txt obj_dir

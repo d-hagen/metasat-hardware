@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -197,6 +197,7 @@ package grethpkg is
     status       : std_logic_vector(1 downto 0);
     debug1       : std_logic_vector(31 downto 0);
     debug2       : std_logic_vector(31 downto 0);
+    sfd          : std_ulogic;
   end record;
 
   type gbit_rx_host_type is record
@@ -209,7 +210,8 @@ package grethpkg is
     gotframe     : std_ulogic;
     mcasthash    : std_logic_vector(5 downto 0);
     debug1       : std_logic_vector(31 downto 0);
-    debug2       : std_logic_vector(31 downto 0);  
+    debug2       : std_logic_vector(31 downto 0);
+    sfd          : std_ulogic;
   end record;
 
   type gbit_host_rx_type is record
@@ -238,7 +240,8 @@ package grethpkg is
     read         : std_logic_vector(3 downto 0);
     status       : std_logic_vector(2 downto 0);
     debug1       : std_logic_vector(31 downto 0);
-    debug2       : std_logic_vector(31 downto 0);    
+    debug2       : std_logic_vector(31 downto 0);
+    sfd          : std_ulogic;
   end record;
 
   type gbit_host_gtx_type is record

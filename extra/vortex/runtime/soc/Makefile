@@ -1,5 +1,7 @@
-CXX = /home/msole/metasat/software/tools/compiler/riscv-sparrow-toolchain/bin/riscv-gaisler-elf-g++
-AR = /home/msole/metasat/software/tools/compiler/riscv-sparrow-toolchain/bin/riscv-gaisler-elf-ar
+METASAT_DIR = /mnt/caos_hw/metasat/
+CXX = $(METASAT_DIR)/software/tools/compiler/riscv-sparrow-toolchain/bin/riscv-gaisler-elf-g++
+AR = $(METASAT_DIR)/software/tools/compiler/riscv-sparrow-toolchain/bin/riscv-gaisler-elf-ar
+
 XLEN ?= 32
 DESTDIR ?= .
 BUILDIR = build
@@ -15,7 +17,7 @@ H_FILES := VX_config.h VX_types.h vortex_afu.h
 # Position independent code
 #CXXFLAGS += -fPIC
 
-VX_CONFIG = /home/msole/metasat/hardware/metasat/metasat-xilinx-vcu118/vx_config.inc
+VX_CONFIG = $(METASAT_DIR)/hardware/metasat/metasat-xilinx-vcu118/vx_config.inc
 
 # Add external configuration
 ifneq ("$(wildcard $(VX_CONFIG))","")

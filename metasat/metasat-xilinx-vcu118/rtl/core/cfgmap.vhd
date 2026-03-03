@@ -44,6 +44,12 @@ package cfgmap is
   constant ROM_HMASK        : integer := 16#FFF#;
   constant AHBREP_HADDR     : integer := 16#D00#;
   constant AHBREP_HMASK     : integer := 16#FFF#;
+
+  -- RAM ADDR
+  constant GPU_RAMADDR_SYN  : integer := 16#600#;
+  constant GPU_RAMADDR_SIM  : integer := 16#002#;
+  constant GPU_RAMSIZE_SYN  : integer := 16#20000000#;
+  constant GPU_RAMSIZE_SIM  : integer := 16#00200000#;
   
   -- APB slave index
   constant MEM_PINDEX       : integer := 0;

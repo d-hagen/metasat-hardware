@@ -1,2 +1,0 @@
-main.o: main.cpp kernel.h
-kernel.o: kernel.h

@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ package amba is
 --
 constant AHBDW        : integer := CFG_AHBDW;
 constant AXIDW        : integer := CFG_AHBDW;
-constant AXI_ID_WIDTH : integer := 8;
+constant AXI_ID_WIDTH : integer := 32;
 
 -- GRLIB_ENDIAN - Default endianness of the system
 -- This value is configured in the GRLIB_CONFIG_ARRAY

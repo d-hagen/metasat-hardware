@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@
 -- Author:      Francisco Bas, Frontgrade Gaisler AB
 -- Description: Kanata log generator for pipeline visualization.
 --              This entity generates a log with kanata format that can
---              be open with Konata instruction pipeline visualizer. 
---              The Kanata format consist on several instructions that 
+--              be open with Konata instruction pipeline visualizer.
+--              The Kanata format consist on several instructions that
 --              instruct the visualizer on how to represent the pipeline.
 --              More information in: https://github.com/shioyadan/Konata
 ------------------------------------------------------------------------------

@@ -440,6 +440,7 @@ extern int vx_start(vx_device_h hdevice) {
     CHECK_ERR(device->write_register(MMIO_CMD_TYPE, CMD_RUN), {
         return -1;
     });
+    
     DBGPRINT("START\n",NULL);
 
     return 0;
@@ -478,8 +479,7 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
     
         timeout -= sleep_time_ms;
     };
-    CHECK_ERR(device->write_register(MMIO_CMD_TYPE, 7), { return -1; }); 
-    
+
     return 0;
 }
 

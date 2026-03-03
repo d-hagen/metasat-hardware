@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -190,6 +190,12 @@ begin  -- rtl
           rdata4v := wdata2;
         end if;
       end if;
+    end if;
+
+    -- Formality is happier if there is a known value
+    -- for register 0 even when not used.
+    if reg0write = 0 then
+      v.entry(0) := (others => '0');
     end if;
 
     -- Output Signals

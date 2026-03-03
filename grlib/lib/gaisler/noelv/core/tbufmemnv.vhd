@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -71,9 +71,9 @@ architecture rtl of tbufmemnv is
   constant ADDRBITS     : integer := 4 + log2(tbuf);
   constant nrams        : integer := getnrams;
   constant TRACE_CELLS  : integer := 8;
-  
+
   -- Types ------------------------------------------------------------------
-  
+
   -- Signals ----------------------------------------------------------------
   signal enable         : std_logic_vector(1 downto 0);
 
@@ -100,10 +100,10 @@ begin
       testin    => testin
     );
   end generate;
+-- pragma translate_off
   trace_out.data(trace_out.data'high downto 64*TRACE_CELLS) <= (others => '0');
-  
-  -- Drive test signals
-  
-end;
-  
+-- pragma translate_on
 
+  -- Drive test signals
+
+end;

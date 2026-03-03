@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -18,10 +18,10 @@
 --  along with this program; if not, write to the Free Software
 --  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
 -----------------------------------------------------------------------------
--- Entity: 	itracenv
--- File:	itracenv.vhd
--- Author:	Johan Klockars, Cobham Gaisler AB
--- Description:	Instruction trace handler
+-- Entity:      itracenv
+-- File:        itracenv.vhd
+-- Author:      Johan Klockars, Cobham Gaisler AB
+-- Description: Instruction trace handler
 ------------------------------------------------------------------------------
 
     -- trace.ctrl
@@ -96,6 +96,10 @@ use gaisler.utilnv.cond;
 use gaisler.nvsupport.is_fpu_fsd;
 use gaisler.nvsupport.rd_gen;
 use gaisler.nvsupport.is_csr;
+use gaisler.nvsupport.to_cause;
+use gaisler.nvsupport.cause2int;
+use gaisler.nvsupport.IRQ_RAS_HIGH_PRIO;
+use gaisler.nvsupport.IRQ_RAS_LOW_PRIO;
 -- pragma translate_off
 use gaisler.nvsupport.is_fpu_rd;
 use gaisler.fputilnv.fpreg2st;
@@ -147,7 +151,8 @@ architecture rtl of itracenv is
   constant trace_prv           : std_logic_vector(  1 downto   0) := (others => '0');
   constant trace_v             : integer                          := 2;
   constant trace_irq           : integer                          := 3;
-  constant trace_cause         : std_logic_vector(cause_type'length - 1 - 1 + 4 downto 4) := (others => '0');
+  -- Note that trace_cause is one bit too small to cover RAS interrupt. "Packs" high interrupt.
+  constant trace_cause         : std_logic_vector(  8 downto   4) := (others => '0');
   constant trace_skips         : std_logic_vector( 11 downto   9) := (others => '0');  -- Not used here!
   constant trace_fpu_available : integer                          := 12;
   constant trace_swap          : integer                          := 13;
@@ -157,17 +162,16 @@ architecture rtl of itracenv is
   constant trace_fpu_rd        : std_logic_vector( 28 downto  24) := (others => '0');
   constant trace_adelta        : integer                          := 29;
   constant trace_timestamp     : std_logic_vector( 63 downto  32) := (others => '0');
-  
+
   constant trace_lane0         : std_logic_vector(255 downto  64) := (others => '0');
   constant trace_lane1         : std_logic_vector(511 downto 320) := (others => '0');
 
-  constant trace_skipres       : integer                          := 0;
+  constant trace_skipinst      : integer                          := 0;
   constant trace_pc32          : std_logic_vector( 31 downto   1) := (others => '0');
-  constant trace_pc            : std_logic_vector( 54 downto   1) := (others => '0');
+  constant trace_pc            : std_logic_vector( 56 downto   1) := (others => '0');
 --  constant trace_pc            : std_logic_vector( 42 downto   1) := (others => '0');
 --  constant trace_inst_xlo      : std_logic_vector( 58 downto  43) := (others => '0');
-  constant trace_skipresh      : integer                          := 58;
-  constant trace_skipinst      : integer                          := 59;
+  constant trace_skipres       : integer                          := 58;
   constant trace_result_v      : integer                          := 60;
   constant trace_xdata_v       : integer                          := 61;
   constant trace_exception     : integer                          := 62;
@@ -187,13 +191,18 @@ architecture rtl of itracenv is
   constant trace_exception0    : integer := trace_lane0'low + trace_exception;
   constant trace_exception1    : integer := trace_lane1'low + trace_exception;
 
+  -- Lane positions for extended (translation_off) trace
   constant trace_csrw          : std_logic_vector( 63 + 192 downto   0 + 192) := (others => '0');
   constant trace_csrw32        : std_logic_vector( 31 + 192 downto   0 + 192) := (others => '0');
   constant trace_inst_lo       : std_logic_vector( 79 + 192 downto  64 + 192) := (others => '0');
+  constant trace_cfi           : std_logic_vector( 80 + 192 downto  80 + 192) := (others => '0');
+  -- Positions in complete data for extended (translation_off) trace
   constant trace_csrw0         : std_logic_vector( 63 + 512 downto   0 + 512) := (others => '0');
   constant trace_csrw1         : std_logic_vector(127 + 512 downto  64 + 512) := (others => '0');
   constant trace_inst_lo0      : std_logic_vector(143 + 512 downto 128 + 512) := (others => '0');
   constant trace_inst_lo1      : std_logic_vector(159 + 512 downto 144 + 512) := (others => '0');
+  constant trace_cfi0          : std_logic_vector(160 + 512 downto 160 + 512) := (others => '0');
+  constant trace_cfi1          : std_logic_vector(161 + 512 downto 161 + 512) := (others => '0');
 
   type fpu_trace_buffer is record
     valid : std_ulogic;                -- FPU data awaiting trace
@@ -227,6 +236,32 @@ architecture rtl of itracenv is
     tcnt    => (others => '0'),
     fptbuf  => fpu_trace_none
   );
+
+  function cause_pack(cause_in : cause_type) return std_logic_vector is
+    -- Non-constant
+    variable cause : std_logic_vector(trace_cause'length - 1 downto 0);
+  begin
+    cause := u2vec(cause2int(cause_in), cause);
+    -- Deal with known causes that do not fit.
+    -- For IRQs, use numbers "Designated for custom use", from the top down.
+    if    cause_in = IRQ_RAS_HIGH_PRIO then cause := u2vec(31, cause);
+    elsif cause_in = IRQ_RAS_LOW_PRIO  then cause := u2vec(30, cause);
+    end if;
+
+    return cause;
+  end;
+
+  function cause_unpack(cause_in : std_logic_vector; irq : std_ulogic) return cause_type is
+    -- Non-constant
+    variable cause : cause_type := to_cause(u2i(cause_in), irq = '1');
+  begin
+    -- Deal with known causes that do not fit - see cause_pack().
+    if    cause = to_cause(31, true) then cause := IRQ_RAS_HIGH_PRIO;
+    elsif cause = to_cause(30, true) then cause := IRQ_RAS_LOW_PRIO;
+    end if;
+
+    return cause;
+  end;
 
   signal r, rin : itrace_regs;
 
@@ -273,6 +308,7 @@ architecture rtl of itracenv is
   signal tval           : wordx_lanes_type;
   signal wb_prv         : priv_lvl_type;
   signal wb_v           : std_ulogic;
+  signal cfi            : word2;
 -- pragma translate_on
 
 begin
@@ -290,7 +326,7 @@ begin
     variable odata        : trace_data;
     variable lane         : std_logic_vector(trace_lane0'length - 1
 -- pragma translate_off
-                                             + trace_csrw'length + trace_inst_lo'length
+--                                             + trace_csrw'length + trace_inst_lo'length
 -- pragma translate_on
                                              downto 0);
     variable taddr        : trace_addr;
@@ -466,6 +502,7 @@ begin
 -- pragma translate_off
         odata(trace_inst_lo0'range) := info.lanes(i).inst(15 downto 0);
         odata(trace_csrw0'range)    := uext(info.lanes(i).xdata, 64);
+        odata(trace_cfi0'low)       := info.lanes(i).cfi;
 -- pragma translate_on
       else
 --        lane(trace_inst_xlo'range)  := get_lo(info.lanes(i).inst, 16);
@@ -475,6 +512,7 @@ begin
 -- pragma translate_off
         odata(trace_inst_lo1'range) := info.lanes(i).inst(15 downto 0);
         odata(trace_csrw1'range)    := uext(info.lanes(i).xdata, 64);
+        odata(trace_cfi1'low)       := info.lanes(i).cfi;
 -- pragma translate_on
       end if;
     end loop;
@@ -571,7 +609,7 @@ begin
 
     odata(trace_prv'range)        := info.prv;
     odata(trace_v)                := info.v;
-    odata(trace_cause'range)      := info.cause(info.cause'high - 1 downto 0);
+    odata(trace_cause'range)      := cause_pack(info.cause);
     odata(trace_irq)              := info.cause(info.cause'high);
     odata(trace_swap)             := info.swap;
     odata(trace_timestamp'range)  := info.timestamp;
@@ -583,13 +621,14 @@ begin
     odata(trace_valid1)           := info.lanes(1).valid;
     odata(trace_exception0)       := info.lanes(0).exception;
     odata(trace_exception1)       := info.lanes(1).exception;
-   
+
 
     itrace_out.tcnt    := v.tcnt;
     itrace_out.taddr   := taddr;
     itrace_out.idata   := odata;
     itrace_out.write   := write;
     itrace_out.enable  := enable;
+
 
     v.itraceo          := itrace_out;
 
@@ -615,7 +654,8 @@ begin
       variable ucinst : word;
       variable i      : integer;
       variable data   : trace_data;
-      variable lane   : std_logic_vector(trace_lane0'length + trace_csrw0'length + trace_inst_lo0'length - 1 downto 0);
+      variable lane   : std_logic_vector(trace_lane0'length + trace_csrw0'length +
+                                         trace_inst_lo0'length + trace_cfi0'length - 1 downto 0);
     begin
       if rising_edge(clk) and rstn = '1' then
         data               := rin.itraceo.idata;
@@ -642,9 +682,11 @@ begin
             if data(trace_swap) = '1' then
               i            := lanes'high - j;
             end if;
-            lane           := data(trace_inst_lo0'range) & data(trace_csrw0'range) & data(trace_lane0'range);
+            lane           := data(trace_cfi0'range)  & data(trace_inst_lo0'range) &
+                              data(trace_csrw0'range) & data(trace_lane0'range);
             if i = 1 then
-              lane         := data(trace_inst_lo1'range) & data(trace_csrw1'range) & data(trace_lane1'range);
+              lane         := data(trace_cfi1'range)  & data(trace_inst_lo1'range) &
+                              data(trace_csrw1'range) & data(trace_lane1'range);
             end if;
             way(j)         <= u2vec(i, 3);
             disas_iv(j)    <= lane(trace_valid);
@@ -666,7 +708,7 @@ begin
             fsd(j)         <= '0';
             if XLEN = 32 then
               fsd(j)       <= to_bit(i = fpu_lane and is_fpu_fsd(ucinst));
-              pc(j)        <= lane(trace_pc32'range) & '0';
+              pc(j)        <= sext(lane(trace_pc32'range) & '0', pc(0));
               wdata(j)     <= uext(lane(trace_result32'range), wdata(0));
               fsd_hi(j)    <= uext(lane(trace_result_hi'range), fsd_hi(0));
               wcsr(j)      <= uext(lane(trace_csrw32'range), wcsr(0));
@@ -678,6 +720,8 @@ begin
               wcsr(j)      <= uext(lane(trace_csrw'range), wcsr(0));
               tval(j)      <= uext(lane(trace_result'range), tval(0));
             end if;
+
+            cfi(j)         <= lane(trace_cfi'low);
 
             wren(j)        <= rd_gen(ucinst) and lane(trace_valid);
             wren_f(j)      <= to_bit(i = fpu_lane and is_fpu_rd(ucinst)) and lane(trace_valid);
@@ -703,7 +747,7 @@ begin
           end if;
 --          report "cause " & tost(cause(0)) & " " & tost(cause(1)) & " " & tost_bits(trap);
 
-          cause            <= data(trace_irq) & data(trace_cause'range);
+          cause            <= cause_unpack(data(trace_cause'range), data(trace_irq));
           wb_prv           <= data(trace_prv'range);
           wb_v             <= data(trace_v);
         end if;
@@ -732,6 +776,7 @@ begin
           fsd_hi      => fsd_hi(i),
           wregen_f    => wren_f(i),
           memen       => memen(i),
+          cfi         => cfi(i),
           wcsren      => wcen(i),
           wcsrdata    => wcsr(i),
           prv         => wb_prv,

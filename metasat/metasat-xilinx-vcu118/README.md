@@ -1,66 +1,54 @@
-# METASAT SoC Project
+# METASAT SoC
 
-This project builds and simulates a RISC-V SoC based on the NOEL-V core from GRLIB, targeting the Xilinx VCU118 development board.
+## Configuration
 
-## Structure
+This directory contains the official configuration of the METASAT platform for the [VCU118](https://www.xilinx.com/products/boards-and-kits/vcu118.html) FPGA.
+It can be customized to suit individual user requirements.
+Note that changing certain parameters without adjusting related settings may cause the platform to malfunction.
 
-- **../../grlib/**: IP library providing the NOEL-V core and other components.
-- **../../extra/**: Includes external Vortex accelerator integration.
-- **rtl/**: Custom RTL components.
-- **cfg/config_local.vhd**: Local configuration file.
-- **config.vhd**: Configuration for the NOEL-V CPU cores.
-- **vx_config.inc**: Configuration for the Vortex GPU accelerator.
+After any change in the configuration is recommended to run `make clean; make distclean` to regenerate all target files.
 
-## Features
+### CPU Multicore
+To modify the CPU multicore unit update the [config.vhd](config.vhd) file.
+The following is a non-exhaustive list of parameters than can be changed:
+* `CFG_NCPU`: Number of CPU cores (default: 4)
+* `CFG_CFG`: Change the CPU configuration (default: HP)
+* `CFG_L2_EN`: Enable/Disable the L2 unit (default: 1)
 
-- Quad-core RISC-V NOEL-V 64-bit core.
-- Integration of Vortex GPU accelerator.
-- DDR4 memory via Xilinx MIG.
-- GRETH Ethernet via SGMII.
+### SPARROW
+TBD
 
-## Targets
+### Vortex GPU
+In [config.vhd](config.vhd), set `CFG_VX_EN` to `1` (enabled) or `0` (disabled) to enable or disable the Vortex GPU.
+The default value is `1`.
 
-| Target           | Description                             |
-|------------------|-----------------------------------------|
-| `metasat-sim`    | Build and run simulation                |
-| `metasat-synth`  | Synthesize with Vivado (generates bitstream) |
-| `metasat-vivado` | Open Vivado project                     |
-| `vortex`         | Generate Vortex integration files       |
-| `patch_vortex_sim` | Patch simulation makefile for Vortex |
-| `vortex-clean`   | Clean Vortex integration files          |
-
-## Prerequisites
-
-- **Xilinx Vivado 2020.2** installed and sourced
-- **Verilator v5.0** for generating Vortex sources
-- **QuestaSim** for simulation
-
-## Simulation
-
-Run simulation:
-```sh
-make metasat-sim
-````
+The following Vortex parameters can be configured in [vx_config.inc](vx_config.inc):
+* `NUM_CORES`: Number of GPU cores (default: 8)
+* `NUM_WARPS`: Number of warps per GPU core (default: 4)
+* `NUM_THREADS`: Number of threads per warp (default: 4)
 
 ## Synthesis
 
-Synthesize the design and generate the FPGA bitstream:
+To generate the METASAT bitstream run `make metasat-synth` in `metasat/metasat-xilinx-vcu118`.
+Alternatively, run `make metasat-vivado` to launch the Vivado GUI with the project loaded.
 
-```sh
-make metasat-synth
-```
+Check the [README.md](../fpga/README.md) in `metasat/fpga` for more details on how to program the FPGA and use the platform.
 
-Open Vivado GUI:
+### Requirements
+* [Vivado 2020.2](https://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/vivado-design-tools/archive.html)
+* [Verilator 5.040](https://github.com/verilator/verilator/tree/v5.040)
+* [GRMON4 Evaluation](https://www.gaisler.com/products/grmon4)
 
-```sh
-make metasat-vivado
-```
+## Simulation
+When simulating for the first time it is required to build the proprietary Xilinx IPs. 
+To do so, run `make map_xilinx_7series_lib` in `metasat/metasat-xilinx-vcu118`.
 
-## Cleaning
+Afterwards, for every simulation execute the following steps:
+* Copy the target test (in .srec format) to `ram.srec`
+* Run `make metasat-sim`
+* Run `make vsim-launch`
 
-To clean the Vortex files:
-
-```sh
-make vortex-clean
-```
+### Requirements
+* [Verilator 5.040](https://github.com/verilator/verilator/tree/v5.040)
+* `Questa Sim-64 2022.4`
 

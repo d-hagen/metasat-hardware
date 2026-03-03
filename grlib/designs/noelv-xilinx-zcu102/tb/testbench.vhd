@@ -2,12 +2,12 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2021, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
---  the Free Software Foundation; either version 2 of the License, or
---  (at your option) any later version.
+--  the Free Software Foundation; version 2.
 --
 --  This program is distributed in the hope that it will be useful,
 --  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -115,7 +115,7 @@ architecture behav of testbench is
   signal iic_sda        : std_ulogic;
   signal iic_mreset     : std_ulogic;
 
-  signal switch         : std_logic_vector(3 downto 0);
+  signal switch         : std_logic_vector(6 downto 0);
   signal gpio           : std_logic_vector(15 downto 0);
   signal led            : std_logic_vector(7 downto 0);
   signal button         : std_logic_vector(4 downto 0);
@@ -193,6 +193,9 @@ begin
   -- Misc ---------------------------------------------
   -----------------------------------------------------
 
+  errorn        <= 'H'; -- ERROR pull-up
+  switch(2 downto 0) <= (2 => '1', others => '0');
+  button        <= (4 => dmbreak, others => '0');
 
   -----------------------------------------------------
   -- Top ----------------------------------------------
@@ -213,10 +216,14 @@ begin
       reset             => system_rst,
       clk300p           => clk300p,
       clk300n           => clk300n,
+      switch            => switch,
+      led               => led,
+      gpio              => gpio,
       dsurx             => duart_rx,
       dsutx             => duart_tx,
-      --dsuctsn           => dsuctsn,
-      --dsurtsn           => dsurtsn,
+      dsuctsn           => dsuctsn,
+      dsurtsn           => dsurtsn,
+      button            => button,
       ddr4_dq           => ddr4_dq,
       ddr4_dqs_c        => ddr4_dqs_c,
       ddr4_dqs_t        => ddr4_dqs_t,
@@ -231,11 +238,14 @@ begin
       ddr4_ck_t         => ddr4_ck_t,
       ddr4_cke          => ddr4_cke,
       ddr4_act_n        => ddr4_act_n,
+      --ddr4_alert_n      => ddr4_alert_n,
       ddr4_odt          => ddr4_odt,
       ddr4_par          => ddr4_par,
+      --ddr4_ten          => ddr4_ten, 
       ddr4_cs_n         => ddr4_cs_n, 
       ddr4_reset_n      => ddr4_reset_n
       );
+
 
 
   -- Memory model instantiation
@@ -269,8 +279,7 @@ begin
   -----------------------------------------------------
   -- Process ------------------------------------------
   -----------------------------------------------------
-  errorn <= 'H';
-  
+
   iuerr : process
   begin
     wait for 5000 ns;

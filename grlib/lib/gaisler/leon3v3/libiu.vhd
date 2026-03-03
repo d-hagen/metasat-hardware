@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 -- Package:     libiu
 -- File:        libiu.vhd
 -- Author:      Jiri Gaisler Gaisler Research
+-- Modified:    Marc Solé Bonet, Barcelona Supercomputing Center (SPARROW extension)
 -- Description: LEON3 IU types and components
 ------------------------------------------------------------------------------
 
@@ -33,6 +34,10 @@ use gaisler.leon3.all;
 use gaisler.libfpu.all;
 use gaisler.arith.all;
 use gaisler.mmuconfig.all;
+
+library bsc;
+use bsc.sparrow.sprw_in_type;
+use bsc.sparrow.sprw_out_type;
 
 package libiu is
 
@@ -165,6 +170,7 @@ package libiu is
       fpu     :     integer range 0 to 15    := 0;
       v8      :     integer range 0 to 63    := 0;
       cp, mac :     integer range 0 to 1     := 0;
+      sparrow :     integer range 0 to 1     := 0; --sparrow
       dsu     :     integer range 0 to 1     := 0;
       nwp     :     integer range 0 to 4     := 0;
       pclow   :     integer range 0 to 2     := 2;
@@ -207,6 +213,8 @@ package libiu is
       mulo    : in  mul32_out_type;
       divi    : out div32_in_type;
       divo    : in  div32_out_type;
+      sdi     : out sprw_in_type;
+      sdo     : in  sprw_out_type;
       fpo     : in  fpc_out_type;
       fpi     : out fpc_in_type;
       cpo     : in  fpc_out_type;

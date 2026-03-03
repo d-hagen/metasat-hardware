@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -45,6 +45,9 @@ component clkbuf_apa3 is generic( buftype :  integer range 0 to 3 := 0);
 end component;
 component clkbuf_igloo2 is generic( buftype :  integer range 0 to 5 := 0);
   port( i :  in  std_ulogic; o :  out std_ulogic);
+end component;
+component clkbuf_polarfire is generic (buftype : integer range 0 to 5 := 0);
+  port (i : in std_ulogic; o : out std_ulogic);
 end component;
 component clkbuf_apa3e is generic( buftype :  integer range 0 to 3 := 0);
   port( i :  in  std_ulogic; o :  out std_ulogic);
@@ -101,9 +104,9 @@ begin
   igl2 : if (tech = igloo2) or (tech = rtg4) generate
     igl20 : clkbuf_igloo2 generic map (buftype => buftype) port map(i => i, o => o);
   end generate;
---  pf : if (tech = polarfire) generate
---    pf0 : clkbuf_polarfire generic map (buftype => buftype) port map(i => i, o => o);
---  end generate;
+  pf : if (tech = polarfire) generate
+    pf0 : clkbuf_polarfire generic map (buftype => buftype) port map(i => i, o => o);
+  end generate;
   pa3l : if (tech = apa3l) generate
     pa3l0 : clkbuf_apa3l generic map (buftype => buftype) port map(i => i, o => o);
   end generate;

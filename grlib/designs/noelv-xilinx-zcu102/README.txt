@@ -1,12 +1,12 @@
-RISC-V NOELV Kintex UltraScale KCU105 board Design Template
+RISC-V NOELV Zynq UltraScale+ ZCU102 board Design Template
 ----------------------
 
 These design template has been built in order to instantiate a NOELV core in a Xilinx
-Kintex UltraScale KCU105 board.
+Zynq UltraScale+ ZCU102 board.
 
-Information on the KCU105 at:
+Information on the ZCU102 at:
 
-https://www.xilinx.com/products/boards-and-kits/kcu105.html
+https://www.xilinx.com/products/boards-and-kits/ek-u1-zcu102-g.html
 
 ---------------------
 Design Requirements
@@ -99,17 +99,24 @@ If user tries to connect to the board and the MIG has not been
 calibrated successfully 'grmon' will output: AMBA plug&play not found!
 
 ************************
-Flow without MIG or SGMII IPs
+Flow without MIG 
 ************************
 
-The MIG and SGMII IP can be disabled either by deselecting the memory
-controller and Gaisler Ethernet interface in 'xconfig' or manually
-editing the config.vhd file.  When no MIG and no SGMII block is
+The MIG can be disabled either by deselecting the memory
+controller in 'xconfig' or manually
+editing the config.vhd file.  When no MIG is
 present in the system normal GRLIB flow can be used and no extra
 compile steps are needed. Also when when no MIG is present it is
 possible to control and set the system frequency via xconfig.  Note
 that the system frequency can be modified via Vivado when the MIG is
 present by modifying within specified limits for the MIG IP.
+
+************************
+Ethernet
+************************
+
+Zynq family only allow PS-side to access MIO, where the Ethernet PHY
+pins are hardened; read Ethernet_ZCU102.docx for more information.
 
 ************************
 Run with GRMON

@@ -22,7 +22,6 @@ XDC=$(GRLIB)/boards/$(BOARD)/$(BOARD).xdc
 ### Simulation Options ###
 # Design Top Level
 TOP=leon3mp
-DIRADD += sparrow/proc/leon3
 
 # Simulation top level
 SIMTOP=testbench

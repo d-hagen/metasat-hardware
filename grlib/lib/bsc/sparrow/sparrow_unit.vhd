@@ -184,13 +184,13 @@ architecture rtl of sparrow_unit is
                      sel: out std_logic_vector(2 downto 0);
                      sign: out std_logic) is
     begin
-        sel := op(2 downto 0);
-        sign := not op(4); 
         case op is
             when S1_AND | S1_OR | S1_XOR | S1_NAND | S1_NOR | S1_XNOR => 
                 sel := "000";
                 sign := '0';
             when others =>
+              sel := op(2 downto 0);
+              sign := not op(4); 
         end case;
     end s1_mux;
 

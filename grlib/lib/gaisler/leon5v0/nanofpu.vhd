@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -49,7 +49,8 @@ entity nanofpu is
     ready_ld      : out std_logic_vector(0 to 35);
     ready_st      : out std_logic_vector(0 to 35);
     trapon_flop   : out std_ulogic;
-    trapon_ldst   : out std_ulogic;
+    trapon_ld     : out std_ulogic;
+    trapon_st     : out std_ulogic;
     trapon_stdfq  : out std_ulogic;
     issue_cmd     : in std_logic_vector(2 downto 0);
     issue_ldstreg : in std_logic_vector(5 downto 0);
@@ -1793,7 +1794,8 @@ begin
     ready_ld     <= (others => r.readyldst);
     ready_st     <= (others => r.readyldst);
     trapon_flop  <= r.trapflop;
-    trapon_ldst  <= r.trapldst;
+    trapon_ld    <= r.trapldst;
+    trapon_st    <= r.trapldst;
     trapon_stdfq <= r.trapstdfq;
     issue_id     <= "00000";
     stdata       <= ostdata;

@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -43,24 +43,45 @@ package dmnvint is
     addr    : std_logic_vector(31 downto 0);
     data    : std_logic_vector(REGW-1 downto 0);
     wr      : std_ulogic;
+    -- System Bus Access
+    sbfinish : std_ulogic;
+    sbrdata  : std_logic_vector(31 downto 0);
+    sbdvalid : std_ulogic;
+    sberror  : std_ulogic;
     -- Test support
     testen  : std_ulogic;
     testrst : std_ulogic;
   end record;
   constant dev_reg_in_none : dev_reg_in_type := (
-    sel     => (others => '0'),
-    addr    => (others => '0'),
-    data    => (others => '0'),
-    wr      => '0',
-    testen  => '0',
-    testrst => '0');
+    sel      => (others => '0'),
+    addr     => (others => '0'),
+    data     => (others => '0'),
+    wr       => '0',
+    sbfinish => '0',
+    sbrdata  => (others => '0'),   
+    sbdvalid => '0',
+    sberror  => '0',
+    testen   => '0',
+    testrst  => '0');
   type dev_reg_out_type is record
     rdy   : std_ulogic;
     data  : std_logic_vector(REGW-1 downto 0);
+    -- System Bus Access
+    sbstart  : std_ulogic;
+    sbwdata  : std_logic_vector(31 downto 0);
+    sbwr     : std_ulogic;
+    sbaccess : std_logic_vector(2 downto 0);
+    sbaddr   : std_logic_vector(31 downto 0);
   end record;
   constant dev_reg_out_none : dev_reg_out_type := (
     rdy   => '0',
-    data  => (others => '0'));
+    data  => (others => '0'),
+    sbstart  => '0',
+    sbwdata  => (others => '0'),
+    sbwr     => '0',
+    sbaccess => (others => '0'),
+    sbaddr   => (others => '0')
+    );
 
   -- Program buffer --------------------------------------------------------------
   type nv_progbuf_in_type is record

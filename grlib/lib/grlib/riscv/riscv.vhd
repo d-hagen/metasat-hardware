@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -224,8 +224,7 @@ package riscv is
   constant F7_CZERO       : funct7_type := "0000111";  -- R_SRL
 
   -- Zicfiss
-  constant F12_SSRDP      : funct12_type := F7_MOPR_0  & "11101";  -- R_XOR
-  constant F12_SSPOPCHK   : funct12_type := F7_MOPR_28 & "11100";  -- R_XOR
+  constant F12_SSRDPOPCHK : funct12_type := F7_MOPR_28 & "11100";  -- R_XOR
 
 
   -- funct3 decoding (inst(14 downto 12))
@@ -419,6 +418,9 @@ package riscv is
   constant R_AMOMINU    : funct5_type := "11000";
   constant R_AMOMAXU    : funct5_type := "11100";
 
+  -- Zicfiss
+  constant R_SSAMOSWAP  : funct5_type := "01001";
+
   -----------------------------------------------------------------------------
   -- RV64A Standard Extension Set
   -----------------------------------------------------------------------------
@@ -529,6 +531,7 @@ package riscv is
   constant S_FNMSUB     : funct5_type := "10010";
   constant S_FNMADD     : funct5_type := "10011";
 
+
   -----------------------------------------------------------------------------
   -- Opcodes above that are actually the same
   -----------------------------------------------------------------------------
@@ -587,10 +590,10 @@ package riscv is
   constant CSR_FFLAGS           : csratype := x"001";
   constant CSR_FRM              : csratype := x"002";
   constant CSR_FCSR             : csratype := x"003";
-
   -- User Custom R/W
   constant CSR_SCR              : csratype := x"800";
-
+  -- Shadow stack pointer
+  constant CSR_SSP              : csratype := x"011";
   -- User Counter/Timers
   constant CSR_CYCLE            : csratype := x"c00";
   constant CSR_TIME             : csratype := x"c01";
@@ -1015,6 +1018,8 @@ package riscv is
   -- Custom Read-only Registers
   constant CSR_CAPABILITY       : csratype := x"fc0";
   constant CSR_CAPABILITYH      : csratype := x"fd0";
+  -- Custom Read/Write Unprivileged Registers
+
 
   constant DCAUSE_EBREAK        : std_logic_vector(2 downto 0) := "001";
   constant DCAUSE_TRIG          : std_logic_vector(2 downto 0) := "010";
@@ -1022,6 +1027,8 @@ package riscv is
   constant DCAUSE_STEP          : std_logic_vector(2 downto 0) := "100";
   constant DCAUSE_RSTHALT       : std_logic_vector(2 downto 0) := "101";
   constant DCAUSE_GROUPHALT     : std_logic_vector(2 downto 0) := "110";
+  constant DCAUSE_EXTENDED      : std_logic_vector(2 downto 0) := "111";
+  constant EXTDCAUSE_CRITERROR  : std_logic_vector(2 downto 0) := "000";
 
   function rd(inst : std_logic_vector) return reg_t;
   function rs1(inst : std_logic_vector) return reg_t;

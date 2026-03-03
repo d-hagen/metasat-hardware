@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -89,10 +89,19 @@ architecture rtl of dmnv is
   signal dmo  : dev_reg_out_type;
   signal tri  : dev_reg_in_type;
   signal tro  : dev_reg_out_type;
+  
+  signal dbgmiv : ahb_mst_in_vector_type(ndbgmst downto 0);
+  signal dbgmov : ahb_mst_out_vector_type(ndbgmst downto 0);
 begin
+
+  -- Last master in debug subsystem bus (nbdgmst) is always
+  -- the debug module (dmnv_ahbs)
+  dbgmi <= dbgmiv(ndbgmst-1 downto 0);
+  dbgmov(ndbgmst-1 downto 0) <= dbgmo;
+
   intercnct : entity work.dmnv_ic
     generic map (
-      ndmamst   => ndbgmst,
+      ndmamst   => ndbgmst+1,
       -- conv bus
       cbmidx    => cbmidx,
       -- PnP
@@ -109,8 +118,8 @@ begin
       clk     => clk,
       rstn    => rstn,
       -- Debug-link interface
-      dmami   => dbgmi,
-      dmamo   => dbgmo,
+      dmami   => dbgmiv,
+      dmamo   => dbgmov,
       -- Conventional AHB bus interface
       cbmi    => cbmi,
       cbmo    => cbmo,
@@ -141,7 +150,8 @@ begin
 
   ahbs_if : entity work.dmnv_ahbs
     generic map(
-      hindex    => dmslvidx,
+      hsindex   => dmslvidx,
+      hmindex   => ndbgmst,
       haddr     => dmhaddr,
       hmask     => dmhmask,
       scantest  => scantest)
@@ -150,6 +160,8 @@ begin
       rstn    => rstn,
       ahbsi   => dmsi,
       ahbso   => dmso,
+      ahbmi   => dbgmiv(ndbgmst),
+      ahbmo   => dbgmov(ndbgmst),
       -- DM interface
       dmi     => dmi,
       dmo     => dmo,

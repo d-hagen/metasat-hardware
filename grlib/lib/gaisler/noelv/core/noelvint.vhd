@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@ use grlib.riscv.reg_t;
 library gaisler;
 use gaisler.noelvtypes.all;
 use gaisler.noelv.XLEN;
+use gaisler.noelv.GEILEN;
 use gaisler.noelv.nv_irq_in_type;
 use gaisler.noelv.nv_irq_out_type;
 use gaisler.noelv.nv_nirq_in_type;
@@ -56,7 +57,9 @@ use bsc.sparrow.sprw_out_vec;
 
 package noelvint is
 
-  type    pmpaddr_vec_type   is array (0 to PMPENTRIES - 1) of pmpaddr_type;
+  type pmpcfg_vec_type  is array (0 to PMPENTRIES - 1) of word8;
+  type pmpaddr_vec_type is array (0 to PMPENTRIES - 1) of pmpaddr_type;
+  type pmaaddr_vec_type is array (0 to PMAENTRIES - 1) of pmpaddr_type;
 
   type pmp_precalc_type is record
     valid : std_ulogic;
@@ -71,8 +74,6 @@ package noelvint is
   );
 
   type pmp_precalc_vec is array (integer range <>) of pmp_precalc_type;
-
-  constant PMPPRECALCRES : pmp_precalc_vec(0 to PMPENTRIES - 1) := (others => pmp_precalc_none);
 
   type csr_out_cctrl_type is record
     itcmwipe  : std_ulogic;
@@ -117,12 +118,15 @@ package noelvint is
     mmu_sptfault  : std_ulogic; -- Take page fault on any sPT walk.
     mmu_hptfault  : std_ulogic; -- Take page fault on any hPT walk.
     mmu_oldfence  : std_ulogic; -- Use old sfence/hfence mechanism.
-    pmpcfg0       : word64;
-    pmpcfg2       : word64;
+    pmpcfg        : pmpcfg_vec_type;
     precalc       : pmp_precalc_vec(0 to PMPENTRIES - 1);
+    pma_precalc   : pmp_precalc_vec(0 to PMAENTRIES - 1);
+    pma_data      : word64_arr(0 to PMAENTRIES - 1);
     mmwp          : std_ulogic;
     mml           : std_ulogic;
-    cctrl        : csr_out_cctrl_type;
+    menvcfg_sse   : std_ulogic;
+    henvcfg_sse   : std_ulogic;
+    cctrl         : csr_out_cctrl_type;
   end record;
 
   constant nv_csr_out_type_none : nv_csr_out_type := (
@@ -134,11 +138,14 @@ package noelvint is
     mmu_sptfault  => '0',
     mmu_hptfault  => '0',
     mmu_oldfence  => '0',
-    pmpcfg0       => (others => '0'),
-    pmpcfg2       => (others => '0'),
-    precalc       => PMPPRECALCRES,
+    pmpcfg        => (others => (others => '0')),
+    precalc       => (others => pmp_precalc_none),
+    pma_precalc   => (others => pmp_precalc_none),
+    pma_data      => (others => zerow64),
     mmwp          => '0',
     mml           => '0',
+    menvcfg_sse   => '0',
+    henvcfg_sse   => '0',
     cctrl        => csr_out_cctrl_rst
   );
 
@@ -328,7 +335,7 @@ package noelvint is
     nobpmiss         : std_ulogic;                    -- Predicted instruction, block hold
     iustall          : std_ulogic;
     parkreq          : std_ulogic;                    -- Cache controller park request
-    vms              : std_logic_vector(2 downto 0); -- [Virtualization mode, machine mode, supervisor mode]
+    vms              : std_logic_vector(2 downto 0);  -- [Virtualization mode, machine mode, supervisor mode]
   end record;
 
   type nv_icache_out_type is record
@@ -375,11 +382,13 @@ package noelvint is
     mxr              : std_ulogic;                   -- Make X-only pages readable (S MMU). PMP not affected!
     vmxr             : std_ulogic;                   -- Make X-only pages readable (VS MMU). PMP not affected!
     hx               : std_ulogic;                   -- Hypervisor HLVX load instruction. Execute permission needed
+    ss               : std_ulogic;                   -- Shadow stack access
     intack           : std_ulogic;
     eread            : std_ulogic;
     mmucacheclr      : std_ulogic;
     amo              : std_logic_vector(5 downto 0);
     cbo              : std_logic_vector(2 downto 0);
+    bar              : std_logic_vector(2 downto 0);
     iudiag_miso      : nv_intreg_miso_type;
   end record;
 
@@ -387,8 +396,9 @@ package noelvint is
     x"00", (others => '0'), x"00", (others => '0'), zerow64, "00",
     '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
     "000", '0', '0', '0', '0',
+    '0',
     '0', '0', '0',
-    "000000", "000", nv_intreg_miso_none
+    "000000", "000", "000", nv_intreg_miso_none
   );
 
   type nv_dcache_out_type is record
@@ -529,6 +539,7 @@ package noelvint is
     int_res    : std_ulogic;
     csr_write  : std_ulogic;
     memory     : std_ulogic;
+    cfi        : std_ulogic;
     pc         : wordx;
     inst       : word;
     cinst      : word16;
@@ -543,6 +554,7 @@ package noelvint is
     int_res    => '0',
     csr_write  => '0',
     memory     => '0',
+    cfi        => '0',
     pc         => zerox,
     inst       => zerow,
     cinst      => zerow16,
@@ -595,6 +607,7 @@ package noelvint is
     trace       : trace_type;
     tpbuf_en    : std_ulogic;
     info        : trace_info;
+
   end record;
 
   constant itrace_in_none : itrace_in_type := (
@@ -697,6 +710,7 @@ package noelvint is
     icc         => (others => '0'),
     result      => (others => '0')
     );
+
 
   -- Return Address Stack -----------------------------------------------------
   type nv_ras_in_type is record
@@ -818,23 +832,29 @@ package noelvint is
       -- Caches
       iways         : integer range 1  to 8;        -- I$ Ways
       dways         : integer range 1  to 8;        -- D$ Ways
+      dlinesize     : integer range 4  to 8;        -- D$ Cache Line Size (words)
       itcmen        : integer range 0  to 1;        -- Instruction TCM
       dtcmen        : integer range 0  to 1;        -- Data TCM
       -- MMU
       mmuen         : integer range 0  to 2;        -- >0 - MMU enable
-      riscv_mmu     : integer range 0  to 3;
-      pmp_no_tor    : integer range 0  to 1;        -- Disable PMP TOR
+      riscv_mmu     : integer range 0  to 3;        -- sparc / sv32 / sv39 /s48
+      pmp_no_tor    : integer range 0  to 1;        -- Disable PMP TOR (not with TLB PMP)
       pmp_entries   : integer range 0  to 16;       -- Implemented PMP registers
       pmp_g         : integer range 0  to 10;       -- PMP grain is 2^(pmp_g + 2) bytes
-      asidlen       : integer range 0 to  16;       -- Max 9 for Sv32
-      vmidlen       : integer range 0 to  14;       -- Max 7 for Sv32
+      pma_entries   : integer range 0  to 16;       -- Implemented PMA entries
+--      pma_addr      : word64_arr             := word64_arr_empty; -- PMA addresses
+--      pma_data      : word64_arr             := word64_arr_empty; -- PMA configuration
+      pma_masked    : integer range 0  to 1;        -- PMA done using masks
+      asidlen       : integer range 0  to 16;       -- Max 9 for Sv32
+      vmidlen       : integer range 0  to 14;       -- Max 7 for Sv32
       -- Interrupts
       imsic         : integer range 0  to 1;        -- IMSIC implemented
       -- RNMI
-      rnmi_iaddr   : integer;                      -- RNMI interrupt trap handler address
-      rnmi_xaddr   : integer;                      -- RNMI exception trap handler address
+      rnmi_iaddr    : integer;                      -- RNMI interrupt trap handler address
+      rnmi_xaddr    : integer;                      -- RNMI exception trap handler address
       -- Extensions
       ext_noelv     : integer range 0  to 1;        -- NOEL-V Extensions
+      ext_noelvalu  : integer range 0  to 1;        -- NOEL-V ALU Extensions
       ext_m         : integer range 0  to 1;        -- M Base Extension Set
       ext_a         : integer range 0  to 1;        -- A Base Extension Set
       ext_c         : integer range 0  to 1;        -- C Base Extension Set
@@ -854,11 +874,16 @@ package noelvint is
       ext_ssaia     : integer range 0  to 1;        -- Ssaia Extension
       ext_smstateen : integer range 0  to 1;        -- Smstateen Extension
       ext_smrnmi    : integer range 0  to 1;        -- Smrnmi Extension
+      ext_ssdbltrp  : integer range 0  to 1;        -- Ssdbltrp Extension
+      ext_smdbltrp  : integer range 0  to 1;        -- Smdbltrp Extension
+      ext_sddbltrp  : integer range 0  to 1;        -- Sddbltrp Extension
       ext_smepmp    : integer range 0  to 1;        -- Smepmp Extension
       ext_zicbom    : integer range 0  to 1;        -- Zicbom Extension
       ext_zicond    : integer range 0  to 1;        -- Zicond Extension
       ext_zimop     : integer range 0  to 1;        -- Zimop Extension
       ext_zcmop     : integer range 0  to 1;        -- Zcmop Extension
+      ext_zicfiss   : integer range 0  to 1;        -- Zicfiss Extension
+      ext_zicfilp   : integer range 0  to 1;        -- Zicfilp Extension
       ext_svinval   : integer range 0  to 1;        -- Svinval Extension
       ext_zfa       : integer range 0  to 1;        -- Zfa Extension
       ext_zfh       : integer range 0  to 1;        -- Zfh Extension
@@ -879,14 +904,17 @@ package noelvint is
       tbuf          : integer;                      -- Trace buffer size in kB
       scantest      : integer;                      -- Scantest support
       rfreadhold    : integer range 0  to 1 := 0;   -- Register File Read Hold
---      fpu_debug    : integer range 0  to 1 := 0;   -- FCSR bits for controlling the FPU
---      fpu_lane     : integer range 0  to 1 := 0;   -- Lane where (non-memory) FPU instructions go
-      endian         : integer range 0  to 1 := GRLIB_CONFIG_ARRAY(grlib_little_endian)
+--    dsuen_delay   : integer range 0  to 1 := 1;   -- Delay dbgi.dsuen (no UNOPTFLAT with Verilator)
+--      show_misa_x    : integer range 0  to 1 := 1;   -- Extensions visible in MISA X
+--      allow_x_ctrl   : integer range 0  to 1 := 1;   -- Allow X to be turned off
+--      fpu_debug      : integer range 0  to 1 := 0;   -- FCSR bits for controlling the FPU
+--      fpu_lane       : integer range 0  to 1 := 0;   -- Lane where (non-memory) FPU instructions go
+      endian           : integer range 0  to 1 := GRLIB_CONFIG_ARRAY(grlib_little_endian)
       );
     port (
-      clk            : in  std_ulogic;           -- clk
-      rstn           : in  std_ulogic;           -- active low reset
-      holdn          : in  std_ulogic;           -- active low hold signal
+      clk            : in  std_ulogic;           -- Clock
+      rstn           : in  std_ulogic;           -- Active low reset
+      holdn          : in  std_ulogic;           -- Active low hold signal
       ici            : out nv_icache_in_type;    -- I$ In Port
       ico            : in  nv_icache_out_type;   -- I$ Out Port
       bhti           : out nv_bht_in_type;       -- BHT In Port
@@ -916,16 +944,19 @@ package noelvint is
       fpuia          : out fpu5_in_async_type;   -- FPU Unit In Port
       fpuo           : in  fpu5_out_type;        -- FPU Unit Out Port
       fpuoa          : in  fpu5_out_async_type;  -- FPU Unit Out Port
-      cnt            : out nv_counter_out_type;  -- Perf counters
-      itracei        : out itrace_in_type;
-      itraceo        : in  itrace_out_type;
-      csr_mmu        : out nv_csr_out_type;         -- CSR values for MMU
-      mmu_csr        : in  nv_csr_in_type;          -- CSR values for MMU
-      perf           : in  std_logic_vector(31 downto 0);
-      cap            : in  std_logic_vector(9  downto 0);
+      cnt            : out nv_counter_out_type;  -- Perf event Out Port
+      itracei        : out itrace_in_type;       -- Trace information
+      itraceo        : in  itrace_out_type;      -- Trace control
+      pma_addr       : in  word64_arr;           -- PMA addresses
+      pma_data       : in  word64_arr;           -- PMA configuration
+      csr_mmu        : out nv_csr_out_type;      -- CSR values for MMU
+      mmu_csr        : in  nv_csr_in_type;       -- CSR values for MMU
+      perf           : in  std_logic_vector(31 downto 0);  -- Performance data
+      cap            : in  std_logic_vector(9  downto 0);  -- Trace capability
       tbo            : in  nv_trace_out_type;    -- Trace Unit Out Port
-      eto            : out nv_etrace_out_type;
-      sclk           : in  std_ulogic;
+      eto            : out nv_etrace_out_type;   -- E-trace output
+      sclk           : in  std_ulogic;           -- [Currently unused]
+      pwrd           : out std_ulogic;           -- Activate power down mode
       testen         : in  std_ulogic;
       testrst        : in  std_ulogic
       );
@@ -1064,9 +1095,11 @@ package noelvint is
       dtlbnum    : integer range 2 to  64;   -- # data TLB entries
       htlbnum    : integer range 1 to  64;   -- # hypervisor TLB entries
       riscv_mmu  : integer range 0 to   3;
-      pmp_no_tor : integer range 0 to   1;   -- Disable PMP TOR
+      pmp_no_tor : integer range 0 to   1;   -- Disable PMP TOR (not with TLB PMP)
       pmp_entries: integer range 0 to  16;   -- Implemented PMP registers
       pmp_g      : integer range 0 to  10;   -- PMP grain is 2^(pmp_g + 2) bytes
+      pma_entries: integer range 0 to  16;   -- Implemented PMA entries
+      pma_masked : integer range 0 to   1;   -- PMA done using masks
       asidlen    : integer range 0 to  16;   -- Max 9 for Sv32
       vmidlen    : integer range 0 to  14;   -- Max 7 for Sv32
       ext_noelv  : integer range 0 to   1;   -- NOEL-V Extensions
@@ -1074,6 +1107,8 @@ package noelvint is
       ext_h      : integer range 0 to   1;   -- Support for Hypervisor, needs tlb_pmp if any PMP.
       ext_smepmp : integer range 0 to   1;   -- Support for Smepmp extension
       ext_zicbom : integer range 0 to   1;   -- Support for Zicbom extension
+      ext_svpbmt : integer range 0 to   1;   -- Support for Svpbmt Extension
+      ext_zicfiss : integer range 0 to  1;   -- Zicfiss Extension
       tlb_pmp    : integer range 0 to   1;   -- Do PMP via TLB
       -- Misc
       cached     : integer;                  -- Mask indexed by 4 MSB of address regarding cacheability when no TLB used
@@ -1152,6 +1187,7 @@ package noelvint is
       testrst   : in  std_ulogic := '1'
       );
   end component;
+
 
   component bhtnv is
     generic (

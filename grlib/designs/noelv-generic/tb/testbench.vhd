@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -40,14 +40,16 @@ use work.config.all;
 
 entity testbench is
   generic(
-    fabtech : integer := CFG_FABTECH;
-    memtech : integer := CFG_MEMTECH;
-    padtech : integer := CFG_PADTECH;
-    clktech : integer := CFG_CLKTECH;
-    disas   : integer := CFG_DISAS;
-    dm_ctrl : integer := 0;
-    romfile : string := "prom.srec"; -- rom contents
-    ramfile : string := "ram.srec"  -- ram contents
+    fabtech  : integer := CFG_FABTECH;
+    memtech  : integer := CFG_MEMTECH;
+    padtech  : integer := CFG_PADTECH;
+    clktech  : integer := CFG_CLKTECH;
+    disas    : integer := CFG_DISAS;
+    dm_ctrl  : integer := 0;
+    romfile  : string  := "prom.srec"; -- rom contents
+    ramfile  : string  := "ram.srec";  -- ram contents
+    htif     : integer := 0;
+    tohost   : integer := 0
     );
 end;
 
@@ -125,7 +127,10 @@ begin
       disas             => disas,
       SIMULATION        => 1,
       romfile           => romfile,
-      ramfile           => ramfile
+      ramfile           => ramfile,
+      tohost            => std_logic_vector(to_unsigned(tohost, 64)),
+      fromhost          => (others => '1'),
+      htif              => htif
       )
     port map(
       reset             => system_rst,

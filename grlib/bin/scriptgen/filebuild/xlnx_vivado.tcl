@@ -29,6 +29,7 @@ proc create_xlnx_vivado {} {
 }
 
 proc append_file_xlnx_vivado {f finfo} {
+	upvar vivado_contents vc
 	set i [dict get $finfo i]
 	set bn [dict get $finfo bn]
 	switch $i {
@@ -67,9 +68,16 @@ proc append_file_xlnx_vivado {f finfo} {
 			global VIVADOVHDL VIVADOLIBSKIP VIVADODIRSKIP VIVADOSKIP
 			set l [dict get $finfo l]
 			set q [dict get $finfo q]
+			set fattr [dict get $finfo fattr]
 			if {[lsearchmatch $VIVADOLIBSKIP $bn] < 0 && [lsearchmatch $VIVADODIRSKIP $l] < 0 && [lsearchmatch $VIVADOSKIP $q] < 0 } {
 				upvar vivado_contents vc
 				append vc "\n$VIVADOVHDL $bn $f"
+				if {$fattr ne ""} {
+					set vhdlstd [regexp -all -inline -- {[0-9]+} $fattr]
+					if {$vhdlstd eq "2008"} {
+						append vc "\nset_property file_type {VHDL $vhdlstd} \[get_files $f\]"
+					}
+				}
 			}
 			return
 		}

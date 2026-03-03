@@ -1,3 +1,169 @@
+----------------------- Release 2024.4-b4295 ---------------------------
+
+2024-12-18	NOEL-V updates
+		- Internal APB bus in noelvsys has been moved from 
+		  0xFC0000000 to 0xFF9000000 and some devices has been 
+		  reorganized. New UART address is now 0xFF900000.
+		- Added option in noelvsys to include PLIC and APLIC
+		- Workaround tool issues for Design-compiler and formality
+		- Added NOEL-V template design for the ZCU102 board
+		- Updated BF16 support (Zfbfmin now ratified)
+		- B in MISA is now set when zba, zbb, zbs are implemented
+		- Improved access and fixed issues with access to IMSIC CSRs
+		- Trigger update to support CBO instructions
+		- Updated Smrnmi implementation to support CFI
+		- Updated interrupt prioritization according to AIA
+		- Removed workaround to allow 64-bit debug-module abstract 
+		  command on RV32
+		- Bug fixes:
+		  - CBO.inval and CBO.flush could incorrectly update the TAG
+		    and cause duplicated data tags.
+		  - mstatush was only available when H-extension was enabled
+		  - exception generated for the SSTC extension was incorrect
+		  - ePMP bit in mseccfg was writable when PMP was not
+		    implemented
+		  - updating these CSRs (menvcfgh, frm/fcsr, xtvec, stateen, 
+		    mideleg/hideleg) should not be dual-issued with other
+		    instructions
+		  - incorrect exception when an address in a PTE failed PMA
+		    check
+		  - SIP.lcof was always read zero
+		  - sfence.w.inval and sfence.inval.ir weren't trapping in
+		    U/VU mode and generating virtual instruction exception
+		    correctly
+		  - APLIC interrupt source was shifted by one bit.
+		  - a hit in BTB was not check to actually be a branch/jal
+		    instruction
+		  - SLLI >31 bit shift was not marked as illegal for RV32
+		  - medeleg and hedeleg to incorporate hw-fault exception
+		  - address translation was not enabled for the instruction
+		    following enabling MMU
+		  - VSATP had the same number of PPN bits as SATP and not
+		    all 41 bits of GPA could be used
+		  - fix for a CFI landing pad corner case
+		  - data cache was flushed when executing a fence instruction
+		  - PTE with D = 1 and A = 0 did not result in page-fault
+		  - LWU could be executed on RV32
+		  - issue with tval for mcontrol6 trigger
+		  - SSRDP was not checked for regarding pairing with
+		    instruction using destination
+		  - PMP check for hlvx and  hypervisor fetch and store was 
+		    incorrect (when allowed in PTE)
+		  - wrong fault on W-only pages with ext_zicfiss but SS
+		    disabled
+		  - no illegal instruction exception for sfence.vma and
+		    reading satp when supervisor mode not implemented
+		  - CSR stimecmp was readable when not implemented
+
+2024-11-05	SPIMCTRL: Input signal 'RSTADDRM' added which can be used
+		to select the reset value of the extended address mode
+		configuration.
+		
+2024-10-11	SPIMCTRL: 'allow_writes' configuration now set as register
+        	bit. Old VHDL generic is kept and is instead used as reset
+		value for the new register bit.
+
+2024-10-04	SPIMCTRL: support for several SPI memories
+		The core now supports the use of up to four chip select 
+		signals. It can either be configured to always communicate 
+		with one out of the four devices, or instead use bit pairs 
+		from the address to select which device to use. The second 
+		approach allows a continuous view into the four memories 
+		in the SPIMCTRL ROM address region.
+
+----------------------- Release 2024.2-b4293 ---------------------------
+
+2024-07-09	Added support for Lattice Nexus FPGAs.
+		- Techmap support for nexus primitives.
+		- Template designs for LEON3, LEON5 and NOEL-V targeting
+		  CrossLink, Certus and CertusPro FPGAs.
+
+2024-06-30	NOEL-V:
+		- Writes to HPMCOUNTERs are now single-issued
+		- MCONTROL6: The 32 MSBs of the address were masked when
+		  setting a breakpoint
+		- Accessing htimedeltah, henvcfgh and stimecmph could
+		  generate incorrect exception code
+		- HGATP: change to not clear all fields when illegal
+		  mode is set
+		- Update fence instruction to stall until write-buffer
+		  and current snoop access has completed
+		- hfence instruction did not cause illegal instruction
+		  exception when executed in U-mode
+		- PMPCFG: change behavior on illegal NA4 mode
+		- CBO: did not stall until tag update was completed.
+		  Forwarding for address generation was not correct
+		- SC: returned incorrect value is some corner cases
+		- Some code rewrite to workaround issues with some
+		  version of the DC tool
+		- The extra two bits in guest physical addresses was not
+		  stored in the TLB 
+		- APLIC: when interrupt was delegated to S-mode it was
+		  also forwarded to M-mode
+
+2024-06-24	APBUART16550 documentation added to grip.pdf
+
+----------------------- Release 2024.1-b4292 ---------------------------
+
+2024-04-18	L2C_LITE: Fixed backend io address to provide an AMBA
+		AHB BAR that can be scanned for PnP information of the
+		bus behind the L2C_LITE.
+		Fixed the index addressing bug introduced in the
+		2024.1-b4291 release.
+
+2024-04-15	LEON5: Fixed bus access corner case where HBUSREQ was
+		deasserted too early if wbmask=0 was combined with
+		busw>32.
+		Fixed bus access corner case where HTRANS(0) would
+		remain asserted if bus grant was lost in the middle of
+		a burst fetch of a cache line. The AHBCTRL would never
+		have rearbitrated the bus in this instance since HBUSREQ
+		remained asserted, but AMBA 2.0 compliant AHB arbiters
+		are allowed to do this.
+
+2024-04-15	NOEL-V updates
+		- Fixed minor issue with instret CSR
+		- Code rework to fix tool issues with single-issue
+		  configuration
+
+----------------------- Release 2024.1-b4291 ---------------------------
+
+2024-03-21	NOEL-V updates
+		- Added system bus access support for debug-module
+		- Now interrupt is allowed on CSR writes
+		- Fixed issue with ICOUNT trigger and CSR VSATP, INSTRET
+		- Improve branch prediction when C-extension is disabled
+		- CSR read with debug-module can now return error
+		- Only supported values can now be written to DCSR
+		- BTB is not flushed when entering debug mode
+		- NOEL-V subsystem: added 16550UART and removed dummy
+		  AHB bridge
+
+2024-03-19	LEON5: Fix for MMU probe ASI, could perform unnecessary
+		read access during table walk when set to stop at PTD.
+
+2024-02-22	leon5-xilinx-vcu128: Leon5 template design for Xilinx
+		VCU128 added.
+
+2024-01-30	LEON5/TECHMAP: Added new mapping for syncram with
+		built in data loop back to allow for large TCM timing
+		optimizations.
+
+2024-01-25	Documentation updates.
+		IRQMP:
+		- Added interrupt remapping and extended interrupts to block
+		  diagram.
+		- Added software usage note on level interrupts.
+		GPTIMER:
+		- Clarified additional consequences of the shared decrementer.
+
+2024-01-18	LEON5: Add support for TCM with non power-of-two size,
+		where only a fraction of the TCM space is backed by
+		memory. This is to allow finer control of TCM size.
+
+2024-01-18	LEON5: Bugfix for data_store_error trap delivery
+		introduced in release 2023.2.
+
 ----------------------- Release 2023.4-b4288 ---------------------------
 
 2023-11-28	NOEL-V: updates
@@ -21,8 +187,9 @@
 		- Reenable RAS
 		- Added Svinval extension
 		- Instruction trace updated
-		- Fixed half-persision fsqrt inexact issue
-		- Fixed minor issue related to H extension (HIE, GVA, MVP, HGEIP, HGSATP)
+		- Fixed half-precision fsqrt inexact issue
+		- Fixed minor issue related to H extension (HIE, GVA, MVP,
+		  HGEIP, HGSATP)
 		- Fault type could be wrong related to page-tables
 		- Fixed access issue for Sstc CSRs
 

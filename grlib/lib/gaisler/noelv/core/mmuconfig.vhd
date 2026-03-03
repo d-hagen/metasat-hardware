@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -37,6 +37,9 @@ library gaisler;
 use gaisler.utilnv.all_0;
 use gaisler.utilnv.u2i;
 use gaisler.utilnv.cond;
+use gaisler.nvsupport.supports_impl_mmu_sv32;
+use gaisler.nvsupport.supports_impl_mmu_sv39;
+use gaisler.nvsupport.supports_impl_mmu_sv48;
 
 package mmucacheconfig is
 
@@ -110,17 +113,27 @@ function va_size(what : va_type) return integer;
 function va_size(what : va_type; index : integer) return integer;
 function is_riscv(what : va_type) return boolean;
 function is_pt_invalid(what : va_type; data : std_logic_vector) return boolean;
-function is_valid_pte(what : va_type;
-                      data : std_logic_vector; mask : std_logic_vector;
-                      physaddr : integer range 32 to 56) return boolean;
+function is_valid_pte(what       : va_type;
+                      data       : std_logic_vector;
+                      mask       : std_logic_vector;
+                      ext_svpbmt : boolean := false
+                     ) return boolean;
 function is_pte(what : va_type; data : std_logic_vector) return boolean;
 function is_valid_ptd(what : va_type;
-                      data : std_logic_vector;
-                      physaddr : integer range 32 to 56) return boolean;
+                      data : std_logic_vector
+                     ) return boolean;
 function is_ptd(what : va_type; data : std_logic_vector) return boolean;
 function satp_base(what : va_type; satp : std_logic_vector) return std_logic_vector;
 function satp_asid(what : va_type; satp : std_logic_vector) return std_logic_vector;
 function satp_mode(what : va_type; satp : std_logic_vector) return integer;
+function compute_hgatp(
+  hgatp_prv : std_logic_vector;
+  hgatp_in : std_logic_vector;
+  proc_xlen : integer;
+  vmid_len : integer;
+  phys_addr : integer;
+  riscv_mmu : integer
+) return std_logic_vector;
 function pt_addr(what : va_type; data  : std_logic_vector; mask : std_logic_vector;
                  vaddr : std_logic_vector; code : std_logic_vector) return std_logic_vector;
 function pte_paddr(what : va_type; data : std_logic_vector) return std_logic_vector;
@@ -200,6 +213,7 @@ function ft_acc_resolve(what : va_type; at : std_logic_vector(2 downto 0);
 constant rv_pte_n    : integer := 63;
 constant rv_pte_pbmt : std_logic_vector(62 downto 61) := "00";
 constant rv_pte_resv : std_logic_vector(60 downto 54) := "0000000";
+constant rv_ppn      : std_logic_vector(53 downto 10) := (others => '0');
 constant rv_pte_rsw  : std_logic_vector( 9 downto  8) := "00";
 constant rv_pte_xwr  : std_logic_vector( 3 downto  1) := "000";
 constant rv_pte_v    : integer := 0;  -- valid (rest don't care if 0)
@@ -408,9 +422,11 @@ package body mmucacheconfig is
     end if;
   end;
 
-  function is_valid_pte(what : va_type;
-                        data : std_logic_vector; mask : std_logic_vector;
-                        physaddr : integer range 32 to 56) return boolean is
+  function is_valid_pte(what       : va_type;
+                        data       : std_logic_vector;
+                        mask       : std_logic_vector;
+                        ext_svpbmt : boolean := false
+                       ) return boolean is
   begin
     if what = sparc then
       return true;
@@ -441,18 +457,20 @@ package body mmucacheconfig is
         return false;
       end if;
 
-      -- PBMT 11 is reserved.
-      if data(rv_pte_pbmt'range) = "11" then
-        return false;
+      if ext_svpbmt then
+        -- PBMT 11 is reserved.
+        if data(rv_pte_pbmt'range) = "11" then
+          return false;
+        end if;
+      else
+        -- PBMT is reserved
+        if data(rv_pte_pbmt'range) /= "00" then
+          return false;
+        end if;
       end if;
 
       -- N (Svnapot) is not yet supported.
       if data(rv_pte_n) /= '0' then
-        return false;
-      end if;
-
-      -- Do not allow addressing outside the specified physical address space.
-      if not all_0(data(53 downto physaddr - 12 + 10)) then
         return false;
       end if;
     end if;
@@ -472,8 +490,8 @@ package body mmucacheconfig is
   end;
 
   function is_valid_ptd(what : va_type;
-                        data : std_logic_vector;
-                        physaddr : integer range 32 to 56) return boolean is
+                        data : std_logic_vector
+                       ) return boolean is
   begin
     if what = sparc then
       return true;
@@ -492,12 +510,6 @@ package body mmucacheconfig is
       if data(rv_pte_n) /= '0' then
         return false;
       end if;
-
-      -- Do not allow addressing outside the specified physical address space.
-      if not all_0(data(53 downto physaddr - 12 + 10)) then
-        return false;
-      end if;
-
 
       -- PTD also has D, A and U reserved, so enforce 0 (Spike does).
       if data(rv_pte_d) = '1' or data(rv_pte_a) = '1' or data(rv_pte_u) = '1' then
@@ -597,6 +609,59 @@ package body mmucacheconfig is
     return 0;        -- Can never happen!
   end;
 
+  function compute_hgatp(
+      hgatp_prv : std_logic_vector;
+      hgatp_in  : std_logic_vector;
+      proc_xlen : integer;
+      vmid_len  : integer;
+      phys_addr : integer;
+      riscv_mmu : integer
+  ) return std_logic_vector is
+      constant HGATP32_MODE : std_logic_vector(31 downto 31)                := "1";
+      constant HGATP32_VMID : std_logic_vector(22 + vmid_len - 1 downto 22) := (others => '1');
+      constant HGATP32_PPN  : std_logic_vector(21 downto 0)                 := (others => '1');
+
+      constant HGATP64_VMID : std_logic_vector(44 + vmid_len - 1 downto 44) := (others => '1');
+      constant HGATP64_MODE : std_logic_vector(63 downto 60)                := (others => '1');
+      -- ppn[1:0] is zero, 16 KiB alignment
+      constant HGATP64_PPN  : std_logic_vector(phys_addr - 1 - 12 downto 2) := (others => '1');
+
+      constant BARE : integer := 0;
+      constant SV39 : integer := 8;
+      constant SV48 : integer := 9;
+
+      variable mask      : std_logic_vector(hgatp_in'range) := (others => '0');
+      variable hgatp_out : std_logic_vector(hgatp_in'range) := (others => '0');
+      variable mode64_in : integer range 0 to 15 := u2i(hgatp_in(proc_xlen - 1 downto proc_xlen - 4));
+  begin
+    if proc_xlen = 32 then
+      -- Illegal config
+      assert not supports_impl_mmu_sv39(riscv_mmu) and not
+      supports_impl_mmu_sv48(riscv_mmu) severity failure;
+
+      if (supports_impl_mmu_sv32(riscv_mmu)) then
+        mask(HGATP32_MODE'range) := HGATP32_MODE;
+        mask(HGATP32_VMID'range) := HGATP32_VMID;
+        mask(HGATP32_PPN'range ) := HGATP32_PPN;
+      end if;
+      hgatp_out := hgatp_in and mask;
+	  return hgatp_out;
+    else
+      assert not supports_impl_mmu_sv32(riscv_mmu) severity failure; -- Illegal config
+      mask(HGATP64_VMID'range) := HGATP64_VMID; -- Base mask
+      mask(HGATP64_PPN'range)  := HGATP64_PPN;  -- Base mask
+      -- Any of the legal modes trying to be written?
+      if (mode64_in = BARE or
+         (supports_impl_mmu_sv39(riscv_mmu) and mode64_in = SV39) or
+         (supports_impl_mmu_sv48(riscv_mmu) and mode64_in = SV48))
+      then
+        -- Insert the mode part of the mask if valid mode
+        mask(HGATP64_MODE'range) := HGATP64_MODE;
+      end if;
+      return (hgatp_prv and not mask) or (hgatp_in and mask);
+    end if;
+  end function;
+
   -- Calculates page table address.
   function pt_addr(what  : va_type;
                    data  : std_logic_vector; mask : std_logic_vector;
@@ -666,6 +731,7 @@ package body mmucacheconfig is
     end if;
   end;
 
+  -- Must not be called for RISC-V!
   function pte_cached(what : va_type;
                       data : std_logic_vector) return std_logic is
     variable pbmt : std_logic_vector(rv_pte_pbmt'range) := data(rv_pte_pbmt'range);
@@ -673,11 +739,8 @@ package body mmucacheconfig is
     if what = sparc then
       return data(PTE_C);
     else
-      case pbmt is
-        when "01"   => return '0';  -- NC
-        when "10"   => return '0';  -- I/O
-        when others => return '1';  -- PMA (reserved for "11")
-      end case;
+      assert false report "This function does not work for RISC-V!" severity failure;
+      return '0';
     end if;
   end;
 
@@ -721,7 +784,7 @@ package body mmucacheconfig is
 
     if modified = '1' then
       data(cond(what = sparc, PTE_M, rv_pte_d)) := '1';  -- Now dirty!
-      needwb     := not dirty;                           -- First modification?
+      needwb     := not dirty or not accessed;           -- First modification?
       needwblock := '0';                                 -- No lock needed!
     else
       needwb     := not accessed;                        -- First access?
@@ -733,9 +796,9 @@ package body mmucacheconfig is
   procedure virtual2physical(what  : va_type;
                              vaddr : std_logic_vector; mask : std_logic_vector;
                              paddr : inout std_logic_vector) is
-    constant pa_tmp      : std_logic_vector := pa(what);       -- constant
+    --constant pa_tmp      : std_logic_vector := pa(what);       -- constant
     -- Non-constant
-    variable xpaddr      : std_logic_vector(pa_tmp'range) := (others => '0');
+    variable xpaddr      : std_logic_vector(pa_msb(what) downto 0) := (others => '0');
     variable pos         : integer;
   begin
     --     RISC-V requires high bits to equal MSB of VA.

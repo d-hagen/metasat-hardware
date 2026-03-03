@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@ package noelvtypes is
 
   constant MAX_TRIGGER_NUM : integer := 5;   -- For nvsupport
   constant PMPENTRIES      : integer := 16;  -- For noelvint
+  constant PMAENTRIES      : integer := 16;  -- For noelvint
   constant MAXWAYS         : integer := 8;   -- For noelvint and cctrl
 
   -----------------------------------------------------------------------------
@@ -49,7 +50,7 @@ package noelvtypes is
 
   constant TRACE_WIDTH : integer := 512
 -- pragma translate_off
-                                    + 2 * (64 + 16)
+                                    + 2 * (64 + 16) + 2 * 1
 -- pragma translate_on
                                     ;
 
@@ -70,7 +71,8 @@ package noelvtypes is
   -- One bit extra length to deal with < condition on high NAPOT limits,
   -- and another one because it is allowed to have all 1's in the CSR and
   -- an implicit 0 above that.
-  subtype pmpaddr_type       is std_logic_vector(PMPADDRBITS + 1 downto 0);
+  -- Use "downto 2", since the bottom two address bits are implicit "00".
+  subtype pmpaddr_type       is std_logic_vector(PMPADDRBITS + 2 downto 2);
 
   constant pmpaddrzero : pmpaddr_type := (others => '0');
 
@@ -97,11 +99,14 @@ package noelvtypes is
   type word_arr   is array (integer range <>) of word;
   type wordx_arr  is array (integer range <>) of wordx;
 
+  constant word64_arr_empty : word64_arr(0 to 1) := (others => zerow64);
+
   type     x_type is (x_first,
                       x_single_issue, x_late_alu, x_late_branch, x_muladd,
                       x_fpu_debug, x_dtcm, x_itcm,
                       x_rv64, x_mode_u, x_mode_s,
-                      x_noelv, x_m, x_f, x_d,
+                      x_noelv, x_noelvalu,
+                      x_m, x_f, x_d,
                       x_a, x_c, x_h, x_sp, x_sscofpmf,
                       x_zba, x_zbb, x_zbc, x_zbs,
                       x_zbkb, x_zbkc, x_zbkx,
@@ -109,8 +114,10 @@ package noelvtypes is
                       x_time, x_sstc, x_imsic,
                       x_smepmp, x_smaia, x_ssaia,
                       x_smstateen, x_smrnmi,
+                      x_ssdbltrp, x_smdbltrp, x_sddbltrp,
                       x_smcsrind, x_sscsrind,
                       x_zicbom, x_zicond, x_zimop, x_zcmop,
+                      x_zicfiss, x_zicfilp,
                       x_svinval,
                       x_zfa, x_zfh, x_zfhmin, x_zfbfmin,
                       x_last);
@@ -122,8 +129,17 @@ package noelvtypes is
 
   subtype fpu_id is std_logic_vector(4 downto 0);
 
-  subtype cause_type     is std_logic_vector(5 downto 0);  -- Top bit is IRQ
+  -- For faults, 5 bits are needed (without hypervisor, RAS, double trap etc - 4 bits).
+  -- For interrupts, 4 bits used to be enough, but with RAS 6 are needed.
+  --  Also, AIA requires 6 bits for its equivalent .iid field.
+  subtype cause_type     is std_logic_vector(6 downto 0);  -- Top bit is IRQ
   subtype int_cause_type is std_logic_vector(cause_type'high - 1 downto 0);
+
+type xc_type is record
+  xc_v : std_logic;
+  xc   : std_logic;
+end record;
+
 
 end;
 

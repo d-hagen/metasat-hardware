@@ -16,9 +16,7 @@ CLEAN=vortex-clean #unpatch_vortex_synth
 
 ### RISC-V NOEL-V Core  ##################################
 
-XLEN = 64
-
-DIRADD = noelv/pkg_$(XLEN) noelv noelv/core noelv/dm noelv/subsys noelv/grfpunv
+DIRADD = noelv/pkg_64 noelv noelv/core noelv/dm noelv/subsys noelv/grfpunv
 DIRADD += sparrow/proc/noelv
 
 ############  Board Setup  ########################
@@ -28,7 +26,7 @@ BOARD=xilinx-vcu118-xcvu9p
 DESIGN=metasat-xilinx-vcu118
 include $(XDCPATH)/boards/$(BOARD)/Makefile.inc
 DEVICE=$(PART)-$(PACKAGE)-$(SPEED)
-XDC=$(XDCPATH)/boards/$(BOARD)/$(BOARD).xdc
+XDC=$(LOCAL_DIR)/board/$(BOARD).xdc
 
 # Definition of the following variables generates SGMII and MIG xilinx IP output source files
 # Do not alter these
@@ -107,7 +105,7 @@ VSIMOPT+= $(SIMTOP)
 
 ### Synthesize Options ###
 
-VIVADO_SYNTH_STRATEGY = Flow_PerfOptimized_high
+#VIVADO_SYNTH_STRATEGY = Flow_RuntimeOptimized
 VIVADO_IMPL_STRATEGY = Performance_SpreadSLLs#Area_ExploreSequential
 
 ### End of Synthesize Options ###
@@ -119,7 +117,7 @@ VHDLSYNFILES += $(CFG_DIR)/config.vhd
 VHDLSYNFILES += $(LOCAL_DIR)/rtl/ahbrom.vhd
 VHDLSYNFILES += $(LOCAL_DIR)/rtl/ahbrom64.vhd
 VHDLSYNFILES += $(LOCAL_DIR)/rtl/ahbrom128.vhd
-VHDLSYNFILES += $(LOCAL_DIR)/rtl/ahb2axi_mig4_7series.vhd
+#VHDLSYNFILES += $(LOCAL_DIR)/rtl/ahb2axi_mig4_7series.vhd
 VHDLSYNFILES += $(LOCAL_DIR)/rtl/axi_mig4_7series.vhd
 VHDLSYNFILES += $(LOCAL_DIR)/rtl/ddr4ram.vhd
 VHDLSYNFILES += $(LOCAL_DIR)/rtl/sgmii_vcu118.vhd
@@ -165,6 +163,8 @@ VX_DEFINES = $(shell grep '^\+define\+' $(VX_SRC))
 VX_CONFIG_FILE = vx_config.inc
 VX_CONFIG = $(abspath $(LOCAL_DIR)/$(VX_CONFIG_FILE))
 
+ID_WIDTH = 32
+
 .PHONY: vortex
 vortex: .vortex
 .vortex:
@@ -174,13 +174,16 @@ vortex: .vortex
 #### Synthesis ###
 .PHONY: metasat-synth metasat-vivado metasat-sim
 metasat-synth: vortex
+	make patch-id-width
 	make vivado
 
 metasat-vivado: vortex
+	make patch-id-width
 	make vivado-launch
 
 ### Simulation ###
 metasat-sim: compile.vsim
+	make patch-id-width
 	make patch_vortex_sim
 	make sim
 
@@ -188,6 +191,19 @@ metasat-sim: compile.vsim
 vortex-clean:
 	rm -rf .vortex
 	make -C $(VX_DIR) clean
+
+## AXI ID PATCH
+cp-mig-files: scripts
+	@echo "!!!!! Overwriting board mig files with local files"
+	cp $(LOCAL_DIR)/board/mig.xci vivado/mig.xci
+	cp $(LOCAL_DIR)/board/mig_cdc.xci vivado/mig_cdc.xci
+	cp $(LOCAL_DIR)/board/axi_pipe.xci vivado/axi_pipe.xci
+
+patch-id-width: cp-mig-files
+	@echo "Patching AXI_ID_WIDTH to $(ID_WIDTH)"
+	sed -i 's/\(constant AXI_ID_WIDTH : integer := \)[0-9]\+/\1$(ID_WIDTH)/' $(GRLIB)/lib/grlib/amba/amba.vhd
+	sed -i 's/\(axi_bm_id_width  => \)[0-9]\+/\1$(ID_WIDTH)/' $(GRLIB)/lib/gaisler/l2c_lite/l2c_lite_axi4.vhd
+
 
 ## VORTEX ##
 

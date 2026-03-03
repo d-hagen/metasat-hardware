@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 -- Entity:      proc3
 -- File:        proc3.vhd
 -- Author:      Jiri Gaisler Gaisler Research
+-- Modified:    Marc Solé Bonet, Barcelona Supercomputing Center (SPARROW extension)
 -- Description: LEON3 processor core with pipeline, mul/div & cache control
 ------------------------------------------------------------------------------
 
@@ -40,6 +41,12 @@ use gaisler.libcache.all;
 use gaisler.arith.all;
 use gaisler.libleon3.all;
 use gaisler.libfpu.all;
+
+-- use sparrow
+library bsc;
+use bsc.sparrow.sprw_in_type;
+use bsc.sparrow.sprw_out_type;
+use bsc.sparrow.sparrow_unit;
 
 entity proc3 is
   generic (
@@ -147,6 +154,11 @@ architecture rtl of proc3 is
   signal divi  : div32_in_type;
   signal divo  : div32_out_type;
 
+  --sparrow
+  signal sdi   : sprw_in_type;
+  signal sdo   : sprw_out_type;
+  constant sparrow : integer := 1;
+
 begin
 
   holdnx <= ico.hold and dco.hold and fpo.holdn; holdn <= holdnx;
@@ -155,11 +167,17 @@ begin
 -- integer unit
 
   iu : iu3
-    generic map (nwindows, isets, dsets, fpu, v8, cp, mac, dsu, nwp, pclow*(1-rex),
+    generic map (nwindows, isets, dsets, fpu, v8, cp, mac, sparrow, dsu, nwp, pclow*(1-rex),
                  notag, hindex, lddel, IRFWT, disas, tbuf, pwd, svt, rstaddr, smp, fabtech,
                  clk2x, bp, npasi, pwrpsr, rex, altwin, rfmemtech, irqlat, rfreadhold)
     port map (clk, rstn, holdnx, ici, ico, dci, dco, rfi, rfo, irqi, irqo,
-              dbgi, dbgo, muli, mulo, divi, divo, fpo, fpi, cpo, cpi, tbo, tbi, tbo_2p, tbi_2p, sclk);
+              dbgi, dbgo, muli, mulo, divi, divo, sdi, sdo, fpo, fpi, cpo,
+              cpi, tbo, tbi, tbo_2p, tbi_2p, sclk);
+
+  -- sparrow module
+  sprwgen : if sparrow = 1 generate
+      sprw0 : sparrow_unit port map (clk, rstn, holdnx, sdi, sdo);
+  end generate;
 
 -- multiply and divide units
 

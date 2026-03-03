@@ -86,7 +86,6 @@ entity metasatcore is
     -- Memory controller
     cpu_mem_aximi   : in  axi_somi_type;
     cpu_mem_aximo   : out axi4_mosi_type;
-    gpu_mem_reset   : out std_logic;
     gpu_mem_aximi   : in  axi_somi_type;
     gpu_mem_aximo   : out axi4_mosi_type;
     mem_ahbsi0  : out ahb_slv_in_type;
@@ -126,6 +125,18 @@ architecture rtl of metasatcore is
 
   constant nextslv  : integer := 4;
 
+
+  constant GPU_RAMADDR      : integer := GPU_RAMADDR_SYN
+-- pragma translate_off
+  - GPU_RAMADDR_SYN + GPU_RAMADDR_SIM
+-- pragma translate_on
+  ;
+  constant GPU_RAMSIZE      : integer := GPU_RAMSIZE_SYN
+-- pragma translate_off
+  - GPU_RAMSIZE_SYN + GPU_RAMSIZE_SIM
+-- pragma translate_on
+  ;
+
   constant ndbgmst  : integer := 3 + CFG_LOCAL_AHB_JTAG_RV ;
 
   constant mig_hconfig : ahb_config_type := (
@@ -139,6 +150,7 @@ architecture rtl of metasatcore is
   signal vcc        : std_ulogic;
   signal gnd        : std_ulogic;
   signal rstn       : std_ulogic;
+  signal gclk       : std_logic_vector(ncpu-1 downto 0);
   signal reset      : std_ulogic;
   signal rstnraw    : std_logic;
   signal stati      : ahbstat_in_type;
@@ -204,6 +216,10 @@ begin
     rstno <= rstn;
     reset <= not rstn;
 
+  gen_gclk: for i in 0 to ncpu-1 generate
+    gclk(i) <= clkm;
+  end generate;
+
   ----------------------------------------------------------------------
   ---  NOEL-V SUBSYSTEM ------------------------------------------------
   ----------------------------------------------------------------------
@@ -225,6 +241,7 @@ begin
       rfconf    => CFG_LOCAL_RFCONF,
       --tcmconf   => CFG_LOCAL_TCMCONF,
       mulconf   => CFG_LOCAL_MULCONF,
+      intcconf  => CFG_LOCAL_INTCCONF,
       disas     => disas,
       ahbtrace  => 0,
       cfg       => CFG_LOCAL_CFG,
@@ -233,6 +250,7 @@ begin
       )
     port map(
       clk       => clkm, -- : in  std_ulogic;
+      gclk      => gclk, -- : in  std_logic_vector(CFG_NCPU-1 downto 0)
       rstn      => rstn, -- : in  std_ulogic;
       -- AHB bus interface for other masters (DMA units)
       ahbmi     => ahbmi, -- : out ahb_mst_in_type;
@@ -307,8 +325,8 @@ begin
           console  => CFG_DUART,
           pirq     => APBUART_PIRQ+i,
           parity   => 1,
-          flow     => 1,
-          fifosize => 8, 
+          flow     => 0,
+          fifosize => 1, 
           abits    => 8,
           sbits    => 12)
         port map (
@@ -363,7 +381,7 @@ begin
           haddr     => L2C_HADDR,
           hmask     => L2C_HMASK,
           ioaddr    => L2C_IOADDR,
-          cached    => CFG_L2_MAP,
+	  cached    => CFG_L2_MAP,
           be_dw     => CFG_AHBDW)
         port map(
           rstn   => rstn,
@@ -413,7 +431,7 @@ begin
           haddr     => L2C_HADDR,
           hmask     => L2C_HMASK,
           ioaddr    => L2C_IOADDR,
-          cached    => CFG_L2_MAP,
+	  cached    => CFG_L2_MAP,
           be_dw     => CFG_AHBDW)
         port map(
           rstn    => rstn,
@@ -538,8 +556,6 @@ begin
             mem_aximi  => gpu_mem_aximi, --in
             mem_aximo  => gpu_mem_aximo, --out
             interrupt  => gpu_interrupt);  --out
-
-        gpu_mem_reset <= '0';
 
         ahb2axi: ahb2axi_l
           generic map (

@@ -35,12 +35,15 @@ GRLIB_SIMULATOR ?= ModelSim
 # Options used during compilation
 VCOMOPT=-explicit -O0
 
+# Extra simulator options
+ARGV=
+
 # GRLIB Options
 VSIMOPT=
 
 # Simulator switches
 ifeq ("$(GRLIB_SIMULATOR)","ALDEC")
-VSIMOPT+= +access +w -voptargs="+acc" +notimingchecks
+VSIMOPT+= +access +w -voptargs="+acc" +notimingchecks -ieee_nowarn
 else
 VSIMOPT+=-voptargs="+acc -nowarn 1" +notimingchecks
 endif
@@ -48,6 +51,8 @@ endif
 # Simulation scripts
 VSIMOPT+= -do $(GRLIB)/bin/runvsim.do
 ASIMDO = run -all
+
+VSIMOPT+=$(ARGV)
 
 # Toplevel
 VSIMOPT+= $(SIMTOP)
@@ -71,7 +76,7 @@ TECHLIBS = inferred
 LIBSKIP = pci pci/pcif core1553bbc core1553brm srio core1553brt idt gr1553 corePCIF \
 	tmtc openchip ihp spw gsi cypress hynix ge_1000baseX \
 	spansion secureip usb ddr grdmac mmuconfig fmf esa micron spfi
-DIRSKIP = b1553 pci gr1553b/core pci/pcif leon2 leon2ft leon5 leon5v0 srio idt crypto satcan pci ambatest \
+DIRSKIP = b1553 pci gr1553b/core pci/pcif leon2 leon2ft leon5 leon5v0 leon5v0/blockred srio idt crypto satcan pci ambatest \
 	spacewire ascs slink irqmp grdmac grrm nand\
 	pwm gr1553b iommu ac97 secureip mmuiface clk2x canfd leon4v0 hssl
 FILESKIP = grcan.vhd ddr2.v mobile_ddr.v adapters/sgmii.vhd iu4.vhd

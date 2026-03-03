@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -84,7 +84,8 @@ architecture struct of ahbjtag is
 -- Use old jtagcom that only supports AHB clock up to 1/3 of JTAG clock
 -- Must be used for certain techs where we don't have full access to TCK
 -- Can also be forced by setting versel generic to 0
-constant USEOLDCOM : integer := 1 - (1-tap_tck_gated(tech))*(versel);
+-- Support for registered TAPs not yet added to jtagcom2
+constant USEOLDCOM : integer := 1 - (1-tap_tck_gated(tech))*(1-tap_registered(tech))*(versel);
 
 -- Set REREAD to 1 to include support for re-read operation when host reads
 -- out data register before jtagcom has completed the current AMBA access and
@@ -142,7 +143,10 @@ begin
   end generate;
   
   oldcom: if USEOLDCOM /= 0 generate
-    jtagcom0 : jtagcom generic map (isel => TAPSEL, nsync => nsync, ainst => ainst, dinst => dinst, reread => REREAD)
+    jtagcom0 : jtagcom
+      generic map (
+        isel => TAPSEL, nsync => nsync, ainst => ainst, dinst => dinst, reread => REREAD,
+        tapreg => tap_registered(tech))
       port map (rst, clk, ltapo, ltapi, dmao, dmai, ltck, ctrst);
   end generate;
 

@@ -500,7 +500,7 @@ begin
         m_axi_rready   => axi_cdc_si.r.ready,
 
         --**************** System Signals ****************
-        aclk    => fpga_clk,
+        aclk    => clk_ref_i,
         aresetn => rst_n_syn
       );
   end generate;
@@ -516,7 +516,7 @@ begin
 
   MCB_CDC : mig_cdc
     PORT MAP (
-      s_axi_aclk     => fpga_clk,
+      s_axi_aclk     => clk_ref_i,
       s_axi_aresetn  => rst_n_syn,
       s_axi_awid     => axi_cdc_si.aw.id,
       s_axi_awaddr   => axi_cdc_si.aw.addr,

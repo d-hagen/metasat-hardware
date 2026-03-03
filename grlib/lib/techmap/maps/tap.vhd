@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -212,6 +212,32 @@ begin
      tdoen <= '0'; tapo_xsel1 <= '0';  tapo_xsel2 <= '0';
      tapo_ninst <= (others => '0'); tapo_iupd <= '0';
      tapo_tck <= ltck; tapo_tckn <= not ltck;
+   end generate;
+
+   gen_nx : if (tech = nexus) generate
+     u0 : nexus_tap
+       port map (
+         tck => tck, tms => tms, tdi => tdi, tdo => tdo,
+         tapo_tck   => ltck,
+         tapo_tdi   => tapo_tdi,
+         tapo_rst   => tapo_rst,
+         tapo_capt  => tapo_capt,
+         tapo_shft  => tapo_shft,
+         tapo_upd   => tapo_upd,
+         tapo_xsel1 => tapo_xsel1,
+         tapo_xsel2 => tapo_xsel2,
+         tapi_tdo1  => tapi_tdo1,
+         tapi_tdo2  => tapi_tdo1, --tapi_tdo2,
+         tdoen => tdoen);
+     -- tapi_tdo2 is not used by AHBJTAG
+     tapo_inst <= (others => '0');
+     tapo_ninst <= (others => '0');
+     tapo_iupd <= '0';
+     tapo_tck <= ltck;
+     tapo_tckn <= not ltck;
+     -- trst     : not available
+     -- tapi_en1 : unused
+     -- testen, testrst, testoen: unused
    end generate;
    
    inf : if has_tap(tech) = 0 generate

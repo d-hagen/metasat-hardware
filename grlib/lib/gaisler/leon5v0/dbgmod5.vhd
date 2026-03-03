@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -278,7 +278,8 @@ architecture rtl of dbgmod5 is
   end record;
 
   constant boot_request_reg_none: boot_request_reg_type := (
-    (others => '0'), (others => '0'), '0', '0', '0', '0', '0', '0', '0');
+    (others => '0'), (others => '0'), '0', '0', '0', '0', '0', '0', '0'
+    );
 
   type boot_request_array is array(natural range <>) of boot_request_reg_type;
 
@@ -1700,6 +1701,7 @@ begin
       if r.dsu.effctl_allstab='1' then
         v.smpgroup(i) := v.smpgroup(i) and r.dsu.effctl(i);
       end if;
+
     end loop;
 
     -- Bootup via IRQ controller (legacy)

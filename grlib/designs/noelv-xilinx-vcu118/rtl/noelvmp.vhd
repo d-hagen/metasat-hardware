@@ -2,7 +2,8 @@
 --  This file is a part of the GRLIB VHDL IP LIBRARY
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
---  Copyright (C) 2015 - 2022, Cobham Gaisler
+--  Copyright (C) 2015 - 2023, Cobham Gaisler
+--  Copyright (C) 2023,        Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -46,6 +47,7 @@ use gaisler.sim.all;
 --pragma translate_on
 
 use work.config.all;
+use work.config_local.all;
 use work.rev.REVISION;
 use work.cfgmap.all;
 
@@ -73,7 +75,7 @@ entity noelvmp is
     -- LEDs
     led         : out   std_logic_vector(7 downto 0);
     -- GPIOs
---    gpio        : inout std_logic_vector(15 downto 0);
+    gpio        : inout std_logic_vector(15 downto 0);
     -- Ethernet
     gtrefclk_n  : in    std_logic;
     gtrefclk_p  : in    std_logic;
@@ -92,16 +94,11 @@ entity noelvmp is
     dsurtsn     : out   std_ulogic; 
     -- Push Buttons (Active High)
     button      : in    std_logic_vector(4 downto 0);
-    -- RS-485 interfaces
-    uart485_rsde        : out std_logic_vector(1 downto 0);  -- RS-485 UART driver enable
-    uart485_rsre        : out std_logic_vector(1 downto 0);  -- RS-485 UART receiver enable
-    uart485_rstx        : out std_logic_vector(1 downto 0);  -- RS-485 UART tx data
-    uart485_rsrx        : in std_logic_vector(1 downto 0);   -- RS-485 UART rx data
     -- DDR4 (MIG)
     ddr4_dq     : inout std_logic_vector(63 downto 0);
-    ddr4_dqs_c  : inout std_logic_vector(7 downto 0);  -- Data Strobe
-    ddr4_dqs_t  : inout std_logic_vector(7 downto 0);  -- Data Strobe
-    ddr4_addr   : out   std_logic_vector(13 downto 0); -- Address
+    ddr4_dqs_c  : inout std_logic_vector(7 downto 0); -- Data Strobe
+    ddr4_dqs_t  : inout std_logic_vector(7 downto 0); -- Data Strobe
+    ddr4_addr   : out   std_logic_vector(13 downto 0);-- Address
     ddr4_ras_n  : out   std_ulogic;
     ddr4_cas_n  : out   std_ulogic;
     ddr4_we_n   : out   std_ulogic;
@@ -112,7 +109,7 @@ entity noelvmp is
     ddr4_ck_t   : out   std_logic_vector(0 downto 0); -- Clock Positive Edge
     ddr4_cke    : out   std_logic_vector(0 downto 0); -- Clock Enable
     ddr4_act_n  : out   std_ulogic;                   -- Command Input
-    --ddr4_alert_n: in    std_ulogic;                   -- Alert Output
+    ddr4_alert_n: in    std_ulogic;                   -- Alert Output
     ddr4_odt    : out   std_logic_vector(0 downto 0); -- On-die Termination
     ddr4_par    : out   std_ulogic;                   -- Parity for cmd and addr
     ddr4_ten    : out   std_ulogic;                   -- Connectivity Test Mode
@@ -123,8 +120,10 @@ end;
 
 architecture rtl of noelvmp is
   constant OEPOL        : integer := padoen_polarity(padtech);
-  constant BOARD_FREQ   : integer := CFG_BOARDFRQ; -- input frequency in KHz
+  constant BOARD_FREQ   : integer := 250000; -- input frequency in KHz
   constant CPU_FREQ     : integer := BOARD_FREQ * CFG_CLKMUL / CFG_CLKDIV; -- cpu frequency in KHz
+  constant oeon         : std_logic := conv_std_logic_vector(OEPOL,1)(0);
+  constant oeoff        : std_logic := not conv_std_logic_vector(OEPOL,1)(0);
 
   -------------------------------------
   -- Misc
@@ -159,25 +158,25 @@ architecture rtl of noelvmp is
   signal duart_rx   : std_ulogic;
   signal duart_tx   : std_ulogic;
   -- GPIO
-  --signal gpio_i         : std_logic_vector(CFG_GRGPIO_WIDTH-1 downto 0);
-  --signal gpio_o         : std_logic_vector(CFG_GRGPIO_WIDTH-1 downto 0);
-  --signal gpio_oe        : std_logic_vector(CFG_GRGPIO_WIDTH-1 downto 0);
+  signal gpio_i         : std_logic_vector(CFG_GRGPIO_WIDTH-1 downto 0);
+  signal gpio_o         : std_logic_vector(CFG_GRGPIO_WIDTH-1 downto 0);
+  signal gpio_oe        : std_logic_vector(CFG_GRGPIO_WIDTH-1 downto 0);
   -- JTAG
   signal tck, tms, tdi, tdo : std_ulogic;
+  -- RISC-V JTAG
+  signal jtag_rv_tck    : std_ulogic := '0';
+  signal jtag_rv_tms    : std_ulogic := '0';
+  signal jtag_rv_tdi    : std_ulogic := '0';
+  signal jtag_rv_tdo    : std_ulogic;
   -- Ethernet
   signal ethi : eth_in_type;
   signal etho : eth_out_type;
   signal eth_apbi       : apb_slv_in_type;
   signal eth_apbo       : apb_slv_out_type := apb_none;
 
-  -- RS-485 APBUART
-  signal uart485_i : uart_in_vector_type(1 downto 0);
-  signal uart485_o : uart_out_vector_type(1 downto 0);
-  signal uart485_rsre_n   : std_logic_vector(1 downto 0); 
-
   -- Memory
   signal mem_aximi      : axi_somi_type;
-  signal mem_aximo      : axi4_mosi_type;
+  signal mem_aximo      : axi_mosi_type;
   signal mem_ahbsi0     : ahb_slv_in_type;
   signal mem_ahbso0     : ahb_slv_out_type;
   signal mem_apbi0      : apb_slv_in_type;
@@ -224,7 +223,7 @@ architecture rtl of noelvmp is
       rst_n_syn           : in    std_logic;
       rst_n_async         : in    std_logic;
       aximi               : out   axi_somi_type;
-      aximo               : in    axi4_mosi_type;
+      aximo               : in    axi_mosi_type;
       -- Misc
       ddr4_ui_clkout1     : out   std_logic;
       clk_ref_i           : in    std_logic
@@ -305,6 +304,7 @@ begin
     padtech     => CFG_PADTECH,
     clktech     => CFG_CLKTECH,
     cpu_freq    => CPU_FREQ,
+    devid       => NOELV_SOC,
     disas       => disas)
   port map (
     -- Clock & reset
@@ -318,9 +318,9 @@ begin
     dmreset     => open,
     cpu0errn    => open,
     -- GPIO
-    --gpio_i      => gpio_i,
-    --gpio_o      => gpio_o,
-    --gpio_oe     => gpio_oe,
+    gpio_i      => gpio_i,
+    gpio_o      => gpio_o,
+    gpio_oe     => gpio_oe,
     -- UART
     uart_rx     => uart_rx,
     uart_ctsn   => uart_ctsn,
@@ -344,14 +344,16 @@ begin
     -- Debug UART
     duart_rx    => duart_rx,
     duart_tx    => duart_tx,
-    -- UART RS-485
-    uart485_i	=> uart485_i,
-    uart485_o   => uart485_o,
     -- Debug JTAG
     tck         => tck,
     tms         => tms,
     tdi         => tdi,
-    tdo         => tdo
+    tdo         => tdo,
+    -- RISC-V JTAG
+    jtag_rv_tck => jtag_rv_tck,
+    jtag_rv_tms => jtag_rv_tms,
+    jtag_rv_tdi => jtag_rv_tdi,
+    jtag_rv_tdo => jtag_rv_tdo
   );
 
   --errorn_pad : odpad
@@ -405,37 +407,6 @@ begin
   dsusel_pad : outpad
     generic map (tech => padtech, level => cmos, voltage => x18v)
     port map (led(4), dsu_sel);
-
-----------------------------------------------------------------------
----  RS-485 UARTs  ---------------------------------------------------
-----------------------------------------------------------------------
-  rs485pads_en : if (CFG_APB_UART /= 0) generate
-    rs485_apbuart_loop : for i in 1 downto 0 generate
-
-      uart485_i(i).extclk <= '0';
-      -- RS-485 UART driver enable
-      uart485_rsde_pad : outpad 
-        generic map (tech => padtech, level => cmos, voltage => x18v)
-        port map (pad => uart485_rsde(i), i => uart485_o(i).txen);
-
-      -- RS-485 UART receiver enable
-      uart485_rsre_n(i) <= not uart485_o(i).rxen; -- RS-485 UART receiver enable is active low
-
-      uart485_rsre_pad : outpad
-        generic map (tech => padtech, level => cmos, voltage => x18v)
-        port map (pad => uart485_rsre(i), i => uart485_rsre_n(i));
-
-      uart485_rxd2_pad : inpad 
- 	generic map (tech => padtech, level => cmos, voltage => x18v)
- 	port map (pad => uart485_rsrx(i), o => uart485_i(i).rxd);
-
-      uart485_txd2_pad : outpad 
- 	generic map (tech => padtech, level => cmos, voltage => x18v)
-	port map (pad => uart485_rstx(i), i => uart485_o(i).txd);
-
-    end generate;
-  end generate;
-
 
   -----------------------------------------------------------------------------
   -- DDR4 Memory Controller (MIG) ---------------------------------------------
@@ -650,33 +621,75 @@ begin
 -----------------------------------------------------------------------
 -- GPIO                                                                
 -----------------------------------------------------------------------
---  gpio0 : if CFG_GRGPIO_ENABLE /= 0 generate
---
---    gpled_pads : for i in 0 to 3 generate
---      gpled_pad : outpad
---        generic map (tech => padtech, level => cmos, voltage => x18v)
---        port map (led(i), gpio_o(i+16));
---    end generate gpled_pads;
---
---    gpsw_pads : for i in 0 to 2 generate
---      gpsw_pad : inpad
---        generic map (tech => padtech, level => cmos, voltage => x12v)
---        port map (switch(i), gpio_i(i));
---    end generate gpsw_pads;
---    gpio_i(3) <= dsu_sel;
---
---    gpb_pads : for i in 0 to 3 generate
---      gpb_pad : inpad
---        generic map (tech => padtech, level => cmos, voltage => x12v)
---        port map (button(i), gpio_i(i+4));
---    end generate gpb_pads;
---
---    pio_pads : for i in 0 to 7 generate
---      gpio_pad : iopad generic map (tech => padtech, level => cmos, voltage => x12v, strength => 8)
---        port map (gpio(i), gpio_o(i+8), gpio_oe(i+8), gpio_i(i+8));
---    end generate;
---
---  end generate;
+  gpio0 : if CFG_GRGPIO_ENABLE /= 0 generate
+
+    gpled_pads : for i in 0 to 3 generate
+      gpled_pad : outpad
+        generic map (tech => padtech, level => cmos, voltage => x18v)
+        port map (led(i), gpio_o(i+16));
+    end generate gpled_pads;
+
+    gpsw_pads : for i in 0 to 2 generate
+      gpsw_pad : inpad
+        generic map (tech => padtech, level => cmos, voltage => x12v)
+        port map (switch(i), gpio_i(i));
+    end generate gpsw_pads;
+    gpio_i(3) <= dsu_sel;
+
+    gpb_pads : for i in 0 to 3 generate
+      gpb_pad : inpad
+        generic map (tech => padtech, level => cmos, voltage => x12v)
+        port map (button(i), gpio_i(i+4));
+    end generate gpb_pads;
+
+    pio_pads : for i in 0 to 7 generate
+      gpio_pad : iopad generic map (tech => padtech, level => cmos, voltage => x12v, strength => 8)
+        port map (gpio(i), gpio_o(i+8), gpio_oe(i+8), gpio_i(i+8));
+    end generate;
+
+  end generate;
+
+-----------------------------------------------------------------------
+-- RISC-V JTAG
+-----------------------------------------------------------------------
+  --     PMOD1-J53
+  -------------------
+  -- TDO  1 |  7  TDI
+  -- NC   2 |  8  TMS
+  -- TCK  3 |  9  NC
+  -- NC   4 | 10  NC
+  -- GND  5 | 11  GND
+  -- VCC  6 | 12  VCC
+  -------------------
+
+  rvjtag : if CFG_LOCAL_AHB_JTAG_RV = 1 generate
+    --tdo_pad : iopad generic map (tech => padtech)
+    --  port map (gpio(8), jtag_rv_tdo, oeon, open);
+    tdo_pad : outpad generic map (tech => padtech, level => cmos, voltage => x12v, strength => 8)
+        port map (gpio(8), jtag_rv_tdo);
+    
+    --ntrst_pad : iopad generic map (tech => padtech)
+    --  port map (gpio(9), gnd, oeoff, open);
+    
+    --tck_pad : iopad generic map (tech => padtech)
+    --  port map (gpio(10), gnd, oeoff, jtag_rv_tck);
+    tck_pad : clkpad generic map (tech => padtech, level => cmos, voltage => x12v, arch => 2)
+      port map (gpio(10), jtag_rv_tck);
+    
+    --nc3_pad : iopad generic map (tech => padtech)
+    --  port map (gpio(11), gnd, oeoff, open);
+    
+    tdi_pad : iopad generic map (tech => padtech, level => cmos, voltage => x12v, strength => 8)
+      port map (gpio(12), gnd, oeoff, jtag_rv_tdi);
+    tms_pad : iopad generic map (tech => padtech, level => cmos, voltage => x12v, strength => 8)
+      port map (gpio(13), gnd, oeoff, jtag_rv_tms);
+    
+      --nrst_pad : iopad generic map (tech => padtech)
+    --  port map (gpio(14), gnd, oeoff, open);
+    --nc7_pad : iopad generic map (tech => padtech)
+    --  port map (gpio(15), gnd, oeoff, open);
+
+  end generate;
 
 -----------------------------------------------------------------------
 -- ETHERNET PHY

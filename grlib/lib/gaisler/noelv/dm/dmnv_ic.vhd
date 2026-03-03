@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -77,6 +77,10 @@ architecture rtl of dmnv_ic is
                              ) 
                              ;
 
+  -- RVDM is instantiated both as a Slave and as a Master. For GRMON to work
+  -- properly version of Master and Slave have to coincide. If RVDM_VERSION
+  -- is modified inside this file, RVDM_VERSION of the Master must be modified
+  -- accordingly.
   constant RVDM_VERSION : integer := 2;
   constant hconfig : ahb_config_type := (
     0 => ahb_device_reg ( VENDOR_GAISLER, GAISLER_RVDM, 0, RVDM_VERSION, 0),

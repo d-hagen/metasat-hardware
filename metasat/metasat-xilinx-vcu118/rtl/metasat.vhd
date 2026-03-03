@@ -95,10 +95,10 @@ entity metasat is
     -- Push Buttons (Active High)
     button      : in    std_logic_vector(4 downto 0);
     -- RS-485 interfaces
-    uart485_rsde        : out std_logic_vector(1 downto 0);  -- RS-485 UART driver enable
-    uart485_rsre        : out std_logic_vector(1 downto 0);  -- RS-485 UART receiver enable
-    uart485_rstx        : out std_logic_vector(1 downto 0);  -- RS-485 UART tx data
-    uart485_rsrx        : in std_logic_vector(1 downto 0);   -- RS-485 UART rx data
+    --uart485_rsde        : out std_logic_vector(1 downto 0);  -- RS-485 UART driver enable
+    --uart485_rsre        : out std_logic_vector(1 downto 0);  -- RS-485 UART receiver enable
+    --uart485_rstx        : out std_logic_vector(1 downto 0);  -- RS-485 UART tx data
+    --uart485_rsrx        : in std_logic_vector(1 downto 0);   -- RS-485 UART rx data
     -- CPU DDR4 (MIG) 
     ddr4_c1_dq     : inout std_logic_vector(63 downto 0);
     ddr4_c1_dqs_c  : inout std_logic_vector(7 downto 0);  -- Data Strobe
@@ -169,12 +169,11 @@ architecture rtl of metasat is
   signal lclk           : std_ulogic;
   signal rst            : std_ulogic;
   signal resetn         : std_ulogic;
-  signal clkref         : std_ulogic;
   signal calib_done_c1  : std_ulogic;
   signal calib_done_c2  : std_ulogic;
   signal migrstn        : std_ulogic;
   signal gpu_resetn     : std_ulogic;
-  signal gpu_rstn     : std_ulogic;
+  signal gpu_rstn       : std_ulogic;
   signal gpu_migrstn    : std_ulogic;
 
   -- UART
@@ -185,7 +184,6 @@ architecture rtl of metasat is
   signal uart_rtsn  : std_logic_vector(0 downto 0);
   signal duart_rx   : std_ulogic;
   signal duart_tx   : std_ulogic;
-
   -- GPIO
   --signal gpio_i         : std_logic_vector(CFG_GRGPIO_WIDTH-1 downto 0);
   --signal gpio_o         : std_logic_vector(CFG_GRGPIO_WIDTH-1 downto 0);
@@ -206,7 +204,6 @@ architecture rtl of metasat is
   -- Memory
   signal cpu_mem_aximi      : axi_somi_type;
   signal cpu_mem_aximo      : axi4_mosi_type;
-  signal gpu_mem_reset      : std_logic;
   signal gpu_mem_aximi      : axi_somi_type;
   signal gpu_mem_aximo      : axi4_mosi_type;
   -- pragma translate_off
@@ -323,7 +320,7 @@ begin
     port map (reset, rst);
 
   resetn <= not rst;
-  gpu_resetn <= resetn and not(gpu_mem_reset);
+  gpu_resetn <= not rst;
 
   lock <= calib_done_c1 when CFG_MIG_7SERIES = 1 else cgo.clklock;
 
@@ -331,9 +328,9 @@ begin
     generic map (acthigh => 1)
     port map (rst, clkm, lock, migrstn, open);
 
-  gpu_migrstn <= migrstn and not(gpu_mem_reset);
+  gpu_migrstn <= migrstn;
 
-  gpu_rstn <= rstn and not(gpu_mem_reset);
+  gpu_rstn <= rstn;
 
   ----------------------------------------------------------------------
   ---  METASAT SUBSYSTEM ------------------------------------------------
@@ -369,7 +366,6 @@ begin
     -- Memory controller
     cpu_mem_aximi   => cpu_mem_aximi,
     cpu_mem_aximo   => cpu_mem_aximo,
-    gpu_mem_reset   => gpu_mem_reset,
     gpu_mem_aximi   => gpu_mem_aximi,
     gpu_mem_aximo   => gpu_mem_aximo,
     mem_ahbsi0  => mem_ahbsi0,
@@ -426,11 +422,6 @@ begin
     generic map (tech => padtech, level => cmos, voltage => x12v)
     port map (switch(3), dsu_sel);
 
-  dsusel_pad : outpad
-    generic map (tech => padtech, level => cmos, voltage => x18v)
-    port map (led(4), dsu_sel);
-
-
   uart_tx_int     <= duart_tx       when dsu_sel = '1' else uart_tx(0);
   uart_rtsn_int   <= '1'            when dsu_sel = '1' else uart_rtsn(0);  
   uart_rx(0)      <= uart_rx_int    when dsu_sel = '0' else '1';
@@ -450,20 +441,17 @@ begin
     generic map (level => cmos, voltage => x18v, tech => padtech)
     port map (dsurtsn, uart_rtsn_int);
 
+  dsusel_pad : outpad
+    generic map (tech => padtech, level => cmos, voltage => x18v)
+    port map (led(4), dsu_sel);
+
 ----------------------------------------------------------------------
 ---  RS-485 UARTs  ---------------------------------------------------
 ----------------------------------------------------------------------
-  rs485pads_en : if (CFG_APB_UART /= 0) generate
-    rs485_apbuart_loop : for i in 1 downto 0 generate
-
-      uart485_i(i).extclk <= '0';
-
-      -- NEW --
-      uart485_rsde(i) <= uart485_o(i).txen;
-      uart485_rsre(i) <= uart485_o(i).rxen;
-      uart485_rstx(i) <= uart485_o(i).txd;
-      uart485_i(i).rxd <= uart485_rsrx(i);
-      -- END --
+--  rs485pads_en : if (CFG_APB_UART /= 0) generate
+--    rs485_apbuart_loop : for i in 1 downto 0 generate
+--
+--      uart485_i(i).extclk <= '0';
 --      -- RS-485 UART driver enable
 --      uart485_rsde_pad : outpad 
 --        generic map (tech => padtech, level => cmos, voltage => x18v)
@@ -483,9 +471,9 @@ begin
 --      uart485_txd2_pad : outpad 
 -- 	generic map (tech => padtech, level => cmos, voltage => x18v)
 --	port map (pad => uart485_rstx(i), i => uart485_o(i).txd);
-
-    end generate;
-  end generate;
+--
+--    end generate;
+--  end generate;
 
   -----------------------------------------------------------------------------
   -- DDR4 Memory Controller (MIG) ---------------------------------------------
@@ -526,7 +514,7 @@ begin
         aximo           => cpu_mem_aximo,
         -- Misc
         ddr4_ui_clkout1 => clkm,
-        clk_ref_i       => clkref
+        clk_ref_i       => clkm
         );
 
     gpu_mig : if (CFG_VX_EN = 1) generate
@@ -562,7 +550,7 @@ begin
           aximo           => gpu_mem_aximo,
           -- Misc
           ddr4_ui_clkout1 => open,
-          clk_ref_i       => clkref
+          clk_ref_i       => clkm
           );
     end generate gpu_mig;
 
@@ -651,7 +639,6 @@ begin
 
   ddr4_c1_ten      <= gnd;
   ddr4_c1_par      <= gnd;
-  clkref        <= gnd;
   
   -- Simulation module
   no_mig_mem_gen : if (CFG_MIG_7SERIES = 0) generate
@@ -678,7 +665,7 @@ begin
   -- Simulation module
   -- pragma translate_off
   sim_mem_gen : if (CFG_MIG_7SERIES = 1) and (SIMULATION /= 0) generate
-    calib_done_c1  <= '1';
+    calib_done_c1 <= '1';
     calib_done_c2 <= '1';
 
     axi_mem_gen : if (CFG_L2_AXI = 1) generate

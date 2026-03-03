@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -54,7 +54,8 @@ package libjtagcom is
     nsync : integer range 1 to 2 := 2;
     ainst  : integer range 0 to 255 := 2;
     dinst  : integer range 0 to 255 := 3;
-    reread : integer range 0 to 1 := 0);
+    reread : integer range 0 to 1 := 0;
+    tapreg : integer range 0 to 1 := 0);
   port (
     rst  : in std_ulogic;
     clk  : in std_ulogic;

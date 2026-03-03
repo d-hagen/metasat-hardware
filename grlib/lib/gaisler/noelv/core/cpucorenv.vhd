@@ -3,7 +3,7 @@
 --  Copyright (C) 2003 - 2008, Gaisler Research
 --  Copyright (C) 2008 - 2014, Aeroflex Gaisler
 --  Copyright (C) 2015 - 2023, Cobham Gaisler
---  Copyright (C) 2023,        Frontgrade Gaisler
+--  Copyright (C) 2023 - 2024, Frontgrade Gaisler
 --
 --  This program is free software; you can redistribute it and/or modify
 --  it under the terms of the GNU General Public License as published by
@@ -52,6 +52,12 @@ use gaisler.noelvint.all;
 use gaisler.utilnv.u2vec;
 use gaisler.utilnv.b2i;
 use gaisler.utilnv.cond;
+use gaisler.utilnv.all_0;
+use gaisler.utilnv.uext;
+use gaisler.utilnv.u2i;
+use gaisler.utilnv.u2slv;
+use gaisler.utilnv.uadd;
+use gaisler.utilnv.get_lo;
 library bsc;
 use bsc.sparrow.sprw_in_vec;
 use bsc.sparrow.sprw_out_vec;
@@ -101,8 +107,10 @@ entity cpucorenv is
     pmp_no_tor          : integer range 0  to 1         := 0;  -- Disable PMP TOR
     pmp_entries         : integer range 0  to 16        := 16; -- Implemented PMP registers
     pmp_g               : integer range 0  to 10        := 0;  -- PMP grain is 2^(pmp_g + 2) bytes
-    asidlen             : integer range 0 to  16        := 0;  -- Max 9 for Sv32
-    vmidlen             : integer range 0 to  14        := 0;  -- Max 7 for Sv32
+    pma_entries         : integer range 0  to 16        := 8;  -- Implemented PMA entries
+    pma_masked          : integer range 0  to 1         := 0;  -- PMA done using masks
+    asidlen             : integer range 0  to 16        := 0;  -- Max 9 for Sv32
+    vmidlen             : integer range 0  to 14        := 0;  -- Max 7 for Sv32
     -- Interrupts
     imsic               : integer range 0  to 1         := 0;  -- IMSIC implemented
     -- RNMI
@@ -110,6 +118,7 @@ entity cpucorenv is
     rnmi_xaddr          : integer                       := 16#00101#; -- RNMI exception trap handler address
     -- Extensions
     ext_noelv           : integer range 0  to 1         := 1;  -- NOEL-V Extensions
+    ext_noelvalu        : integer range 0  to 1         := 1;  -- NOEL-V ALU Extensions
     ext_m               : integer range 0  to 1         := 1;  -- M Base Extension Set
     ext_a               : integer range 0  to 1         := 0;  -- A Base Extension Set
     ext_c               : integer range 0  to 1         := 0;  -- C Base Extension Set
@@ -129,11 +138,17 @@ entity cpucorenv is
     ext_ssaia           : integer range 0  to 1         := 0;  -- Ssaia Extension
     ext_smstateen       : integer range 0  to 1         := 0;  -- Smstateen Extension
     ext_smrnmi          : integer range 0  to 1         := 0;  -- Smrnmi Extension
+    ext_ssdbltrp        : integer range 0  to 1         := 0;  -- Ssdbltrp Extension
+    ext_smdbltrp        : integer range 0  to 1         := 0;  -- Smdbltrp Extension
+    ext_sddbltrp        : integer range 0  to 1         := 0;  -- Sddbltrp Extension
     ext_smepmp          : integer range 0  to 1         := 0;  -- Smepmp Extension
+    ext_svpbmt          : integer range 0  to 1         := 0;  -- Svpbmt Extension
     ext_zicbom          : integer range 0  to 1         := 0;  -- Zicbom Extension
     ext_zicond          : integer range 0  to 1         := 0;  -- Zicond Extension
     ext_zimop           : integer range 0  to 1         := 0;  -- Zimop Extension
     ext_zcmop           : integer range 0  to 1         := 0;  -- Zcmop Extension
+    ext_zicfiss         : integer range 0  to 1         := 0;  -- Zicfiss Extension
+    ext_zicfilp         : integer range 0  to 1         := 0;  -- Zicfilp Extension
     ext_svinval         : integer range 0  to 1         := 0;  -- Svinval Extension
     ext_zfa             : integer range 0  to 1         := 0;  -- Zfa Extension
     ext_zfh             : integer range 0  to 1         := 0;  -- Zfh Extension
@@ -181,7 +196,8 @@ entity cpucorenv is
     dbgi        : in  nv_debug_in_type;   -- debug in
     dbgo        : out nv_debug_out_type;  -- debug out
     eto         : out nv_etrace_out_type;
-    cnt         : out nv_counter_out_type -- Perf event Out Port
+    cnt         : out nv_counter_out_type; -- Perf event Out Port
+    pwrd        : out std_ulogic          -- Activate power down mode
     );
 end;
 
@@ -190,7 +206,7 @@ architecture rtl of cpucorenv is
   constant ASYNC_RESET : boolean := GRLIB_CONFIG_ARRAY(grlib_async_reset_enable) = 1;
   constant MEMTECH_MOD : integer := memtech mod 65536;
 
-  constant WRT          : integer := 1;	-- enable write-through RAM
+  constant WRT          : integer := 1;  -- enable write-through RAM
 
   constant dtcmen    : integer := b2i((tcmconf mod 32) /= 0);
   constant dtcmabits : integer := (1 - dtcmen) + (tcmconf mod 32);
@@ -281,6 +297,205 @@ architecture rtl of cpucorenv is
   constant addr_bits    : integer := max_addr_bits;
   constant pcaddr_bits  : integer := cond(addr_bits = XLEN, addr_bits, addr_bits + 2);
 
+  function pnp_bar_ok(hconfig : amba_config_word) return boolean is
+  begin
+    case hconfig(3 downto 0) is
+    when "0010" | "0011" | "0001" => return true;
+    when others                   => return false;
+    end case;
+  end;
+
+  -- Convert PnP address/mask to PMA equivalent
+  -- Returns array with count as first element
+  function pnp_to_pma_addr(ahbso : ahb_slv_out_vector; entries : integer; top : std_logic_vector) return word64_arr is
+    -- Non-constant
+    variable index   : integer                  := 0;
+    variable pma     : word64_arr(0 to entries) := (others => zerow64);
+    variable hconfig : amba_config_word;
+    variable addr    : std_logic_vector(11 downto 0);
+    variable mask    : std_logic_vector(11 downto 0);
+    variable mask32  : word32;
+  begin
+    for i in 0 to NAHBSLV - 1 loop
+      for j in NAHBAMR to NAHBCFG - 1 loop
+        hconfig      := ahbso(i).hconfig(j);
+        mask         := hconfig(15 downto 4);
+        addr         := hconfig(31 downto 20) and mask;
+        if not all_0(mask) and pnp_bar_ok(hconfig) then
+          index      := index + 1;
+          assert index <= entries report "Too many PnP entries" severity failure;
+          mask32     := not (mask & x"00000");
+          pma(index) := uext(top & ((addr & x"00000") or ('0' & mask32(31 downto 1))), 64);
+        end if;
+      end loop;
+    end loop;
+
+    pma(0) := u2slv(index, 64);
+    return pma(0 to entries);
+  end;
+
+  -- Returns array with count as first element
+  -- PMA bits
+  --   busw lrsc amo idempotent   burst cache PT_W PT_R   X W R allocated
+  function pnp_to_pma_data(ahbso : ahb_slv_out_vector; entries : integer) return word64_arr is
+    -- Non-constant
+    variable index : integer                          := 0;
+    variable pma   : word64_arr(0 to entries) := (others => zerow64);
+    variable hconfig : amba_config_word;
+    variable mask  : std_logic_vector(11 downto 0);
+  begin
+    for i in 0 to NAHBSLV - 1 loop
+      for j in NAHBAMR to NAHBCFG - 1 loop
+        hconfig := ahbso(i).hconfig(j);
+        mask    := hconfig(15 downto 4);
+        if not all_0(mask) and pnp_bar_ok(hconfig) then
+          index := index + 1;
+          assert index <= entries report "Too many PnP entries" severity failure;
+          case hconfig(3 downto 0) is
+          when "0010" =>  -- AHB memory
+            pma(index)    := uext(std_logic_vector'(x"fff"), 64);  -- Assume all
+            pma(index)(6) := hconfig(16);                          -- Cacheability
+            pma(index)(8) := hconfig(17);                          -- Interpret prefetchable as idempotency
+          when "0011" =>  -- AHB I/O
+            pma(index)    := uext(std_logic_vector'(x"207"), 64);
+          when others =>  -- APB I/O (0001)
+            pma(index)    := uext(std_logic_vector'(x"207"), 64);
+          end case;
+        end if;
+      end loop;
+    end loop;
+
+    pma(0) := u2slv(index, 64);
+    return pma(0 to entries);
+  end;
+
+  -- Increase the size of an array by extending with zeros.
+  function word64_arr_size(arr_in : word64_arr; length : integer) return word64_arr is
+    variable arr   : word64_arr(0 to arr_in'length - 1) := arr_in;
+    variable sized : word64_arr(0 to length - 1)        := (others => zerow64);
+  begin
+    if arr'length <= length then
+      sized(arr'range) := arr;
+    else
+      sized            := arr(sized'range);
+    end if;
+
+    return sized;
+  end;
+
+  -- Add an extra element at the end of an array
+  -- Returns array with count as first element
+  function word64_arr_extend(arr_in : word64_arr; data : word64) return word64_arr is
+    variable arr      : word64_arr(0 to arr_in'length - 1) := arr_in;
+    variable extended : word64_arr(0 to arr_in'length)     := word64_arr_size(arr_in, arr_in'length + 1);
+  begin
+    assert u2i(get_lo(arr(0), 8)) < arr'high report "No room in array" severity failure;
+      arr(u2i(get_lo(arr(0), 8)) + 1)      := data;
+      arr(0)                    := uadd(arr(0), 1);
+      return arr;
+  end;
+
+  -- Remove initial count and return the initial part of the array to the specified length.
+  function word64_arr_normal(arr_in : word64_arr; length : integer) return word64_arr is
+    variable arr : word64_arr(0 to arr_in'length - 1) := arr_in;
+  begin
+    assert arr'length > length report "Too small array" severity failure;
+
+
+    return arr(1 to length);
+  end;
+
+  -- Remove initial count and return the initial part of the array according to the count.
+  function word64_arr_normal(arr_in : word64_arr) return word64_arr is
+    variable arr    : word64_arr(0 to arr_in'length - 1) := arr_in;
+  begin
+    return word64_arr_normal(arr, arr'length - 1);
+  end;
+
+  -- Crop and return the array according to its initial count.
+  function word64_arr_crop(arr_in : word64_arr) return word64_arr is
+    variable arr    : word64_arr(0 to arr_in'length - 1) := arr_in;
+    variable length : integer                            := u2i(get_lo(arr(0), 8));
+  begin
+    assert arr'length > length report "Too small array" severity failure;
+
+    return arr(0 to length);
+  end;
+
+  -- PMA
+  --   RAM: all                                  1111 1111 1111
+  --   ROM: busw?   burst cache   XRvalid        .000 1100 1011
+  --   I/O: busw? amo   WRvalid                  .010 0000 0111
+
+  -- GR765
+  constant pma_addr_gr765 : word64_arr := (
+    uext(std_logic_vector'(x"09fffffff"), 64),   -- 0x080... - 0x0bf...
+    uext(std_logic_vector'(x"0c7ffffff"), 64),   -- 0x0c0... - 0x0cf...
+    uext(std_logic_vector'(x"0d7ffffff"), 64),   -- 0x0d0... - 0x0df...
+    uext(std_logic_vector'(x"0efffffff"), 64),   -- 0x0e0... - 0x0ff...
+    uext(std_logic_vector'(x"7ffffffff"), 64));  -- 0x000... - 0xfff...
+  --   busw lrsc amo idempotent   burst cache PT_W PT_R   X W R allocated
+  constant pma_data_gr765 : word64_arr := (
+--  uext(std_logic_vector'(x"1cb"), 64),   -- idem burst cache X R
+    uext(std_logic_vector'(x"1cf"), 64),   --  Temporarily allow W for UART in test
+    uext(std_logic_vector'(x"14b"), 64),   -- idem cache X R
+    uext(std_logic_vector'(x"207"), 64),   -- amo W R
+    uext(std_logic_vector'(x"207"), 64),
+    uext(std_logic_vector'(x"fff"), 64));  -- All
+
+  -- Small
+  constant pma_addr_arr : word64_arr := (
+--    uext(std_logic_vector'(x"0007ffff"), 64),    -- 0x000... - 0x000fffff
+    uext(std_logic_vector'(x"0afffffff"), 64),  -- 0x0a0... - 0x0bf...???
+    uext(std_logic_vector'(x"0c00007ff"), 64),  -- 0x0c0... - 0x0c0...0fff
+    uext(std_logic_vector'(x"0efffffff"), 64),  -- 0x0e0... - 0x0ff...
+    uext(std_logic_vector'(x"07fffffff"), 64),  -- 0x000... - 0xfff...
+    uext(std_logic_vector'(x"0"), 64)          -- Dummy
+  );
+  --   busw lrsc amo idempotent   burst cache PT_W PT_R   X W R allocated
+  constant pma_data_arr : word64_arr := (
+    uext(std_logic_vector'(x"a07"), 64),       -- wide amo W R
+    uext(std_logic_vector'(x"acb"), 64),       -- wide amo burst cache X R
+    uext(std_logic_vector'(x"207"), 64),       -- amo W R
+    uext(std_logic_vector'(x"fff"), 64),       -- all
+--    uext(std_logic_vector'(x"9cb"), 64),     -- busw idem burst cache X R
+--    uext(std_logic_vector'(x"207"), 64)      -- amo W R
+    uext(std_logic_vector'(x"0"), 64)          -- Dummy
+  );
+
+  -- Word 0: High type   00        01  10  11
+  -- Word 1: Low       unallocated I/O RAM ROM
+  -- Word 2: Cacheable (if RAM/ROM)
+  -- Word 3: Wide bus
+  constant pma_data_mask : word64_arr := (
+--    -- 0x00000000-0x7fffffff RAM cacheable wide
+--    -- 0x80000000-0xbfffffff ROM cacheable wide
+--    -- 0xc0000000-0xcfffffff ROM cacheable
+--    -- 0xd0000000-0xffffffff unallocated
+--    uext(std_logic_vector'(x"1fff"), 64),      -- High type
+--    uext(std_logic_vector'(x"1f00"), 64),      -- Low
+--    uext(std_logic_vector'(x"1fff"), 64),      -- Cacheable
+--    uext(std_logic_vector'(x"00ff"), 64)       -- Wide bus
+
+    -- Hypervisor tests etc
+    -- 0x00000000-0x7fffffff RAM cacheable wide
+    -- 0x80000000-0x8fffffff I/O
+    -- 0x90000000-0x9fffffff I/O
+    -- 0xa0000000-0xafffffff I/O (IMSIC@0xa00)
+    -- 0xb0000000-0xbfffffff I/O
+    -- 0xc0000000-0xcfffffff ROM wide cacheable
+    -- 0xd0000000-0xdfffffff I/O
+    -- 0xe0000000-0xefffffff I/O wide (ACLINT@0xe)
+    -- 0xf0000000-0xffffffff I/O (UART@0xff9 and APLIC@0xfc0)
+    uext(std_logic_vector'(x"10ff"), 64),      -- High type
+    uext(std_logic_vector'(x"ff00"), 64),      -- Low
+    uext(std_logic_vector'(x"10ff"), 64),      -- Cacheable
+    uext(std_logic_vector'(x"50ff"), 64)       -- Wide bus (as in various config_local)
+  );
+
+  signal pma_addr : word64_arr(0 to pma_entries - 1);
+  signal pma_data : word64_arr(0 to pma_entries - 1);
+
   -- Misc
   signal gnd            : std_ulogic;
   signal vcc            : std_ulogic;
@@ -336,6 +551,7 @@ architecture rtl of cpucorenv is
   signal c_perf       : std_logic_vector(31 downto 0);
   signal iu_cnt       : nv_counter_out_type;
 
+
   -- FPU
   signal fpi            : fpu5_in_type;
   signal fpia           : fpu5_in_async_type;
@@ -385,6 +601,40 @@ begin
   holdn                 <= ico.hold and dco.hold;
   mtesti_none           <= (others => '0');
   eto                   <= etrace;
+
+--  -- Use PnP information to set up PMA.
+--  pma_addr <= word64_arr_normal(word64_arr_size(
+--                word64_arr_extend(pnp_to_pma_addr(ahbso, pma_entries, ""), uext(std_logic_vector'(x"7ffffffff"), 64)),  -- 0x000... - 0xfff...
+--                pma_addr'length + 1));
+--  pma_data <= word64_arr_normal(word64_arr_size(
+--                word64_arr_extend(pnp_to_pma_data(ahbso, pma_entries), uext(std_logic_vector'(x"fff"), 64)),
+--                pma_data'length + 1));
+
+--  -- Direct PMA setup
+--  pma_addr <= word64_arr_size(pma_addr_arr, pma_addr'length);
+--  pma_data <= word64_arr_size(pma_data_arr, pma_data'length);
+
+  -- PMA via masks
+  pma_data <= word64_arr_size(pma_data_mask, pma_data'length);
+
+--  -- PMA equivalent to the PnP values from my KCU105 build.
+--  pma_addr <= (uext(std_logic_vector'(x"ff97ffff"), 64),
+--               uext(std_logic_vector'(x"1fffffff"), 64),
+--               uext(std_logic_vector'(x"c07fffff"), 64),
+--               uext(std_logic_vector'(x"e007ffff"), 64),
+--               uext(std_logic_vector'(x"a007ffff"), 64),
+--               uext(std_logic_vector'(x"f9ffffff"), 64),
+--               uext(std_logic_vector'(x"fc07ffff"), 64),
+--               uext(std_logic_vector'(x"7fffffff"), 64));
+--    --   busw lrsc amo idempotent   burst cache PT_W PT_R   X W R allocated
+--  pma_data <= (uext(std_logic_vector'(x"ebf"), 64),  -- Temp allow W for UART in test
+--               uext(std_logic_vector'(x"fff"), 64),
+--               uext(std_logic_vector'(x"fff"), 64),
+--               uext(std_logic_vector'(x"ebf"), 64),
+--               uext(std_logic_vector'(x"ebf"), 64),
+--               uext(std_logic_vector'(x"ebf"), 64),
+--               uext(std_logic_vector'(x"ebf"), 64),
+--               uext(std_logic_vector'(x"fff"), 64));
 
   itrace : entity work.itracenv
     generic map (
@@ -436,6 +686,7 @@ begin
       -- Caches
       iways         => iways,
       dways         => dways,
+      dlinesize     => dlinesize,
       itcmen        => itcmen,
       dtcmen        => dtcmen,
       -- MMU
@@ -444,6 +695,8 @@ begin
       pmp_no_tor    => pmp_no_tor,
       pmp_entries   => pmp_entries,
       pmp_g         => pmp_g,
+      pma_entries   => pma_entries,
+      pma_masked    => pma_masked,
       asidlen       => asidlen,
       vmidlen       => vmidlen,
       -- Interrupts
@@ -453,6 +706,7 @@ begin
       rnmi_xaddr    => rnmi_xaddr,
       -- Extensions
       ext_noelv     => ext_noelv,
+      ext_noelvalu  => ext_noelvalu,
       ext_m         => ext_m,
       ext_a         => ext_a,
       ext_c         => ext_c,
@@ -472,11 +726,16 @@ begin
       ext_ssaia     => ext_ssaia,
       ext_smstateen => ext_smstateen,
       ext_smrnmi    => ext_smrnmi,
+      ext_ssdbltrp  => ext_ssdbltrp,
+      ext_smdbltrp  => ext_smdbltrp,
+      ext_sddbltrp  => ext_sddbltrp,
       ext_smepmp    => ext_smepmp,
       ext_zicbom    => ext_zicbom,
       ext_zicond    => ext_zicond,
       ext_zimop     => ext_zimop,
       ext_zcmop     => ext_zcmop,
+      ext_zicfiss   => ext_zicfiss,
+      ext_zicfilp   => ext_zicfilp,
       ext_svinval   => ext_svinval,
       ext_zfa       => actual_zfa,
       ext_zfh       => actual_zfh,
@@ -534,6 +793,8 @@ begin
       cnt           => iu_cnt,
       itracei       => itracei,
       itraceo       => itraceo,
+      pma_addr      => pma_addr,
+      pma_data      => pma_data,
       csr_mmu       => csr_mmu,
       mmu_csr       => mmu_csr,
       cap           => capability,
@@ -541,6 +802,7 @@ begin
       tbo           => tbo,
       eto           => etrace,
       sclk          => clk,
+      pwrd          => pwrd,
       testen        => ahbsi.testen,
       testrst       => ahbsi.testrst
       );
@@ -638,6 +900,8 @@ begin
       pmp_no_tor    => pmp_no_tor,
       pmp_entries   => pmp_entries,
       pmp_g         => pmp_g,
+      pma_entries   => pma_entries,
+      pma_masked    => pma_masked,
       asidlen       => asidlen,
       vmidlen       => vmidlen,
       ext_noelv     => ext_noelv,
@@ -645,6 +909,8 @@ begin
       ext_h         => ext_h,
       ext_smepmp    => ext_smepmp,
       ext_zicbom    => ext_zicbom,
+      ext_svpbmt    => ext_svpbmt,
+      ext_zicfiss   => ext_zicfiss,
       tlb_pmp       => tlb_pmp,
       -- Misc
       cached        => cached,
@@ -685,16 +951,19 @@ begin
       );
 
   -- Unused
-  fpc_miso     <= nv_intreg_miso_none;
-  c2c_miso     <= nv_intreg_miso_none;
+  fpc_miso       <= nv_intreg_miso_none;
+  c2c_miso       <= nv_intreg_miso_none;
 
-  cnt.icnt     <= iu_cnt.icnt;
-  cnt.icmiss   <= c_perf(0);
-  cnt.itlbmiss <= c_perf(1);
-  cnt.dcmiss   <= c_perf(2);
-  cnt.dtlbmiss <= c_perf(3);
-  cnt.bpmiss   <= iu_cnt.bpmiss;
-   
+  cnt.icnt       <= iu_cnt.icnt;
+  cnt.icmiss     <= c_perf(0);
+  cnt.itlbmiss   <= c_perf(1);
+  cnt.dcmiss     <= c_perf(2);
+  cnt.dtlbmiss   <= c_perf(3);
+  cnt.bpmiss     <= iu_cnt.bpmiss;
+  cnt.hold       <= iu_cnt.hold;
+  cnt.hold_issue <= iu_cnt.hold_issue;
+  cnt.branch     <= iu_cnt.branch;
+
   -- Branch History Table ---------------------------------------------------
   bht0 : bhtnv
     generic map (
@@ -880,9 +1149,9 @@ begin
         rdata4          => rff_rdummy   -- Dummy
         );
 
-   end generate;
-
+    end generate;
   end generate;
+
 
   -- L1 Caches -----------------------------------------------------------------
 

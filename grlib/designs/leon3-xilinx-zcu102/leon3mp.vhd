@@ -31,8 +31,6 @@ library grlib, techmap;
 use grlib.amba.all;
 use grlib.devices.all;
 use grlib.stdlib.all;
-use grlib.config.all;
-use grlib.config_types.all;
 use techmap.gencomp.all;
 use techmap.allclkgen.all;
 
@@ -45,7 +43,6 @@ use gaisler.net.all;
 use gaisler.jtag.all;
 use gaisler.i2c.all;
 use gaisler.l2cache.all;
-use gaisler.l2c_lite.all;
 use gaisler.subsys.all;
 use gaisler.axi.all;
 use gaisler.spacewire.all;
@@ -86,7 +83,7 @@ entity leon3mp is
     ddr4_dq     : inout std_logic_vector(15 downto 0);
     ddr4_dqs_c  : inout std_logic_vector(1 downto 0); -- Data Strobe
     ddr4_dqs_t  : inout std_logic_vector(1 downto 0); -- Data Strobe
-    ddr4_addr   : out   std_logic_vector(13 downto 0); -- Address
+    ddr4_addr   : out   std_logic_vector(13 downto 0);-- Address
     ddr4_ras_n  : out   std_ulogic;
     ddr4_cas_n  : out   std_ulogic;
     ddr4_we_n   : out   std_ulogic;
@@ -176,12 +173,12 @@ architecture rtl of leon3mp is
   -- AHB SLAVES
   constant hi_dsu       : integer := 0;
   constant hi_apbctrl   : integer := 1;
-  constant hi_ahbram    : integer := 2;
-  constant hi_ahbrom    : integer := 3;
-  constant hi_ahbrep    : integer := 4;
+  constant hi_ahbram0   : integer := 2;
+  constant hi_ahbrom0   : integer := 3+CFG_NRAM;
+  constant hi_ahbrep0   : integer := 4+CFG_NRAM;
   
   constant maxahbm      : integer := CFG_NCPU+1;
-  constant maxahbs      : integer := hi_ahbrep+1;
+  constant maxahbs      : integer := hi_ahbrep0+1;
   
   -- APB SLAVES
   constant pi_ahbuart   : integer := 0;
@@ -225,14 +222,8 @@ architecture rtl of leon3mp is
   signal ahbso          : ahb_slv_out_vector := (others => ahbs_none);
   signal ahbmi          : ahb_mst_in_type;
   signal ahbmo          : ahb_mst_out_vector := (others => ahbm_none);
-
-  -- AHB memory bus
-  signal mem_ahbsi  : ahb_slv_in_type;
-  signal mem_ahbso  : ahb_slv_out_type;
-  signal l2c_ahbsi  : ahb_slv_in_type;
-  signal l2c_ahbso  : ahb_slv_out_vector := (others => ahbs_none);
-  signal l2c_ahbmi  : ahb_mst_in_type;
-  signal l2c_ahbmo  : ahb_mst_out_vector := (others => ahbm_none);
+  signal mig_ahbsi      : ahb_slv_in_type;
+  signal mig_ahbso      : ahb_slv_out_type;
 
  -- Clocks and Reset
   signal clkm           : std_ulogic := '0';
@@ -366,84 +357,33 @@ begin
     gpti <= gpti_dhalt_drive(dsuo.tstop);
 
   -----------------------------------------------------------------------
-  --- L2 CACHE ----------------------------------------------------------
-  -----------------------------------------------------------------------
-    nogen_l2c : if CFG_L2_EN = 0 generate
-      mem_ahbsi           <= ahbsi;
-      ahbso(hi_ahbram)    <= mem_ahbso;
-    end generate;
-    gen_l2c : if CFG_L2_EN /= 0 generate
-      l2c0 : l2c_lite_ahb
-        generic map (
-          tech 	    => memtech,
-          hsindex   => hi_ahbram,
-          ways	    => CFG_L2_WAYS,
-          waysize   => CFG_L2_SIZE,
-          linesize  => CFG_L2_LSZ,
-          repl      => CFG_L2_RAN,
-          haddr     => 16#000#,
-          hmask     => 16#800#,
-          ioaddr    => 16#B00#,
-	  cached    => conv_std_logic_vector(CFG_L2_MAP, 16),
-          be_dw     => CFG_AHBDW)
-        port map(
-          rstn    => rstn,
-          clk     => clkm,
-          ahbsi   => ahbsi,
-          ahbso   => ahbso(hi_ahbram),
-          ahbmi   => l2c_ahbmi,
-          ahbmo   => l2c_ahbmo(0));
-      
-      ahb_men : ahbctrl                -- AHB arbiter/multiplexer
-        generic map (
-          defmast => CFG_DEFMST,
-          split   => CFG_SPLIT, 
-          rrobin  => CFG_RROBIN,
-          ioaddr  => 16#B10#,
-          ioen    => 1,
-          nahbm   => 1, nahbs => 1,
-          fpnpen  => CFG_FPNPEN,
-          ahbendian => 0)
-        port map (
-          rstn,
-          clkm,
-          l2c_ahbmi,
-          l2c_ahbmo,
-          l2c_ahbsi,
-          l2c_ahbso);
-      
-      l2c_ahbmo(NAHBMST-1 downto 1) <= (others => ahbm_none);
-      l2c_ahbso(NAHBMST-1 downto 1) <= (others => ahbs_none);
-      mem_ahbsi              <= l2c_ahbsi;
-      l2c_ahbso(hi_ahbram)   <= mem_ahbso;
-    end generate;
-
-  -----------------------------------------------------------------------
   --- AHB RAM -----------------------------------------------------------
   -----------------------------------------------------------------------
   no_mig_gen: if (CFG_MIG_ULTRASCALE = 0) generate
     ram: if in_synthesis = true generate -- synthesis ram
-      bram : ahbram
-        generic map (hindex => hi_ahbram,
-          haddr => 16#000#,
-          tech => CFG_MEMTECH,
-          kbytes => CFG_AHBRAM_SIZE,
-          pipe => 0)
-        port map (rstn, clkm, mem_ahbsi, mem_ahbso);
+      bank: for i in 0 to CFG_NRAM-1 generate
+          ahbram0 : ahbram
+            generic map (hindex => hi_ahbram0+i,
+                         haddr => 16#400#+i,
+                         tech => CFG_MEMTECH,
+                         kbytes => 1024,
+                         pipe => 0)
+            port map (rstn, clkm, ahbsi, ahbso(hi_ahbram0+i));
+        end generate;
     end generate;
     
     sim_ram: if in_simulation = true generate -- simulation ram
       --pragma translate_off
-      bram : ahbram_sim
-        generic map (hindex => hi_ahbram,
-                     haddr => 16#000#,
-                     hmask => 16#800#,
+      ahbram0 : ahbram_sim
+        generic map (hindex => hi_ahbram0,
+                     haddr => 16#400#,
+                     hmask => 16#f00#,
                      tech => 0,
-                     kbytes => CFG_AHBRAM_SIZE,
+                     kbytes => 1024,
                      pipe => 0,
                      endianness => 0,
                      fname => ramfile)
-        port map (rstn, clkm, mem_ahbsi, mem_ahbso);
+        port map (rstn, clkm, ahbsi, ahbso(hi_ahbram0));
         clkm <= not clkm after 5.0 ns;
      --pragma translate_on
     end generate;
@@ -480,7 +420,7 @@ begin
   mig_gen : if (CFG_MIG_ULTRASCALE = 1) generate
         gen_mig : if in_synthesis = true generate --synthesis mig    
         ddrc : ahb2axi_mig4_ultrascale generic map (
-          hindex => hi_ahbram, haddr => 16#000#, hmask => 16#800#,
+          hindex => hi_ahbram0, haddr => 16#400#, hmask => 16#F00#,
           pindex => pi_ahbmig, paddr => pi_ahbmig
           )
           port map (
@@ -508,8 +448,8 @@ begin
             ddr4_ui_clk_sync_rst => open,
             rst_n_syn       => migrstn,
             rst_n_async     => rstraw,
-            ahbsi           => mem_ahbsi,
-            ahbso           => mem_ahbso,
+            ahbsi           => ahbsi,
+            ahbso           => ahbso(hi_ahbram0),
             apbi            => apbi,
             apbo            => apbo(pi_ahbmig),
             clk_amba        => clkm,
@@ -521,16 +461,16 @@ begin
     
     sim_mig: if in_simulation = true generate --simulate ahbram instead
     -- pragma translate_off
-      ahbram : ahbram_sim
-        generic map (hindex => hi_ahbram,
-                     haddr => 16#000#,
-                     hmask => 16#800#,
+      ahbram0 : ahbram_sim
+        generic map (hindex => hi_ahbram0,
+                     haddr => 16#400#,
+                     hmask => 16#f00#,
                      tech => 0,
-                     kbytes => CFG_AHBRAM_SIZE,
+                     kbytes => 1024,
                      pipe => 0,
                      endianness => 0,
                      fname => ramfile)
-        port map (rstn, clkm, mem_ahbsi, mem_ahbso);
+        port map (rstn, clkm, ahbsi, ahbso(hi_ahbram0));
 
         -- Tie-Off DDR4 Signals
         ddr4_addr       <= (others => '0');
@@ -563,8 +503,8 @@ begin
   -----------------------------------------------------------------------
   brom_gen: if (CFG_AHBROMEN = 1) generate
       brom : entity work.ahbrom
-        generic map (hindex => hi_ahbrom, haddr => CFG_AHBRODDR, pipe => CFG_AHBROPIP)
-        port map (rstn, clkm, ahbsi, ahbso(hi_ahbrom));
+        generic map (hindex => hi_ahbrom0, haddr => CFG_AHBRODDR, pipe => CFG_AHBROPIP)
+        port map (rstn, clkm, ahbsi, ahbso(hi_ahbrom0));
   end generate brom_gen;
   ----------------------------------------------------------------------
   --- INTERRUPT CONTROLLER ---------------------------------------------
@@ -608,7 +548,6 @@ begin
           v8          => CFG_V8,
           cp          => 0,
           mac         => CFG_MAC,
-          sparrow     => CFG_SPRW,
           pclow       => pclow,
           notag       => 0,
           nwp         => CFG_NWP,
@@ -628,7 +567,7 @@ begin
           pwd         => CFG_PWD,
           svt         => CFG_SVT,
           rstaddr     => CFG_RSTADDR,
-          smp         => 1, --CFG_NCPU-1,
+          smp         => CFG_NCPU-1,
           cached      => CFG_DFIXED,
           scantest    => CFG_SCAN,
           mmupgsz     => CFG_MMU_PAGE,
@@ -657,8 +596,8 @@ begin
 
   -- pragma translate_off
   test0 : ahbrep
-    generic map (hindex => hi_ahbrep, haddr => 16#200#)
-    port map (rstn, clkm, ahbsi, ahbso(hi_ahbrep));
+    generic map (hindex => hi_ahbrep0, haddr => 16#200#)
+    port map (rstn, clkm, ahbsi, ahbso(hi_ahbrep0));
   -- pragma translate_on
 
   -----------------------------------------------------------------------
