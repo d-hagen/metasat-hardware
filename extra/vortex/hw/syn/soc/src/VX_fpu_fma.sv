@@ -1,13 +1,14 @@
 module VX_fpu_fma import VX_fpu_pkg::*; #(
-    parameter NUM_LANES = 1, 
-    parameter TAGW = 1
+    parameter NUM_LANES = 1,
+    parameter NUM_PES   = (((NUM_LANES / 1) != 0) ? (NUM_LANES / 1) : 1),
+    parameter TAG_WIDTH = 1
 ) (
     input wire clk,
-    input wire reset, 
+    input wire reset,
     output wire ready_in,
     input wire  valid_in,
-    input wire [NUM_LANES-1:0] lane_mask,
-    input wire [TAGW-1:0] tag_in,
+    input wire [NUM_LANES-1:0] mask_in,
+    input wire [TAG_WIDTH-1:0] tag_in,
     input wire [3-1:0] frm,
     input wire  is_madd,
     input wire  is_sub,
@@ -15,34 +16,25 @@ module VX_fpu_fma import VX_fpu_pkg::*; #(
     input wire [NUM_LANES-1:0][31:0]  dataa,
     input wire [NUM_LANES-1:0][31:0]  datab,
     input wire [NUM_LANES-1:0][31:0]  datac,
-    output wire [NUM_LANES-1:0][31:0] result, 
+    output wire [NUM_LANES-1:0][31:0] result,
     output wire has_fflags,
     output wire [$bits(VX_fpu_pkg::fflags_t)-1:0] fflags,
-    output wire [TAGW-1:0] tag_out,
+    output wire [TAG_WIDTH-1:0] tag_out,
     input wire  ready_out,
     output wire valid_out
 );
-    wire stall = ~ready_out && valid_out;
-    wire enable = ~stall;
-    fflags_t [NUM_LANES-1:0] per_lane_fflags;
-    wire [NUM_LANES-1:0] lane_mask_out;
-    VX_shift_register #(
-        .DATAW  (1 + NUM_LANES + TAGW),
-        .DEPTH  (16),
-        .RESETW (1)
-    ) shift_reg (
-        .clk(clk),
-        .reset    (reset),
-        .enable   (enable),
-        .data_in  ({valid_in, lane_mask, tag_in}),
-        .data_out ({valid_out, lane_mask_out, tag_out})
-    );
-    assign ready_in = enable;
+    wire [NUM_LANES-1:0][3*32-1:0] data_in;
+    wire [NUM_LANES-1:0] mask_out;
+    wire [NUM_LANES-1:0][($bits(VX_fpu_pkg::fflags_t)+32)-1:0] data_out;
+    wire [NUM_LANES-1:0][$bits(VX_fpu_pkg::fflags_t)-1:0] fflags_out;
+    wire pe_enable;
+    wire [NUM_PES-1:0][3*32-1:0] pe_data_in;
+    wire [NUM_PES-1:0][($bits(VX_fpu_pkg::fflags_t)+32)-1:0] pe_data_out;
     reg [NUM_LANES-1:0][31:0] a, b, c;
     for (genvar i = 0; i < NUM_LANES; ++i) begin
         always @(*) begin
             if (is_madd) begin
-                a[i] = is_neg ? {~dataa[i][31], dataa[i][30:0]} : dataa[i];                    
+                a[i] = is_neg ? {~dataa[i][31], dataa[i][30:0]} : dataa[i];
                 b[i] = datab[i];
                 c[i] = (is_neg ^ is_sub) ? {~datac[i][31], datac[i][30:0]} : datac[i];
             end else begin
@@ -55,32 +47,67 @@ module VX_fpu_fma import VX_fpu_pkg::*; #(
                     b[i] = dataa[i];
                     c[i] = is_sub ? {~datab[i][31], datab[i][30:0]} : datab[i];
                 end
-            end    
+            end
         end
     end
     for (genvar i = 0; i < NUM_LANES; ++i) begin
+        assign data_in[i][0  +: 32] = a[i];
+        assign data_in[i][32 +: 32] = b[i];
+        assign data_in[i][64 +: 32] = c[i];
+    end
+    VX_pe_serializer #(
+        .NUM_LANES  (NUM_LANES),
+        .NUM_PES    (NUM_PES),
+        .LATENCY    (16),
+        .DATA_IN_WIDTH(3*32),
+        .DATA_OUT_WIDTH($bits(VX_fpu_pkg::fflags_t) + 32),
+        .TAG_WIDTH  (NUM_LANES + TAG_WIDTH),
+        .PE_REG     ((NUM_LANES != NUM_PES) ? 1 : 0),  
+        .OUT_BUF    (((NUM_LANES / NUM_PES) > 2) ? 1 : 0)
+    ) pe_serializer (
+        .clk        (clk),
+        .reset      (reset),
+        .valid_in   (valid_in),
+        .data_in    (data_in),
+        .tag_in     ({mask_in, tag_in}),
+        .ready_in   (ready_in),
+        .pe_enable  (pe_enable),
+        .pe_data_in (pe_data_in),
+        .pe_data_out(pe_data_out),
+        .valid_out  (valid_out),
+        .data_out   (data_out),
+        .tag_out    ({mask_out, tag_out}),
+        .ready_out  (ready_out)
+    );
+    for (genvar i = 0; i < NUM_LANES; ++i) begin
+        assign result[i] = data_out[i][0 +: 32];
+        assign fflags_out[i] = data_out[i][32 +: $bits(VX_fpu_pkg::fflags_t)];
+    end
+    fflags_t [NUM_LANES-1:0] per_lane_fflags;
+    for (genvar i = 0; i < NUM_PES; ++i) begin
         wire [2:0] tuser;
         xil_fma fma (
             .aclk                (clk),
-            .aclken              (enable),
+            .aclken              (pe_enable),
             .s_axis_a_tvalid     (1'b1),
-            .s_axis_a_tdata      (a[i]),
+            .s_axis_a_tdata      (pe_data_in[i][0 +: 32]),
             .s_axis_b_tvalid     (1'b1),
-            .s_axis_b_tdata      (b[i]),
+            .s_axis_b_tdata      (pe_data_in[i][32 +: 32]),
             .s_axis_c_tvalid     (1'b1),
-            .s_axis_c_tdata      (c[i]),
+            .s_axis_c_tdata      (pe_data_in[i][64 +: 32]),
             . m_axis_result_tvalid (),
-            .m_axis_result_tdata (result[i]),
+            .m_axis_result_tdata (pe_data_out[i][0 +: 32]),
             .m_axis_result_tuser (tuser)
         );
-        assign per_lane_fflags[i] = {tuser[2], 1'b0, tuser[1], tuser[0], 1'b0};
+        assign pe_data_out[i][32 +: $bits(VX_fpu_pkg::fflags_t)] = {tuser[2], 1'b0, tuser[1], tuser[0], 1'b0};
     end
     assign has_fflags = 1;
+    assign per_lane_fflags = fflags_out;
     fflags_t __fflags; 
     always @(*) begin 
         __fflags = '0; 
         for (integer __i = 0; __i < NUM_LANES; ++__i) begin 
-            if (lane_mask_out[__i]) begin 
+            if (mask_out[__i]) begin 
                 __fflags.NX |= per_lane_fflags[__i].NX; 
                 __fflags.UF |= per_lane_fflags[__i].UF; 
                 __fflags.OF |= per_lane_fflags[__i].OF; 

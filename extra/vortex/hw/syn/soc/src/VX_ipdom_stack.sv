@@ -1,17 +1,18 @@
 module VX_ipdom_stack #(
-    parameter WIDTH = 1,
-    parameter DEPTH = 1,
+    parameter WIDTH   = 1,
+    parameter DEPTH   = 1,
     parameter OUT_REG = 0,
-    parameter ADDRW = (((DEPTH) > 1) ? $clog2(DEPTH) : 1)
+    parameter ADDRW   = (((DEPTH) > 1) ? $clog2(DEPTH) : 1)
 ) (
     input  wire             clk,
     input  wire             reset,
     input  wire [WIDTH-1:0] q0,
     input  wire [WIDTH-1:0] q1,
     output wire [WIDTH-1:0] d,
-    output wire             d_set,    
+    output wire             d_set,
+    output wire [ADDRW-1:0] q_ptr,
     input  wire             push,
-    input  wire             pop,    
+    input  wire             pop,
     output wire             empty,
     output wire             full
 );
@@ -21,28 +22,28 @@ module VX_ipdom_stack #(
     wire [WIDTH-1:0] d0, d1;
     wire d_set_n = slot_set[rd_ptr];
     always @(posedge clk) begin
-        if (reset) begin   
+        if (reset) begin
             rd_ptr  <= '0;
             wr_ptr  <= '0;
             empty_r <= 1;
-            full_r  <= 0; 
+            full_r  <= 0;
         end else begin
             ;
             ;
             ;
-            if (push) begin                
+            if (push) begin
                 rd_ptr  <= wr_ptr;
-                wr_ptr  <= wr_ptr + ADDRW'(1);                
+                wr_ptr  <= wr_ptr + ADDRW'(1);
                 empty_r <= 0;
                 full_r  <= (ADDRW'(DEPTH-1) == wr_ptr);
-            end else if (pop) begin                   
+            end else if (pop) begin
                 wr_ptr  <= wr_ptr - ADDRW'(d_set_n);
                 rd_ptr  <= rd_ptr - ADDRW'(d_set_n);
                 empty_r <= (rd_ptr == 0) && (d_set_n == 1);
                 full_r  <= 0;
             end
         end
-    end    
+    end
     VX_dp_ram #(
         .DATAW   (WIDTH * 2),
         .SIZE    (DEPTH),
@@ -50,9 +51,10 @@ module VX_ipdom_stack #(
         .LUTRAM  (OUT_REG ? 0 : 1)
     ) store (
         .clk   (clk),
+        .reset (reset),
         .read  (1'b1),
-        .write (push),        
-        . wren (),               
+        .write (push),
+        .wren  (1'b1),
         .waddr (wr_ptr),
         .wdata ({q1, q0}),
         .raddr (rd_ptr),
@@ -60,8 +62,8 @@ module VX_ipdom_stack #(
     );
     always @(posedge clk) begin
         if (push) begin
-            slot_set[wr_ptr] <= 0;   
-        end else if (pop) begin            
+            slot_set[wr_ptr] <= 0;
+        end else if (pop) begin
             slot_set[rd_ptr] <= 1;
         end
     end
@@ -78,6 +80,7 @@ module VX_ipdom_stack #(
     );
     assign d     = d_set_r ? d0 : d1;
     assign d_set = ~d_set_r;
+    assign q_ptr = wr_ptr;
     assign empty = empty_r;
     assign full  = full_r;
 endmodule

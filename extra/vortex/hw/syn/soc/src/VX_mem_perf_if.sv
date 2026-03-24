@@ -3,14 +3,14 @@ interface VX_mem_perf_if import VX_gpu_pkg::*; ();
     cache_perf_t dcache;
     cache_perf_t l2cache;
     cache_perf_t l3cache;
-    cache_perf_t smem;
+    cache_perf_t lmem;
     mem_perf_t   mem;
     modport master (
         output icache,
         output dcache,
         output l2cache,
         output l3cache,
-        output smem,
+        output lmem,
         output mem
     );
     modport slave (
@@ -18,7 +18,7 @@ interface VX_mem_perf_if import VX_gpu_pkg::*; ();
         input dcache,
         input l2cache,
         input l3cache,
-        input smem,        
+        input lmem,        
         input mem
     );
 endinterface

@@ -1,4 +1,4 @@
-module VX_dcr_data import VX_gpu_pkg::*; (
+module VX_dcr_data import VX_gpu_pkg::*, VX_trace_pkg::*; (
     input wire              clk,
     input wire              reset,
     VX_dcr_bus_if.slave     dcr_bus_if,
@@ -9,7 +9,8 @@ module VX_dcr_data import VX_gpu_pkg::*; (
        if (dcr_bus_if.write_valid) begin
             case (dcr_bus_if.write_addr)
             12'h001 : dcrs.startup_addr[31:0] <= dcr_bus_if.write_data;
-            12'h003 : dcrs.mpm_class <= dcr_bus_if.write_data[7:0];
+            12'h003 : dcrs.startup_arg[31:0] <= dcr_bus_if.write_data;
+            12'h005 : dcrs.mpm_class <= dcr_bus_if.write_data[7:0];
             default:;
             endcase
         end

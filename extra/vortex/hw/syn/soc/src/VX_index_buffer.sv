@@ -7,13 +7,13 @@ module VX_index_buffer #(
     input  wire             clk,
     input  wire             reset,
     output wire [ADDRW-1:0] write_addr,
-    input  wire [DATAW-1:0] write_data,            
+    input  wire [DATAW-1:0] write_data,
     input  wire             acquire_en,
     input  wire [ADDRW-1:0] read_addr,
     output wire [DATAW-1:0] read_data,
     input  wire             release_en,
     output wire             empty,
-    output wire             full    
+    output wire             full
 );
     VX_allocator #(
         .SIZE (SIZE)
@@ -23,9 +23,9 @@ module VX_index_buffer #(
         .acquire_en (acquire_en),
         .acquire_addr (write_addr),
         .release_en (release_en),
-        .release_addr (read_addr),    
+        .release_addr (read_addr),
         .empty      (empty),
-        .full       (full)   
+        .full       (full)
     );
     VX_dp_ram #(
         .DATAW  (DATAW),
@@ -33,9 +33,10 @@ module VX_index_buffer #(
         .LUTRAM (LUTRAM)
     ) data_table (
         .clk   (clk),
+        .reset (reset),
         .read  (1'b1),
         .write (acquire_en),
-        . wren (),
+        .wren  (1'b1),
         .waddr (write_addr),
         .wdata (write_data),
         .raddr (read_addr),

@@ -6,6 +6,8 @@ interface VX_warp_ctl_if import VX_gpu_pkg::*; ();
     split_t     split;
     join_t      sjoin;
     barrier_t   barrier;
+    wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] dvstack_wid;
+    wire [((($clog2((((4-1) != 0) ? (4-1) : 1))) != 0) ? ($clog2((((4-1) != 0) ? (4-1) : 1))) : 1)-1:0] dvstack_ptr;
     modport master (
         output valid,
         output wid,
@@ -13,7 +15,9 @@ interface VX_warp_ctl_if import VX_gpu_pkg::*; ();
         output tmc,
         output split,
         output sjoin,
-        output barrier
+        output barrier,
+        output dvstack_wid,
+        input  dvstack_ptr
     );
     modport slave (
         input valid,
@@ -22,6 +26,8 @@ interface VX_warp_ctl_if import VX_gpu_pkg::*; ();
         input tmc,
         input split,
         input sjoin,
-        input barrier
+        input barrier,
+        input dvstack_wid,
+        output dvstack_ptr
     );
 endinterface

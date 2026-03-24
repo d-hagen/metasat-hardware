@@ -5,7 +5,7 @@ module VX_reset_relay #(
     input wire          clk,
     input wire          reset,
     output wire [N-1:0] reset_o
-);    
+);
     if (MAX_FANOUT >= 0 && N > (MAX_FANOUT + MAX_FANOUT/2)) begin
         localparam F = (((MAX_FANOUT) != 0) ? (MAX_FANOUT) : 1);
         localparam R = N / F;

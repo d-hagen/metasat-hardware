@@ -1,4 +1,4 @@
-module VX_fpu_rounding #(
+module VX_fp_rounding #(
     parameter DAT_WIDTH = 2  
 ) (
     input wire [DAT_WIDTH-1:0]  abs_value_i,  
@@ -19,7 +19,6 @@ module VX_fpu_rounding #(
                       2'b01: round_up = 1'b0;             
                       2'b10: round_up = abs_value_i[0];   
                       2'b11: round_up = 1'b1;             
-                    default: round_up = 1'bx;
                 endcase
             3'b001: round_up = 1'b0;  
             3'b010: round_up = (| round_sticky_bits_i) & sign_i;   

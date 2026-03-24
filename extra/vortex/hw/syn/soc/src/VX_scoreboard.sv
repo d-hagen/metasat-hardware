@@ -1,106 +1,148 @@
 module VX_scoreboard import VX_gpu_pkg::*; #(
-    parameter CORE_ID = 0
+    parameter  INSTANCE_ID = ""
 ) (
     input wire              clk,
     input wire              reset,
-    output wire [32-1:0] debug_stall [(((4) < (4)) ? (4) : (4))],
-    VX_writeback_if.slave   writeback_if [(((4) < (4)) ? (4) : (4))],
-    VX_ibuffer_if.slave     ibuffer_if [(((4) < (4)) ? (4) : (4))],
-    VX_ibuffer_if.master    scoreboard_if [(((4) < (4)) ? (4) : (4))]
+    VX_writeback_if.slave   writeback_if,
+    VX_ibuffer_if.slave     ibuffer_if [PER_ISSUE_WARPS],
+    VX_scoreboard_if.master scoreboard_if
 );
-    localparam DATAW = 1 + ISSUE_WIS_W + 4 + 32 + $clog2((3 + 0)) + 4 + 3 + 1 + 1 + 32 + ($clog2(32) * 4) + 1;
-    for (genvar i = 0; i < (((4) < (4)) ? (4) : (4)); ++i) begin
-        reg [(((ISSUE_RATIO) != 0) ? (ISSUE_RATIO) : 1)-1:0][32-1:0] inuse_regs, inuse_regs_n;
-        reg [3:0] ready_masks, ready_masks_n;        
-        VX_ibuffer_if staging_if();
-        wire writeback_fire = writeback_if[i].valid && writeback_if[i].data.eop;
+    localparam DATAW = 1 + 4 + (32-1) + $clog2((3 + 0)) + 4 + $bits(op_args_t) + ($clog2(32) * 4) + 1;
+    VX_ibuffer_if staging_if [PER_ISSUE_WARPS]();
+    reg [PER_ISSUE_WARPS-1:0] operands_ready;
+    for (genvar w = 0; w < PER_ISSUE_WARPS; ++w) begin
+        VX_elastic_buffer #(
+            .DATAW (DATAW),
+            .SIZE  (1)
+        ) stanging_buf (
+            .clk      (clk),
+            .reset    (reset),
+            .valid_in (ibuffer_if[w].valid),
+            .data_in  (ibuffer_if[w].data),
+            .ready_in (ibuffer_if[w].ready),
+            .valid_out(staging_if[w].valid),
+            .data_out (staging_if[w].data),
+            .ready_out(staging_if[w].ready)
+        );
+    end
+    for (genvar w = 0; w < PER_ISSUE_WARPS; ++w) begin
+        reg [32-1:0] inuse_regs;
+        reg [3:0] operands_busy, operands_busy_n;
+        wire ibuffer_fire = ibuffer_if[w].valid && ibuffer_if[w].ready;
+        wire staging_fire = staging_if[w].valid && staging_if[w].ready;
+        wire writeback_fire = writeback_if.valid
+                           && (writeback_if.data.wis == ISSUE_WIS_W'(w))
+                           && writeback_if.data.eop;
         always @(*) begin
-            inuse_regs_n = inuse_regs;
-            ready_masks_n = ready_masks;
+            operands_busy_n = operands_busy;
+            if (ibuffer_fire) begin
+                operands_busy_n = {
+                    inuse_regs[ibuffer_if[w].data.rs3],
+                    inuse_regs[ibuffer_if[w].data.rs2],
+                    inuse_regs[ibuffer_if[w].data.rs1],
+                    inuse_regs[ibuffer_if[w].data.rd]
+                };
+            end
             if (writeback_fire) begin
-                inuse_regs_n[writeback_if[i].data.wis][writeback_if[i].data.rd] = 0;
-                ready_masks_n |= {4{(ISSUE_RATIO == 0) || writeback_if[i].data.wis == staging_if.data.wis}} 
-                               & {(writeback_if[i].data.rd == staging_if.data.rd),
-                                  (writeback_if[i].data.rd == staging_if.data.rs1),
-                                  (writeback_if[i].data.rd == staging_if.data.rs2),
-                                  (writeback_if[i].data.rd == staging_if.data.rs3)};
-            end   
-            if (staging_if.valid && staging_if.ready && staging_if.data.wb) begin
-                inuse_regs_n[staging_if.data.wis][staging_if.data.rd] = 1;
-                ready_masks_n = '0;
+                if (ibuffer_fire) begin
+                    if (writeback_if.data.rd == ibuffer_if[w].data.rd) begin
+                        operands_busy_n[0] = 0;
+                    end
+                    if (writeback_if.data.rd == ibuffer_if[w].data.rs1) begin
+                        operands_busy_n[1] = 0;
+                    end
+                    if (writeback_if.data.rd == ibuffer_if[w].data.rs2) begin
+                        operands_busy_n[2] = 0;
+                    end
+                    if (writeback_if.data.rd == ibuffer_if[w].data.rs3) begin
+                        operands_busy_n[3] = 0;
+                    end
+                end else begin
+                    if (writeback_if.data.rd == staging_if[w].data.rd) begin
+                        operands_busy_n[0] = 0;
+                    end
+                    if (writeback_if.data.rd == staging_if[w].data.rs1) begin
+                        operands_busy_n[1] = 0;
+                    end
+                    if (writeback_if.data.rd == staging_if[w].data.rs2) begin
+                        operands_busy_n[2] = 0;
+                    end
+                    if (writeback_if.data.rd == staging_if[w].data.rs3) begin
+                        operands_busy_n[3] = 0;
+                    end
+                end
             end
-            if (ibuffer_if[i].valid && ibuffer_if[i].ready) begin
-                ready_masks_n = ~{inuse_regs_n[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd],
-                                  inuse_regs_n[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs1],
-                                  inuse_regs_n[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2],
-                                  inuse_regs_n[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs3]};
-            end
-        end   
-        always @(posedge clk) begin
-            if (reset) begin
-                inuse_regs  <= '0;
-                ready_masks <= '0;
-            end else begin            
-                inuse_regs  <= inuse_regs_n;
-                ready_masks <= ready_masks_n;
-            end
-        end
-    wire [1-1:0] stg_buf_reset;                        
-    VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __stg_buf_reset ( 
-        .clk     (clk),                         
-        .reset   (reset),                         
-        .reset_o (stg_buf_reset)                          
-    );
-        VX_elastic_buffer #(
-            .DATAW (DATAW)
-        ) stg_buf (
-            .clk       (clk),
-            .reset     (stg_buf_reset),
-            .valid_in  (ibuffer_if[i].valid),
-            .ready_in  (ibuffer_if[i].ready),
-            .data_in   (ibuffer_if[i].data),
-            .data_out  (staging_if.data),
-            .valid_out (staging_if.valid),
-            .ready_out (staging_if.ready)
-        );
-        wire valid_stg, ready_stg;
-        wire regs_ready = (& ready_masks);
-        assign valid_stg = staging_if.valid && regs_ready;
-        assign staging_if.ready = ready_stg && regs_ready;
-    wire [1-1:0] out_buf_reset;                        
-    VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __out_buf_reset ( 
-        .clk     (clk),                         
-        .reset   (reset),                         
-        .reset_o (out_buf_reset)                          
-    );
-        VX_elastic_buffer #(
-            .DATAW   (DATAW),
-            .SIZE    (2),
-            .OUT_REG (2)
-        ) out_buf (
-            .clk       (clk),
-            .reset     (out_buf_reset),
-            .valid_in  (valid_stg),
-            .ready_in  (ready_stg),
-            .data_in   (staging_if.data),
-            .data_out  (scoreboard_if[i].data),
-            .valid_out (scoreboard_if[i].valid),
-            .ready_out (scoreboard_if[i].ready)
-        );
-        reg [31:0] timeout_ctr;
-	assign debug_stall[i] = (staging_if.valid && ~regs_ready) ? staging_if.data.PC : '0;
-        always @(posedge clk) begin
-            if (reset) begin
-                timeout_ctr <= '0;
-            end else begin        
-                if (staging_if.valid && ~regs_ready) begin
-                    timeout_ctr <= timeout_ctr + 1;
-                end else if (staging_if.valid && staging_if.ready) begin
-                    timeout_ctr <= '0;
+            if (staging_fire && staging_if[w].data.wb) begin
+                if (staging_if[w].data.rd == ibuffer_if[w].data.rd) begin
+                    operands_busy_n[0] = 1;
+                end
+                if (staging_if[w].data.rd == ibuffer_if[w].data.rs1) begin
+                    operands_busy_n[1] = 1;
+                end
+                if (staging_if[w].data.rd == ibuffer_if[w].data.rs2) begin
+                    operands_busy_n[2] = 1;
+                end
+                if (staging_if[w].data.rd == ibuffer_if[w].data.rs3) begin
+                    operands_busy_n[3] = 1;
                 end
             end
         end
-;
-;
-    end    
+        always @(posedge clk) begin
+            if (reset) begin
+                inuse_regs <= '0;
+            end else begin
+                if (writeback_fire) begin
+                    inuse_regs[writeback_if.data.rd] <= 0;
+                end
+                if (staging_fire && staging_if[w].data.wb) begin
+                    inuse_regs[staging_if[w].data.rd] <= 1;
+                end
+            end
+            operands_busy <= operands_busy_n;
+            operands_ready[w] <= ~(| operands_busy_n);
+        end
+    end
+    wire [PER_ISSUE_WARPS-1:0] arb_valid_in;
+    wire [PER_ISSUE_WARPS-1:0][DATAW-1:0] arb_data_in;
+    wire [PER_ISSUE_WARPS-1:0] arb_ready_in;
+    for (genvar w = 0; w < PER_ISSUE_WARPS; ++w) begin
+        assign arb_valid_in[w] = staging_if[w].valid && operands_ready[w];
+        assign arb_data_in[w] = staging_if[w].data;
+        assign staging_if[w].ready = arb_ready_in[w] && operands_ready[w];
+    end
+    wire [1-1:0] arb_reset;                        
+    VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __arb_reset ( 
+        .clk     (clk),                         
+        .reset   (reset),                         
+        .reset_o (arb_reset)                          
+    );
+    VX_stream_arb #(
+        .NUM_INPUTS (PER_ISSUE_WARPS),
+        .DATAW      (DATAW),
+        .ARBITER    ("F"),
+        .LUTRAM     (1),
+        .OUT_BUF    (4)  
+    ) out_arb (
+        .clk      (clk),
+        .reset    (arb_reset),
+        .valid_in (arb_valid_in),
+        .ready_in (arb_ready_in),
+        .data_in  (arb_data_in),
+        .data_out ({
+            scoreboard_if.data.uuid,
+            scoreboard_if.data.tmask,
+            scoreboard_if.data.PC,
+            scoreboard_if.data.ex_type,
+            scoreboard_if.data.op_type,
+            scoreboard_if.data.op_args,
+            scoreboard_if.data.wb,
+            scoreboard_if.data.rd,
+            scoreboard_if.data.rs1,
+            scoreboard_if.data.rs2,
+            scoreboard_if.data.rs3
+        }),
+        .valid_out (scoreboard_if.valid),
+        .ready_out (scoreboard_if.ready),
+        .sel_out   (scoreboard_if.data.wis)
+    );
 endmodule

@@ -1,18 +1,15 @@
-interface VX_execute_if #(
+interface VX_execute_if import VX_gpu_pkg::*; #(
     parameter NUM_LANES = 1,
     parameter PID_WIDTH = (((4 / NUM_LANES) > 1) ? $clog2(4 / NUM_LANES) : 1)
-) ();
+);
     typedef struct packed {
-        logic [1-1:0]         uuid;                
+        logic [1-1:0]         uuid;
         logic [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]           wid;
-        logic [NUM_LANES-1:0]           tmask;       
+        logic [NUM_LANES-1:0]           tmask;
+        logic [(32-1)-1:0]            PC;
         logic [4-1:0]      op_type;
-        logic [3-1:0]      op_mod;
+        op_args_t                       op_args;
         logic                           wb;
-        logic                           use_PC;
-        logic                           use_imm;
-        logic [32-1:0]               PC;
-        logic [32-1:0]               imm;
         logic [$clog2(32)-1:0]            rd;
         logic [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]           tid;
         logic [NUM_LANES-1:0][32-1:0] rs1_data;

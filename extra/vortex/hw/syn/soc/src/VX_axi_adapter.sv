@@ -1,10 +1,10 @@
 module VX_axi_adapter #(
-    parameter DATA_WIDTH     = 512, 
+    parameter DATA_WIDTH     = 512,
     parameter ADDR_WIDTH     = 32,
     parameter TAG_WIDTH      = 8,
-    parameter NUM_BANKS      = 1, 
+    parameter NUM_BANKS      = 1,
     parameter AVS_ADDR_WIDTH = (ADDR_WIDTH - $clog2(DATA_WIDTH/8)),
-    parameter OUT_REG_RSP   = 0
+    parameter RSP_OUT_BUF    = 0
 ) (
     input  wire                     clk,
     input  wire                     reset,
@@ -15,7 +15,7 @@ module VX_axi_adapter #(
     input wire [DATA_WIDTH-1:0]     mem_req_data,
     input wire [TAG_WIDTH-1:0]      mem_req_tag,
     output wire                     mem_req_ready,
-    output wire                     mem_rsp_valid,        
+    output wire                     mem_rsp_valid,
     output wire [DATA_WIDTH-1:0]    mem_rsp_data,
     output wire [TAG_WIDTH-1:0]     mem_rsp_tag,
     input wire                      mem_rsp_ready,
@@ -46,7 +46,7 @@ module VX_axi_adapter #(
     output wire [TAG_WIDTH-1:0]     m_axi_arid [NUM_BANKS],
     output wire [7:0]               m_axi_arlen [NUM_BANKS],
     output wire [2:0]               m_axi_arsize [NUM_BANKS],
-    output wire [1:0]               m_axi_arburst [NUM_BANKS], 
+    output wire [1:0]               m_axi_arburst [NUM_BANKS],
     output wire [1:0]               m_axi_arlock [NUM_BANKS],
     output wire [3:0]               m_axi_arcache [NUM_BANKS],
     output wire [2:0]               m_axi_arprot [NUM_BANKS],
@@ -58,13 +58,13 @@ module VX_axi_adapter #(
     input wire                      m_axi_rlast [NUM_BANKS],
     input wire [TAG_WIDTH-1:0]      m_axi_rid [NUM_BANKS],
     input wire [1:0]                m_axi_rresp [NUM_BANKS]
-);  
+);
     localparam AXSIZE = $clog2(DATA_WIDTH/8);
-    localparam BANK_ADDRW = (((NUM_BANKS) > 1) ? $clog2(NUM_BANKS) : 1);    
+    localparam BANK_ADDRW = (((NUM_BANKS) > 1) ? $clog2(NUM_BANKS) : 1);
     localparam LOG2_NUM_BANKS = $clog2(NUM_BANKS);
     wire [BANK_ADDRW-1:0] req_bank_sel;
     if (NUM_BANKS > 1) begin
-        assign req_bank_sel = mem_req_addr[BANK_ADDRW-1:0];        
+        assign req_bank_sel = mem_req_addr[BANK_ADDRW-1:0];
     end else begin
         assign req_bank_sel = '0;
     end
@@ -73,12 +73,12 @@ module VX_axi_adapter #(
     reg [NUM_BANKS-1:0] m_axi_w_ack;
     for (genvar i = 0; i < NUM_BANKS; ++i) begin
         wire m_axi_aw_fire = m_axi_awvalid[i] && m_axi_awready[i];
-        wire m_axi_w_fire = m_axi_wvalid[i] && m_axi_wready[i];  
+        wire m_axi_w_fire = m_axi_wvalid[i] && m_axi_wready[i];
         always @(posedge clk) begin
             if (reset) begin
                 m_axi_aw_ack[i] <= 0;
                 m_axi_w_ack[i]  <= 0;
-            end else begin			
+            end else begin
                 if (mem_req_fire && (req_bank_sel == i)) begin
                     m_axi_aw_ack[i] <= 0;
                     m_axi_w_ack[i] <= 0;
@@ -91,9 +91,9 @@ module VX_axi_adapter #(
             end
         end
     end
-    wire axi_write_ready [NUM_BANKS]; 
+    wire axi_write_ready [NUM_BANKS];
     for (genvar i = 0; i < NUM_BANKS; ++i) begin
-        assign axi_write_ready[i] = (m_axi_awready[i] || m_axi_aw_ack[i]) 
+        assign axi_write_ready[i] = (m_axi_awready[i] || m_axi_aw_ack[i])
                                  && (m_axi_wready[i] || m_axi_w_ack[i]);
     end
     if (NUM_BANKS > 1) begin
@@ -105,12 +105,12 @@ module VX_axi_adapter #(
         assign m_axi_awvalid[i] = mem_req_valid && mem_req_rw && (req_bank_sel == i) && ~m_axi_aw_ack[i];
         assign m_axi_awaddr[i]  = (ADDR_WIDTH'(mem_req_addr) >> LOG2_NUM_BANKS) << AXSIZE;
         assign m_axi_awid[i]    = mem_req_tag;
-        assign m_axi_awlen[i]   = 8'b00000000;    
+        assign m_axi_awlen[i]   = 8'b00000000;
         assign m_axi_awsize[i]  = 3'(AXSIZE);
-        assign m_axi_awburst[i] = 2'b00;    
-        assign m_axi_awlock[i]  = 2'b00;    
+        assign m_axi_awburst[i] = 2'b00;
+        assign m_axi_awlock[i]  = 2'b00;
         assign m_axi_awcache[i] = 4'b0000;
-        assign m_axi_awprot[i]  = 3'b000;    
+        assign m_axi_awprot[i]  = 3'b000;
         assign m_axi_awqos[i]   = 4'b0000;
         assign m_axi_awregion[i]= 4'b0000;
     end
@@ -122,16 +122,16 @@ module VX_axi_adapter #(
     end
     for (genvar i = 0; i < NUM_BANKS; ++i) begin
         assign m_axi_bready[i] = 1'b1;
-        ;    
+        ;
     end
     for (genvar i = 0; i < NUM_BANKS; ++i) begin
-        assign m_axi_arvalid[i] = mem_req_valid && ~mem_req_rw && (req_bank_sel == i);    
+        assign m_axi_arvalid[i] = mem_req_valid && ~mem_req_rw && (req_bank_sel == i);
         assign m_axi_araddr[i]  = (ADDR_WIDTH'(mem_req_addr) >> LOG2_NUM_BANKS) << AXSIZE;
         assign m_axi_arid[i]    = mem_req_tag;
         assign m_axi_arlen[i]   = 8'b00000000;
         assign m_axi_arsize[i]  = 3'(AXSIZE);
-        assign m_axi_arburst[i] = 2'b00;  
-        assign m_axi_arlock[i]  = 2'b00;    
+        assign m_axi_arburst[i] = 2'b00;
+        assign m_axi_arlock[i]  = 2'b00;
         assign m_axi_arcache[i] = 4'b0000;
         assign m_axi_arprot[i]  = 3'b000;
         assign m_axi_arqos[i]   = 4'b0000;
@@ -150,8 +150,8 @@ module VX_axi_adapter #(
     VX_stream_arb #(
         .NUM_INPUTS (NUM_BANKS),
         .DATAW      (DATA_WIDTH + TAG_WIDTH),
-        .ARBITER    ("R"),
-        .OUT_REG    (OUT_REG_RSP)
+        .ARBITER    ("F"),
+        .OUT_BUF    (RSP_OUT_BUF)
     ) rsp_arb (
         .clk       (clk),
         .reset     (reset),

@@ -1,6 +1,6 @@
-module VX_core_top import VX_gpu_pkg::*; #( 
+module VX_core_top import VX_gpu_pkg::*; #(
     parameter CORE_ID = 0
-) (  
+) (
     input wire                              clk,
     input wire                              reset,
     input wire                              dcr_write_valid,
@@ -10,12 +10,13 @@ module VX_core_top import VX_gpu_pkg::*; #(
     output wire [DCACHE_NUM_REQS-1:0]       dcache_req_rw,
     output wire [DCACHE_NUM_REQS-1:0][DCACHE_WORD_SIZE-1:0] dcache_req_byteen,
     output wire [DCACHE_NUM_REQS-1:0][DCACHE_ADDR_WIDTH-1:0] dcache_req_addr,
+    output wire [DCACHE_NUM_REQS-1:0][(2 + 1)-1:0] dcache_req_atype,
     output wire [DCACHE_NUM_REQS-1:0][DCACHE_WORD_SIZE*8-1:0] dcache_req_data,
-    output wire [DCACHE_NUM_REQS-1:0][DCACHE_NOSM_TAG_WIDTH-1:0] dcache_req_tag,
+    output wire [DCACHE_NUM_REQS-1:0][DCACHE_TAG_WIDTH-1:0] dcache_req_tag,
     input  wire [DCACHE_NUM_REQS-1:0]       dcache_req_ready,
     input wire  [DCACHE_NUM_REQS-1:0]       dcache_rsp_valid,
     input wire  [DCACHE_NUM_REQS-1:0][DCACHE_WORD_SIZE*8-1:0] dcache_rsp_data,
-    input wire  [DCACHE_NUM_REQS-1:0][DCACHE_NOSM_TAG_WIDTH-1:0] dcache_rsp_tag,
+    input wire  [DCACHE_NUM_REQS-1:0][DCACHE_TAG_WIDTH-1:0] dcache_rsp_tag,
     output wire [DCACHE_NUM_REQS-1:0]       dcache_rsp_ready,
     output wire                             icache_req_valid,
     output wire                             icache_req_rw,
@@ -28,23 +29,22 @@ module VX_core_top import VX_gpu_pkg::*; #(
     input wire  [ICACHE_WORD_SIZE*8-1:0]    icache_rsp_data,
     input wire  [ICACHE_TAG_WIDTH-1:0]      icache_rsp_tag,
     output wire                             icache_rsp_ready,
-    output wire                             sim_ebreak,
-    output wire [32-1:0][32-1:0]  sim_wb_value,
     output wire                             busy
 );
-    VX_dcr_bus_if dcr_bus_if(); 
+    VX_dcr_bus_if dcr_bus_if();
     assign dcr_bus_if.write_valid = dcr_write_valid;
     assign dcr_bus_if.write_addr = dcr_write_addr;
     assign dcr_bus_if.write_data = dcr_write_data;
     VX_mem_bus_if #(
         .DATA_SIZE (DCACHE_WORD_SIZE),
-        .TAG_WIDTH (DCACHE_NOSM_TAG_WIDTH)
+        .TAG_WIDTH (DCACHE_TAG_WIDTH)
     ) dcache_bus_if[DCACHE_NUM_REQS]();
     for (genvar i = 0; i < DCACHE_NUM_REQS; ++i) begin
         assign dcache_req_valid[i] = dcache_bus_if[i].req_valid;
         assign dcache_req_rw[i] = dcache_bus_if[i].req_data.rw;
         assign dcache_req_byteen[i] = dcache_bus_if[i].req_data.byteen;
         assign dcache_req_addr[i] = dcache_bus_if[i].req_data.addr;
+        assign dcache_req_atype[i] = dcache_bus_if[i].req_data.atype;
         assign dcache_req_data[i] = dcache_bus_if[i].req_data.data;
         assign dcache_req_tag[i] = dcache_bus_if[i].req_data.tag;
         assign dcache_bus_if[i].req_ready = dcache_req_ready[i];
@@ -69,6 +69,7 @@ module VX_core_top import VX_gpu_pkg::*; #(
     assign icache_bus_if.rsp_data.data = icache_rsp_data;
     assign icache_rsp_ready = icache_bus_if.rsp_ready;
     VX_core #(
+        .INSTANCE_ID ($sformatf("core")),
         .CORE_ID (CORE_ID)
     ) core (
         .clk            (clk),
@@ -76,8 +77,6 @@ module VX_core_top import VX_gpu_pkg::*; #(
         .dcr_bus_if     (dcr_bus_if),
         .dcache_bus_if  (dcache_bus_if),
         .icache_bus_if  (icache_bus_if),
-        .sim_ebreak     (sim_ebreak),
-        .sim_wb_value   (sim_wb_value),
         .busy           (busy)
     );
 endmodule

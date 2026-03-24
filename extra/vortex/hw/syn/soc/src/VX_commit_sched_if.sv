@@ -1,12 +1,9 @@
 interface VX_commit_sched_if ();
-    wire [(((4) < (4)) ? (4) : (4))-1:0] committed;
-    wire [(((4) < (4)) ? (4) : (4))-1:0][((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] committed_wid;
+    wire [4-1:0] committed_warps;
     modport master (
-        output committed,
-        output committed_wid
+        output committed_warps
     );
     modport slave (
-        input committed,
-        input committed_wid
+        input committed_warps
     );
 endinterface

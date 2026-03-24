@@ -1,6 +1,7 @@
 module VX_csr_data
 import VX_gpu_pkg::*;
 #(
+    parameter  INSTANCE_ID = "",
     parameter CORE_ID = 0
 ) (
     input wire                          clk,
@@ -14,15 +15,19 @@ import VX_gpu_pkg::*;
     input wire [1-1:0]        read_uuid,
     input wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]          read_wid,
     input wire [12-1:0]  read_addr,
-    output wire [31:0]                  read_data_ro,
-    output wire [31:0]                  read_data_rw,
-    input wire                          write_enable, 
+    output wire [32-1:0]             read_data_ro,
+    output wire [32-1:0]             read_data_rw,
+    input wire                          write_enable,
     input wire [1-1:0]        write_uuid,
     input wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]          write_wid,
     input wire [12-1:0]  write_addr,
-    input wire [31:0]                   write_data
+    input wire [32-1:0]              write_data
 );
+    reg [32-1:0] mscratch;
     always @(posedge clk) begin
+        if (reset) begin
+            mscratch <= base_dcrs.startup_arg;
+        end
         if (write_enable) begin
             case (write_addr)
                 12'h180,
@@ -34,25 +39,29 @@ import VX_gpu_pkg::*;
                 12'h305,
                 12'h341,
                 12'h3A0,
-                12'h3B0:  ;
+                12'h3B0: begin
+                end
+                12'h340: begin
+                    mscratch <= write_data;
+                end
                 default: begin
                     ;
                 end
             endcase
         end
     end
-    reg [31:0] read_data_ro_r;
-    reg [31:0] read_data_rw_r;
+    reg [32-1:0] read_data_ro_r;
+    reg [32-1:0] read_data_rw_r;
     reg read_addr_valid_r;
     always @(*) begin
         read_data_ro_r    = '0;
         read_data_rw_r    = '0;
         read_addr_valid_r = 1;
-        case (read_addr)            
+        case (read_addr)
             12'hF11  : read_data_ro_r = 32'(0);
             12'hF12    : read_data_ro_r = 32'(0);
             12'hF13     : read_data_ro_r = 32'(0);
-            12'h301       : read_data_ro_r = ((($clog2(32)-4) << (32-2)) | (0 <<  0)   
+            12'h301       : read_data_ro_r = 32'({2'($clog2(32/16)), 30'((0 <<  0)   
                 | (0 <<  1)   
                 | (0 <<  2)   
                 | (0 <<  3)   
@@ -77,20 +86,22 @@ import VX_gpu_pkg::*;
                 | (0 << 22)   
                 | (1 << 23)   
                 | (0 << 24)   
-                | (0 << 25)  );
+                | (0 << 25)  )});
+            12'h340   : read_data_rw_r = mscratch;
             12'hCC1    : read_data_ro_r = 32'(read_wid);
             12'hCC2    : read_data_ro_r = 32'(CORE_ID);
             12'hCC4: read_data_ro_r = 32'(thread_masks[read_wid]);
-            12'hCC3  : read_data_ro_r = 32'(active_warps);
+            12'hCC3: read_data_ro_r = 32'(active_warps);
             12'hFC0: read_data_ro_r = 32'(4);
             12'hFC1  : read_data_ro_r = 32'(4);
-            12'hFC2  : read_data_ro_r = 32'(1 * 1);           
-            12'hB00     : read_data_ro_r = 32'(cycles[31:0]);
-            12'hB80   : read_data_ro_r = 32'(cycles[44-1:32]);
+            12'hFC2  : read_data_ro_r = 32'(8 * 1);
+            12'hFC3: read_data_ro_r = 32'(2130706432);
+        12'hB00 : read_data_ro_r = cycles[31:0]; 
+        12'hB00+12'h80 : read_data_ro_r = 32'(cycles[$bits(cycles)-1:32]);
             12'hB01 : read_data_ro_r = 'x;
-            12'hB81 : read_data_ro_r = 'x;  
-            12'hB02   : read_data_ro_r = 32'(commit_csr_if.instret[31:0]);
-            12'hB82 : read_data_ro_r = 32'(commit_csr_if.instret[44-1:32]);       
+            12'hB81 : read_data_ro_r = 'x;
+        12'hB02 : read_data_ro_r = commit_csr_if.instret[31:0]; 
+        12'hB02+12'h80 : read_data_ro_r = 32'(commit_csr_if.instret[$bits(commit_csr_if.instret)-1:32]);
             12'h180,
             12'h300,
             12'h744,
@@ -100,11 +111,11 @@ import VX_gpu_pkg::*;
             12'h305,
             12'h341,
             12'h3A0,
-            12'h3B0   : read_data_ro_r = 32'(0);
+            12'h3B0 : read_data_ro_r = 32'(0);
             default: begin
                 read_addr_valid_r = 0;
-                if ((read_addr >= 12'hB00   && read_addr < (12'hB00 + 32))
-                 || (read_addr >= 12'hB80 && read_addr < (12'hB80 + 32))) begin
+                if ((read_addr >= 12'hB03   && read_addr < (12'hB03 + 32))
+                 || (read_addr >= 12'hB83 && read_addr < (12'hB83 + 32))) begin
                     read_addr_valid_r = 1;
                 end
             end

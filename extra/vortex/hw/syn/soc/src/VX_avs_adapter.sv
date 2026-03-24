@@ -1,23 +1,23 @@
-module VX_avs_adapter #(    
-    parameter DATA_WIDTH    = 1, 
-    parameter ADDR_WIDTH    = 1,    
+module VX_avs_adapter #(
+    parameter DATA_WIDTH    = 1,
+    parameter ADDR_WIDTH    = 1,
     parameter BURST_WIDTH   = 1,
-    parameter NUM_BANKS     = 1, 
+    parameter NUM_BANKS     = 1,
     parameter TAG_WIDTH     = 1,
     parameter RD_QUEUE_SIZE = 1,
-    parameter OUT_REG_REQ  = 0,
-    parameter OUT_REG_RSP  = 0
+    parameter REQ_OUT_BUF   = 0,
+    parameter RSP_OUT_BUF   = 0
 ) (
     input  wire                     clk,
     input  wire                     reset,
     input  wire                     mem_req_valid,
-    input  wire                     mem_req_rw,    
-    input  wire [DATA_WIDTH/8-1:0]  mem_req_byteen,    
+    input  wire                     mem_req_rw,
+    input  wire [DATA_WIDTH/8-1:0]  mem_req_byteen,
     input  wire [ADDR_WIDTH-1:0]    mem_req_addr,
     input  wire [DATA_WIDTH-1:0]    mem_req_data,
     input  wire [TAG_WIDTH-1:0]     mem_req_tag,
     output wire                     mem_req_ready,
-    output wire                     mem_rsp_valid,        
+    output wire                     mem_rsp_valid,
     output wire [DATA_WIDTH-1:0]    mem_rsp_data,
     output wire [TAG_WIDTH-1:0]     mem_rsp_tag,
     input  wire                     mem_rsp_ready,
@@ -44,33 +44,41 @@ module VX_avs_adapter #(
     wire [BANK_OFFSETW-1:0] req_bank_off;
     wire [NUM_BANKS-1:0] bank_req_ready;
     if (NUM_BANKS > 1) begin
-        assign req_bank_sel = mem_req_addr[BANK_ADDRW-1:0];        
+        assign req_bank_sel = mem_req_addr[BANK_ADDRW-1:0];
     end else begin
         assign req_bank_sel = '0;
     end
     assign req_bank_off = mem_req_addr[ADDR_WIDTH-1:LOG2_NUM_BANKS];
-    for (genvar i = 0; i < NUM_BANKS; ++i) begin        
+    for (genvar i = 0; i < NUM_BANKS; ++i) begin
         assign req_queue_push[i] = mem_req_valid && ~mem_req_rw && bank_req_ready[i] && (req_bank_sel == i);
     end
+    wire [NUM_BANKS-1:0] bank_reset;                        
+    VX_reset_relay #(.N(NUM_BANKS), .MAX_FANOUT(1)) __bank_reset ( 
+        .clk     (clk),                         
+        .reset   (reset),                         
+        .reset_o (bank_reset)                          
+    );
     for (genvar i = 0; i < NUM_BANKS; ++i) begin
-        VX_pending_size #( 
+        VX_pending_size #(
             .SIZE (RD_QUEUE_SIZE)
         ) pending_size (
             .clk   (clk),
-            .reset (reset),
+            .reset (bank_reset[i]),
             .incr  (req_queue_push[i]),
-            .decr  (req_queue_pop[i]),            
+            .decr  (req_queue_pop[i]),
+            . empty (),
+            . alm_empty (),
             .full  (req_queue_going_full[i]),
-            .size  (req_queue_size[i]),
-            . empty ()
-        ); 
+            . alm_full (),
+            .size  (req_queue_size[i])
+        );
         VX_fifo_queue #(
             .DATAW (TAG_WIDTH),
             .DEPTH (RD_QUEUE_SIZE)
         ) rd_req_queue (
             .clk      (clk),
-            .reset    (reset),
-            .push     (req_queue_push[i]),        
+            .reset    (bank_reset[i]),
+            .push     (req_queue_push[i]),
             .pop      (req_queue_pop[i]),
             .data_in  (mem_req_tag),
             .data_out (req_queue_tag_out[i]),
@@ -80,8 +88,8 @@ module VX_avs_adapter #(
             . alm_full (),
             . size ()
         );
-    end    
-    for (genvar i = 0; i < NUM_BANKS; ++i) begin        
+    end
+    for (genvar i = 0; i < NUM_BANKS; ++i) begin
         wire                  valid_out;
         wire                  rw_out;
         wire [DATA_SIZE-1:0]  byteen_out;
@@ -92,11 +100,11 @@ module VX_avs_adapter #(
         wire ready_out_w;
         VX_elastic_buffer #(
             .DATAW    (1 + DATA_SIZE + BANK_OFFSETW + DATA_WIDTH),
-            .SIZE     ((((OUT_REG_REQ) < (2)) ? (OUT_REG_REQ) : (2))),
-            .OUT_REG  (((OUT_REG_REQ & 1) + ((OUT_REG_REQ >> 2) << 1)))
+            .SIZE     ((((REQ_OUT_BUF) < (2)) ? (REQ_OUT_BUF) : (2))),
+            .OUT_REG  (((REQ_OUT_BUF < 2) ? REQ_OUT_BUF : (REQ_OUT_BUF - 2)))
         ) req_out_buf (
             .clk       (clk),
-            .reset     (reset),
+            .reset     (bank_reset[i]),
             .valid_in  (valid_out_w),
             .ready_in  (ready_out_w),
             .data_in   ({mem_req_rw, mem_req_byteen, req_bank_off, mem_req_data}),
@@ -129,10 +137,10 @@ module VX_avs_adapter #(
             .DEPTH (RD_QUEUE_SIZE)
         ) rd_rsp_queue (
             .clk      (clk),
-            .reset    (reset),
+            .reset    (bank_reset[i]),
             .push     (avs_readdatavalid[i]),
             .pop      (req_queue_pop[i]),
-            .data_in  (avs_readdata[i]),        
+            .data_in  (avs_readdata[i]),
             .data_out (rsp_queue_data_out[i]),
             .empty    (rsp_queue_empty[i]),
             . full (),
@@ -149,8 +157,8 @@ module VX_avs_adapter #(
     VX_stream_arb #(
         .NUM_INPUTS (NUM_BANKS),
         .DATAW      (DATA_WIDTH + TAG_WIDTH),
-        .ARBITER    ("R"),
-        .OUT_REG    (OUT_REG_RSP)
+        .ARBITER    ("F"),
+        .OUT_BUF    (RSP_OUT_BUF)
     ) rsp_arb (
         .clk       (clk),
         .reset     (reset),

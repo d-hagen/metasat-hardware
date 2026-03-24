@@ -1,17 +1,16 @@
 module VX_cyclic_arbiter #(
     parameter NUM_REQS     = 1,
-    parameter LOCK_ENABLE  = 0,
     parameter LOG_NUM_REQS = (((NUM_REQS) > 1) ? $clog2(NUM_REQS) : 1)
 ) (
     input  wire                     clk,
     input  wire                     reset,
-    input  wire [NUM_REQS-1:0]      requests,           
-    input  wire                     unlock,
+    input  wire [NUM_REQS-1:0]      requests,
     output wire [LOG_NUM_REQS-1:0]  grant_index,
-    output wire [NUM_REQS-1:0]      grant_onehot,   
-    output wire                     grant_valid
+    output wire [NUM_REQS-1:0]      grant_onehot,
+    output wire                     grant_valid,
+    input  wire                     grant_ready
 );
-    if (NUM_REQS == 1)  begin  
+    if (NUM_REQS == 1)  begin
         assign grant_index  = '0;
         assign grant_onehot = requests;
         assign grant_valid  = requests[0];
@@ -21,10 +20,10 @@ module VX_cyclic_arbiter #(
         always @(posedge clk) begin
             if (reset) begin
                 grant_index_r <= '0;
-            end else begin                
+            end else begin
                 if (!IS_POW2 && grant_index_r == LOG_NUM_REQS'(NUM_REQS-1)) begin
                     grant_index_r <= '0;
-                end else begin
+                end else if (~grant_valid || grant_ready) begin
                     grant_index_r <= grant_index_r + LOG_NUM_REQS'(1);
                 end
             end
@@ -34,7 +33,7 @@ module VX_cyclic_arbiter #(
             grant_onehot_r = '0;
             grant_onehot_r[grant_index_r] = 1'b1;
         end
-        assign grant_index  = grant_index_r;    
+        assign grant_index  = grant_index_r;
         assign grant_onehot = grant_onehot_r;
         assign grant_valid  = requests[grant_index_r];
     end

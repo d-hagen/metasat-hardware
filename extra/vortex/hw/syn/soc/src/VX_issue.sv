@@ -1,77 +1,55 @@
-module VX_issue #(
-    parameter CORE_ID = 0
+module VX_issue import VX_gpu_pkg::*; #(
+    parameter  INSTANCE_ID = ""
 ) (
     input wire              clk,
     input wire              reset,
-    output wire [32-1:0] debug_stall [(((4) < (4)) ? (4) : (4))],
     VX_decode_if.slave      decode_if,
-    VX_writeback_if.slave   writeback_if [(((4) < (4)) ? (4) : (4))],
-    VX_dispatch_if.master   alu_dispatch_if [(((4) < (4)) ? (4) : (4))],
-    VX_dispatch_if.master   lsu_dispatch_if [(((4) < (4)) ? (4) : (4))],
-    VX_dispatch_if.master   sfu_dispatch_if [(((4) < (4)) ? (4) : (4))]
+    VX_writeback_if.slave   writeback_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
+    VX_dispatch_if.master   dispatch_if [(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)]
 );
-    VX_ibuffer_if  ibuffer_if [(((4) < (4)) ? (4) : (4))]();
-    VX_ibuffer_if  scoreboard_if [(((4) < (4)) ? (4) : (4))]();
-    VX_operands_if operands_if [(((4) < (4)) ? (4) : (4))]();
-    wire [1-1:0] ibuf_reset;                        
-    VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __ibuf_reset ( 
+    wire [ISSUE_ISW_W-1:0] decode_isw = wid_to_isw(decode_if.data.wid);
+    wire [ISSUE_WIS_W-1:0] decode_wis = wid_to_wis(decode_if.data.wid);
+    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0] decode_ready_in;
+    assign decode_if.ready = decode_ready_in[decode_isw];
+    for (genvar issue_id = 0; issue_id < (((4 / 8) != 0) ? (4 / 8) : 1); ++issue_id) begin : issue_slices
+        VX_decode_if #(
+            .NUM_WARPS (PER_ISSUE_WARPS)
+        ) per_issue_decode_if();
+        VX_dispatch_if per_issue_dispatch_if[(3 + 0)]();
+        assign per_issue_decode_if.valid = decode_if.valid && (decode_isw == ISSUE_ISW_W'(issue_id));
+        assign per_issue_decode_if.data.uuid = decode_if.data.uuid;
+        assign per_issue_decode_if.data.wid = decode_wis;
+        assign per_issue_decode_if.data.tmask = decode_if.data.tmask;
+        assign per_issue_decode_if.data.PC = decode_if.data.PC;
+        assign per_issue_decode_if.data.ex_type = decode_if.data.ex_type;
+        assign per_issue_decode_if.data.op_type = decode_if.data.op_type;
+        assign per_issue_decode_if.data.op_args = decode_if.data.op_args;
+        assign per_issue_decode_if.data.wb = decode_if.data.wb;
+        assign per_issue_decode_if.data.rd = decode_if.data.rd;
+        assign per_issue_decode_if.data.rs1 = decode_if.data.rs1;
+        assign per_issue_decode_if.data.rs2 = decode_if.data.rs2;
+        assign per_issue_decode_if.data.rs3 = decode_if.data.rs3;
+        assign decode_ready_in[issue_id] = per_issue_decode_if.ready;
+    wire [1-1:0] slice_reset;                        
+    VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __slice_reset ( 
         .clk     (clk),                         
         .reset   (reset),                         
-        .reset_o (ibuf_reset)                          
+        .reset_o (slice_reset)                          
     );
-    wire [1-1:0] scoreboard_reset;                        
-    VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __scoreboard_reset ( 
-        .clk     (clk),                         
-        .reset   (reset),                         
-        .reset_o (scoreboard_reset)                          
-    );
-    wire [1-1:0] operands_reset;                        
-    VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __operands_reset ( 
-        .clk     (clk),                         
-        .reset   (reset),                         
-        .reset_o (operands_reset)                          
-    );
-    wire [1-1:0] dispatch_reset;                        
-    VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __dispatch_reset ( 
-        .clk     (clk),                         
-        .reset   (reset),                         
-        .reset_o (dispatch_reset)                          
-    );
-    VX_ibuffer #(
-        .CORE_ID (CORE_ID)
-    ) ibuffer (
-        .clk            (clk),
-        .reset          (ibuf_reset), 
-        .decode_if      (decode_if),
-        .ibuffer_if     (ibuffer_if)
-    );
-    VX_scoreboard #(
-        .CORE_ID (CORE_ID)
-    ) scoreboard (
-        .clk            (clk),
-        .reset          (scoreboard_reset),
-        .debug_stall    (debug_stall),
-        .writeback_if   (writeback_if),
-        .ibuffer_if     (ibuffer_if),
-        .scoreboard_if  (scoreboard_if)
-    );
-    VX_operands #(
-        .CORE_ID (CORE_ID)
-    ) operands (
-        .clk            (clk), 
-        .reset          (operands_reset), 
-        .writeback_if   (writeback_if),
-        .scoreboard_if  (scoreboard_if),
-        .operands_if    (operands_if)
-    );
-    VX_dispatch #(
-        .CORE_ID (CORE_ID)
-    ) dispatch (
-        .clk            (clk), 
-        .reset          (dispatch_reset),
-        .operands_if    (operands_if),
-        .alu_dispatch_if(alu_dispatch_if),
-        .lsu_dispatch_if(lsu_dispatch_if),
-        .sfu_dispatch_if(sfu_dispatch_if)
-    ); 
+        VX_issue_slice #(
+            .INSTANCE_ID ($sformatf("%s%0d", INSTANCE_ID, issue_id)),
+            .ISSUE_ID (issue_id)
+        ) issue_slice (
+            .clk          (clk),
+            .reset        (slice_reset),
+            .decode_if    (per_issue_decode_if),
+            .writeback_if (writeback_if[issue_id]),
+            .dispatch_if  (per_issue_dispatch_if)
+        );
+        for (genvar ex_id = 0; ex_id < (3 + 0); ++ex_id) begin
+    assign dispatch_if[ex_id * (((4 / 8) != 0) ? (4 / 8) : 1) + issue_id].valid = per_issue_dispatch_if[ex_id].valid; 
+    assign dispatch_if[ex_id * (((4 / 8) != 0) ? (4 / 8) : 1) + issue_id].data  = per_issue_dispatch_if[ex_id].data; 
+    assign per_issue_dispatch_if[ex_id].ready = dispatch_if[ex_id * (((4 / 8) != 0) ? (4 / 8) : 1) + issue_id].ready;
+        end
+     end
 endmodule

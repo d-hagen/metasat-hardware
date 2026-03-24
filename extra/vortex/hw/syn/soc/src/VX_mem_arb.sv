@@ -6,8 +6,8 @@ module VX_mem_arb #(
     parameter ADDR_WIDTH     = (MEM_ADDR_WIDTH-$clog2(DATA_SIZE)),
     parameter TAG_WIDTH      = 1,    
     parameter TAG_SEL_IDX    = 0,   
-    parameter OUT_REG_REQ   = 0,
-    parameter OUT_REG_RSP   = 0,
+    parameter REQ_OUT_BUF    = 0,
+    parameter RSP_OUT_BUF    = 0,
     parameter  ARBITER = "R"
 ) (
     input wire              clk,
@@ -16,8 +16,8 @@ module VX_mem_arb #(
     VX_mem_bus_if.master    bus_out_if [NUM_OUTPUTS]
 );       
     localparam DATA_WIDTH   = (8 * DATA_SIZE);
-    localparam LOG_NUM_REQS = ((NUM_INPUTS > NUM_OUTPUTS) ? $clog2((NUM_INPUTS + NUM_OUTPUTS - 1) / NUM_OUTPUTS) : 0);
-    localparam REQ_DATAW    = TAG_WIDTH + ADDR_WIDTH + 1 + DATA_SIZE + DATA_WIDTH;
+    localparam LOG_NUM_REQS = ((NUM_INPUTS > NUM_OUTPUTS) ? $clog2(((NUM_INPUTS + NUM_OUTPUTS - 1) / (NUM_OUTPUTS))) : 0);
+    localparam REQ_DATAW    = TAG_WIDTH + ADDR_WIDTH + (2 + 1) + 1 + DATA_SIZE + DATA_WIDTH;
     localparam RSP_DATAW    = TAG_WIDTH + DATA_WIDTH;
     wire [NUM_INPUTS-1:0]                 req_valid_in;
     wire [NUM_INPUTS-1:0][REQ_DATAW-1:0]  req_data_in;
@@ -28,7 +28,14 @@ module VX_mem_arb #(
     wire [NUM_OUTPUTS-1:0]                req_ready_out;
     for (genvar i = 0; i < NUM_INPUTS; ++i) begin
         assign req_valid_in[i] = bus_in_if[i].req_valid;
-        assign req_data_in[i] = {bus_in_if[i].req_data.tag, bus_in_if[i].req_data.addr, bus_in_if[i].req_data.rw, bus_in_if[i].req_data.byteen, bus_in_if[i].req_data.data};
+        assign req_data_in[i] = {
+            bus_in_if[i].req_data.rw,
+            bus_in_if[i].req_data.byteen,
+            bus_in_if[i].req_data.addr,
+            bus_in_if[i].req_data.atype,
+            bus_in_if[i].req_data.data,
+            bus_in_if[i].req_data.tag
+        };
         assign bus_in_if[i].req_ready = req_ready_in[i];
     end
     VX_stream_arb #(            
@@ -36,7 +43,7 @@ module VX_mem_arb #(
         .NUM_OUTPUTS (NUM_OUTPUTS),
         .DATAW       (REQ_DATAW),
         .ARBITER     (ARBITER),
-        .OUT_REG     (OUT_REG_REQ)
+        .OUT_BUF     (REQ_OUT_BUF)
     ) req_arb (
         .clk       (clk),
         .reset     (reset),
@@ -56,11 +63,18 @@ module VX_mem_arb #(
             .POS (TAG_SEL_IDX)
         ) bits_insert (
             .data_in  (req_tag_out),
-            .sel_in   (req_sel_out[i]),
+            .ins_in   (req_sel_out[i]),
             .data_out (bus_out_if[i].req_data.tag)
         );
         assign bus_out_if[i].req_valid = req_valid_out[i];
-        assign {req_tag_out, bus_out_if[i].req_data.addr, bus_out_if[i].req_data.rw, bus_out_if[i].req_data.byteen, bus_out_if[i].req_data.data} = req_data_out[i];
+        assign {
+            bus_out_if[i].req_data.rw,
+            bus_out_if[i].req_data.byteen,
+            bus_out_if[i].req_data.addr,
+            bus_out_if[i].req_data.atype,
+            bus_out_if[i].req_data.data,          
+            req_tag_out
+        } = req_data_out[i];
         assign req_ready_out[i] = bus_out_if[i].req_ready;
     end
     wire [NUM_INPUTS-1:0]                 rsp_valid_out;
@@ -94,7 +108,7 @@ module VX_mem_arb #(
             .NUM_INPUTS  (NUM_OUTPUTS),
             .NUM_OUTPUTS (NUM_INPUTS),
             .DATAW       (RSP_DATAW),
-            .OUT_REG     (OUT_REG_RSP)
+            .OUT_BUF     (RSP_OUT_BUF)
         ) rsp_switch (
             .clk       (clk),
             .reset     (reset),
@@ -109,7 +123,10 @@ module VX_mem_arb #(
     end else begin
         for (genvar i = 0; i < NUM_OUTPUTS; ++i) begin
             assign rsp_valid_in[i] = bus_out_if[i].rsp_valid;
-            assign rsp_data_in[i] = {bus_out_if[i].rsp_data.tag, bus_out_if[i].rsp_data.data};
+            assign rsp_data_in[i] = {
+                bus_out_if[i].rsp_data.tag, 
+                bus_out_if[i].rsp_data.data
+            };
             assign bus_out_if[i].rsp_ready = rsp_ready_in[i];
         end
         VX_stream_arb #(
@@ -117,7 +134,7 @@ module VX_mem_arb #(
             .NUM_OUTPUTS (NUM_INPUTS),
             .DATAW       (RSP_DATAW),
             .ARBITER     (ARBITER),
-            .OUT_REG     (OUT_REG_RSP)
+            .OUT_BUF     (RSP_OUT_BUF)
         ) req_arb (
             .clk       (clk),
             .reset     (reset),
@@ -132,7 +149,10 @@ module VX_mem_arb #(
     end
     for (genvar i = 0; i < NUM_INPUTS; ++i) begin
         assign bus_in_if[i].rsp_valid = rsp_valid_out[i];
-        assign {bus_in_if[i].rsp_data.tag, bus_in_if[i].rsp_data.data} = rsp_data_out[i];
+        assign {
+            bus_in_if[i].rsp_data.tag, 
+            bus_in_if[i].rsp_data.data
+        } = rsp_data_out[i];
         assign rsp_ready_out[i] = bus_in_if[i].rsp_ready;
     end
 endmodule

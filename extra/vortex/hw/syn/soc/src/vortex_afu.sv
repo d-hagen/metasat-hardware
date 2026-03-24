@@ -3,7 +3,7 @@ module vortex_afu #(
 	parameter C_S_AXI_CTRL_DATA_WIDTH = 32,
 	parameter C_M_AXI_MEM_ID_WIDTH    = 8,
 	parameter C_M_AXI_MEM_ADDR_WIDTH  = 64,
-	parameter C_M_AXI_MEM_DATA_WIDTH  = (((0 || 0) ? 16 : 16) * 8)    
+	parameter C_M_AXI_MEM_DATA_WIDTH  = (16 * 8)    
 ) (
 	input wire clk,
 	input wire reset,

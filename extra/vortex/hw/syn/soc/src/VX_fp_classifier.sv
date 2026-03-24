@@ -1,4 +1,4 @@
-module VX_fpu_class import VX_fpu_pkg::*; #(    
+module VX_fp_classifier import VX_fpu_pkg::*; #(    
     parameter MAN_BITS = 23,
     parameter EXP_BITS = 8
 ) (

@@ -1,30 +1,30 @@
-module VX_dispatch_unit import VX_gpu_pkg::*; #(    
+module VX_dispatch_unit import VX_gpu_pkg::*; #(
     parameter BLOCK_SIZE = 1,
     parameter NUM_LANES  = 1,
-    parameter OUT_REG    = 0,
-    parameter MAX_FANOUT = 4
-) ( 
+    parameter OUT_BUF    = 0,
+    parameter MAX_FANOUT = 8
+) (
     input  wire             clk,
     input  wire             reset,
-    VX_dispatch_if.slave    dispatch_if [(((4) < (4)) ? (4) : (4))],
+    VX_dispatch_if.slave    dispatch_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
     VX_execute_if.master    execute_if [BLOCK_SIZE]
 );
     localparam BLOCK_SIZE_W = (((BLOCK_SIZE) > 1) ? $clog2(BLOCK_SIZE) : 1);
     localparam NUM_PACKETS  = 4 / NUM_LANES;
     localparam PID_BITS     = $clog2(NUM_PACKETS);
     localparam PID_WIDTH    = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam BATCH_COUNT  = (((4) < (4)) ? (4) : (4)) / BLOCK_SIZE;
+    localparam BATCH_COUNT  = (((4 / 8) != 0) ? (4 / 8) : 1) / BLOCK_SIZE;
     localparam BATCH_COUNT_W= (((BATCH_COUNT) > 1) ? $clog2(BATCH_COUNT) : 1);
-    localparam ISSUE_W      = ((((((4) < (4)) ? (4) : (4))) > 1) ? $clog2((((4) < (4)) ? (4) : (4))) : 1);
-    localparam IN_DATAW     = 1 + ISSUE_WIS_W + 4 + 4 + 3 + 1 + 1 + 1 + 32 + 32 + $clog2(32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (3 * 4 * 32);
-    localparam OUT_DATAW    = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + 4 + 3 + 1 + 1 + 1 + 32 + 32 + $clog2(32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (3 * NUM_LANES * 32) + PID_WIDTH + 1 + 1;
-    localparam FANOUT_ENABLE= (4 > (MAX_FANOUT + MAX_FANOUT/2));
+    localparam ISSUE_W      = ((((((4 / 8) != 0) ? (4 / 8) : 1)) > 1) ? $clog2((((4 / 8) != 0) ? (4 / 8) : 1)) : 1);
+    localparam IN_DATAW     = 1 + ISSUE_WIS_W + 4 + 4 + $bits(op_args_t) + 1 + (32-1) + $clog2(32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (3 * 4 * 32);
+    localparam OUT_DATAW    = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + 4 + $bits(op_args_t) + 1 + (32-1) + $clog2(32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (3 * NUM_LANES * 32) + PID_WIDTH + 1 + 1;
+    localparam FANOUT_ENABLE= (4 > (MAX_FANOUT + MAX_FANOUT /2));
     localparam DATA_TMASK_OFF = IN_DATAW - (1 + ISSUE_WIS_W + 4);
     localparam DATA_REGS_OFF = 0;
-    wire [(((4) < (4)) ? (4) : (4))-1:0] dispatch_valid;
-    wire [(((4) < (4)) ? (4) : (4))-1:0][IN_DATAW-1:0] dispatch_data;
-    wire [(((4) < (4)) ? (4) : (4))-1:0] dispatch_ready;
-    for (genvar i = 0; i < (((4) < (4)) ? (4) : (4)); ++i) begin
+    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0] dispatch_valid;
+    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0][IN_DATAW-1:0] dispatch_data;
+    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0] dispatch_ready;
+    for (genvar i = 0; i < (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
         assign dispatch_valid[i] = dispatch_if[i].valid;
         assign dispatch_data[i] = dispatch_if[i].data;
         assign dispatch_if[i].ready = dispatch_ready[i];
@@ -43,8 +43,8 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
         always @(posedge clk) begin
             if (reset) begin
                 batch_idx <= '0;
-            end else if (batch_done) begin
-                batch_idx <= batch_idx + BATCH_COUNT_W'(1);
+            end else begin
+                batch_idx <= batch_idx + BATCH_COUNT_W'(batch_done);
             end
         end
     end else begin
@@ -53,6 +53,12 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
     for (genvar block_idx = 0; block_idx < BLOCK_SIZE; ++block_idx) begin
         wire [ISSUE_W-1:0] issue_idx = ISSUE_W'(batch_idx * BLOCK_SIZE) + ISSUE_W'(block_idx);
         assign issue_indices[block_idx] = issue_idx;
+    wire [1-1:0] block_reset;                        
+    VX_reset_relay #(.N(1), .MAX_FANOUT((((BLOCK_SIZE > 1)) ? 0 : -1))) __block_reset ( 
+        .clk     (clk),                         
+        .reset   (reset),                         
+        .reset_o (block_reset)                          
+    );
         wire valid_p, ready_p;
         if (4 != NUM_LANES) begin
             reg [NUM_PACKETS-1:0] sent_mask_p;
@@ -63,7 +69,7 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
             wire is_last_p = (start_p == end_p);
             wire fire_eop = fire_p && is_last_p;
             always @(posedge clk) begin
-                if (reset) begin
+                if (block_reset) begin
                     sent_mask_p <= '0;
                     is_first_p  <= 1;
                 end else begin
@@ -77,7 +83,7 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
                 end
             end
             wire [NUM_PACKETS-1:0][NUM_LANES-1:0] per_packet_tmask;
-            wire [NUM_PACKETS-1:0][2:0][NUM_LANES-1:0][32-1:0] per_packet_regs; 
+            wire [NUM_PACKETS-1:0][2:0][NUM_LANES-1:0][32-1:0] per_packet_regs;
             wire [4-1:0] dispatch_tmask = dispatch_data[issue_idx][DATA_TMASK_OFF +: 4];
             wire [4-1:0][32-1:0] dispatch_rs1_data = dispatch_data[issue_idx][DATA_REGS_OFF + 2 * 4 * 32 +: 4 * 32];
             wire [4-1:0][32-1:0] dispatch_rs2_data = dispatch_data[issue_idx][DATA_REGS_OFF + 1 * 4 * 32 +: 4 * 32];
@@ -93,7 +99,7 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
             end
             wire [NUM_PACKETS-1:0] packet_valids;
             wire [NUM_PACKETS-1:0][PID_WIDTH-1:0] packet_ids;
-            for (genvar i = 0; i < NUM_PACKETS; ++i) begin                 
+            for (genvar i = 0; i < NUM_PACKETS; ++i) begin
                 assign packet_valids[i] = (| per_packet_tmask[i]);
                 assign packet_ids[i] = PID_WIDTH'(i);
             end
@@ -101,7 +107,7 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
                 .N       (NUM_PACKETS),
                 .DATAW   (PID_WIDTH),
                 .REVERSE (0)
-            ) find_first (                    
+            ) find_first (
                 .valid_in  (packet_valids & ~sent_mask_p),
                 .data_in   (packet_ids),
                 .data_out  (start_p_n),
@@ -111,12 +117,12 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
                 .N       (NUM_PACKETS),
                 .DATAW   (PID_WIDTH),
                 .REVERSE (1)
-            ) find_last (                    
+            ) find_last (
                 .valid_in  (packet_valids),
                 .data_in   (packet_ids),
                 .data_out  (end_p),
                 . valid_out ()
-            );   
+            );
             VX_pipe_register #(
                 .DATAW  (1 + PID_WIDTH),
                 .RESETW (1),
@@ -127,11 +133,11 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
                 .enable   (1'b1),
                 .data_in  ({dispatch_valid[issue_idx], start_p_n}),
                 .data_out ({dispatch_valid_r, start_p})
-            );  
+            );
             wire [NUM_LANES-1:0] tmask_p = per_packet_tmask[start_p];
             wire [2:0][NUM_LANES-1:0][32-1:0] regs_p = per_packet_regs[start_p];
             wire block_enable = (BATCH_COUNT == 1 || ~(& sent_mask_p));
-            assign valid_p = dispatch_valid_r && block_enable;            
+            assign valid_p = dispatch_valid_r && block_enable;
             assign block_tmask[block_idx] = tmask_p;
             assign block_regs[block_idx]  = regs_p;
             assign block_pid[block_idx]   = start_p;
@@ -155,40 +161,34 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
             assign block_ready[block_idx] = ready_p;
             assign block_done[block_idx]  = ~valid_p || ready_p;
         end
-        wire [ISSUE_IDX_W-1:0] wsi;
+        wire [ISSUE_ISW_W-1:0] isw;
         if (BATCH_COUNT != 1) begin
             if (BLOCK_SIZE != 1) begin
-                assign wsi = {batch_idx, BLOCK_SIZE_W'(block_idx)};
+                assign isw = {batch_idx, BLOCK_SIZE_W'(block_idx)};
             end else begin
-                assign wsi = batch_idx;
+                assign isw = batch_idx;
             end
         end else begin
-            assign wsi = block_idx;
+            assign isw = block_idx;
         end
-    wire [1-1:0] buf_out_reset;                        
-    VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __buf_out_reset ( 
-        .clk     (clk),                         
-        .reset   (reset),                         
-        .reset_o (buf_out_reset)                          
-    );
-        wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] block_wid = wis_to_wid(dispatch_data[issue_idx][DATA_TMASK_OFF+4 +: ISSUE_WIS_W], wsi);
+        wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] block_wid = wis_to_wid(dispatch_data[issue_idx][DATA_TMASK_OFF+4 +: ISSUE_WIS_W], isw);
         VX_elastic_buffer #(
             .DATAW   (OUT_DATAW),
-            .SIZE    ((((OUT_REG) < (2)) ? (OUT_REG) : (2))),
-            .OUT_REG (((OUT_REG & 1) + ((OUT_REG >> 2) << 1)))
+            .SIZE    ((((OUT_BUF) < (2)) ? (OUT_BUF) : (2))),
+            .OUT_REG (((OUT_BUF < 2) ? OUT_BUF : (OUT_BUF - 2)))
         ) buf_out (
             .clk       (clk),
-            .reset     (buf_out_reset),
+            .reset     (block_reset),
             .valid_in  (valid_p),
             .ready_in  (ready_p),
-            .data_in   ({                
+            .data_in   ({
                 dispatch_data[issue_idx][IN_DATAW-1 : DATA_TMASK_OFF+4+ISSUE_WIS_W],
                 block_wid,
                 block_tmask[block_idx],
                 dispatch_data[issue_idx][DATA_TMASK_OFF-1 : DATA_REGS_OFF + 3 * 4 * 32],
                 block_regs[block_idx][0],
                 block_regs[block_idx][1],
-                block_regs[block_idx][2],     
+                block_regs[block_idx][2],
                 block_pid[block_idx],
                 block_sop[block_idx],
                 block_eop[block_idx]}),
@@ -197,12 +197,12 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
             .ready_out (execute_if[block_idx].ready)
         );
     end
-    reg [(((4) < (4)) ? (4) : (4))-1:0] ready_in;
+    reg [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0] ready_in;
     always @(*) begin
         ready_in = 0;
         for (integer i = 0; i < BLOCK_SIZE; ++i) begin
             ready_in[issue_indices[i]] = block_ready[i] && block_eop[i];
         end
     end
-    assign dispatch_ready = ready_in; 
+    assign dispatch_ready = ready_in;
 endmodule

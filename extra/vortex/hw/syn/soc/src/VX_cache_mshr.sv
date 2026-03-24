@@ -1,7 +1,7 @@
 module VX_cache_mshr #(
     parameter  INSTANCE_ID= "",
     parameter BANK_ID           = 0,
-    parameter LINE_SIZE         = 16, 
+    parameter LINE_SIZE         = 16,
     parameter NUM_BANKS         = 1,
     parameter MSHR_SIZE         = 4,
     parameter UUID_WIDTH        = 0,
@@ -13,16 +13,6 @@ module VX_cache_mshr #(
     input wire[(((UUID_WIDTH) != 0) ? (UUID_WIDTH) : 1)-1:0]     deq_req_uuid,
     input wire[(((UUID_WIDTH) != 0) ? (UUID_WIDTH) : 1)-1:0]     lkp_req_uuid,
     input wire[(((UUID_WIDTH) != 0) ? (UUID_WIDTH) : 1)-1:0]     fin_req_uuid,
-    input wire                          allocate_valid,
-    input wire [((32-$clog2(LINE_SIZE))-$clog2(NUM_BANKS))-1:0] allocate_addr,
-    input wire                          allocate_rw,
-    input wire [DATA_WIDTH-1:0]         allocate_data,
-    output wire [MSHR_ADDR_WIDTH-1:0]   allocate_id,
-    output wire [MSHR_ADDR_WIDTH-1:0]   allocate_tail,
-    output wire                         allocate_ready,
-    input wire                          lookup_valid,
-    input wire [((32-$clog2(LINE_SIZE))-$clog2(NUM_BANKS))-1:0] lookup_addr,
-    output wire [MSHR_SIZE-1:0]         lookup_matches,
     input wire                          fill_valid,
     input wire [MSHR_ADDR_WIDTH-1:0]    fill_id,
     output wire [((32-$clog2(LINE_SIZE))-$clog2(NUM_BANKS))-1:0] fill_addr,
@@ -32,11 +22,22 @@ module VX_cache_mshr #(
     output wire [DATA_WIDTH-1:0]        dequeue_data,
     output wire [MSHR_ADDR_WIDTH-1:0]   dequeue_id,
     input wire                          dequeue_ready,
+    input wire                          allocate_valid,
+    input wire [((32-$clog2(LINE_SIZE))-$clog2(NUM_BANKS))-1:0] allocate_addr,
+    input wire                          allocate_rw,
+    input wire [DATA_WIDTH-1:0]         allocate_data,
+    output wire [MSHR_ADDR_WIDTH-1:0]   allocate_id,
+    output wire [MSHR_ADDR_WIDTH-1:0]   allocate_prev,
+    output wire                         allocate_ready,
+    input wire                          lookup_valid,
+    input wire [((32-$clog2(LINE_SIZE))-$clog2(NUM_BANKS))-1:0] lookup_addr,
+    output wire [MSHR_SIZE-1:0]         lookup_pending,
+    output wire [MSHR_SIZE-1:0]         lookup_rw,
     input wire                          finalize_valid,
     input wire                          finalize_release,
     input wire                          finalize_pending,
     input wire [MSHR_ADDR_WIDTH-1:0]    finalize_id,
-    input wire [MSHR_ADDR_WIDTH-1:0]    finalize_tail
+    input wire [MSHR_ADDR_WIDTH-1:0]    finalize_prev
 );
     reg [((32-$clog2(LINE_SIZE))-$clog2(NUM_BANKS))-1:0] addr_table [MSHR_SIZE-1:0];
     reg [MSHR_ADDR_WIDTH-1:0] next_index [MSHR_SIZE-1:0];
@@ -47,7 +48,7 @@ module VX_cache_mshr #(
     reg [MSHR_ADDR_WIDTH-1:0] allocate_id_r, allocate_id_n;
     reg dequeue_val, dequeue_val_n;
     reg [MSHR_ADDR_WIDTH-1:0] dequeue_id_r, dequeue_id_n;
-    wire [MSHR_ADDR_WIDTH-1:0] tail_idx;
+    wire [MSHR_ADDR_WIDTH-1:0] prev_idx;
     wire allocate_fire = allocate_valid && allocate_ready;
     wire dequeue_fire = dequeue_valid && dequeue_ready;
     wire [MSHR_SIZE-1:0] addr_matches;
@@ -64,9 +65,9 @@ module VX_cache_mshr #(
     );
     VX_onehot_encoder #(
         .N (MSHR_SIZE)
-    ) tail_sel (
+    ) prev_sel (
         .data_in (addr_matches & ~next_table_x),
-        .data_out (tail_idx),
+        .data_out (prev_idx),
         . valid_out ()
     );
     always @(*) begin
@@ -91,7 +92,7 @@ module VX_cache_mshr #(
                 valid_table_n[finalize_id] = 0;
             end
             if (finalize_pending) begin
-                next_table_x[finalize_tail] = 1;
+                next_table_x[finalize_prev] = 1;
             end
         end
         next_table_n = next_table_x;
@@ -115,7 +116,7 @@ module VX_cache_mshr #(
             write_table[allocate_id] <= allocate_rw;
         end
         if (finalize_valid && finalize_pending) begin
-            next_index[finalize_tail] <= finalize_id;
+            next_index[finalize_prev] <= finalize_id;
         end
         dequeue_id_r  <= dequeue_id_n;
         allocate_id_r <= allocate_id_n;
@@ -127,10 +128,11 @@ module VX_cache_mshr #(
         .LUTRAM (1)
     ) entries (
         .clk   (clk),
+        .reset (reset),
         .read  (1'b1),
         .write (allocate_valid),
-        . wren (),               
-        .waddr (allocate_id_r),     
+        .wren  (1'b1),
+        .waddr (allocate_id_r),
         .wdata (allocate_data),
         .raddr (dequeue_id_r),
         .rdata (dequeue_data)
@@ -138,10 +140,11 @@ module VX_cache_mshr #(
     assign fill_addr = addr_table[fill_id];
     assign allocate_ready = allocate_rdy;
     assign allocate_id    = allocate_id_r;
-    assign allocate_tail  = tail_idx;
+    assign allocate_prev  = prev_idx;
     assign dequeue_valid  = dequeue_val;
     assign dequeue_addr   = addr_table[dequeue_id_r];
     assign dequeue_rw     = write_table[dequeue_id_r];
     assign dequeue_id     = dequeue_id_r;
-    assign lookup_matches = addr_matches & ~write_table;
+    assign lookup_pending = addr_matches;
+    assign lookup_rw = write_table;
 endmodule

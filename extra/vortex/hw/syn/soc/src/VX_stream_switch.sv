@@ -2,8 +2,8 @@ module VX_stream_switch #(
     parameter NUM_INPUTS    = 1,
     parameter NUM_OUTPUTS   = 1,
     parameter DATAW         = 1,
-    parameter OUT_REG       = 0,
-    parameter NUM_REQS      = (NUM_INPUTS > NUM_OUTPUTS) ? ((NUM_INPUTS + NUM_OUTPUTS - 1) / NUM_OUTPUTS) : ((NUM_OUTPUTS + NUM_INPUTS - 1) / NUM_INPUTS),
+    parameter OUT_BUF       = 0,
+    parameter NUM_REQS      = (NUM_INPUTS > NUM_OUTPUTS) ? ((NUM_INPUTS + NUM_OUTPUTS - 1) / (NUM_OUTPUTS)) : ((NUM_OUTPUTS + NUM_INPUTS - 1) / (NUM_INPUTS)),
     parameter SEL_COUNT     = (((NUM_INPUTS) < (NUM_OUTPUTS)) ? (NUM_INPUTS) : (NUM_OUTPUTS)),
     parameter LOG_NUM_REQS  = $clog2(NUM_REQS)
 ) (
@@ -14,7 +14,7 @@ module VX_stream_switch #(
     input  wire [NUM_INPUTS-1:0][DATAW-1:0] data_in,
     output wire [NUM_INPUTS-1:0]            ready_in,
     output wire [NUM_OUTPUTS-1:0]           valid_out,
-    output wire [NUM_OUTPUTS-1:0][DATAW-1:0] data_out,    
+    output wire [NUM_OUTPUTS-1:0][DATAW-1:0] data_out,
     input  wire [NUM_OUTPUTS-1:0]           ready_out
 );
     if (NUM_INPUTS > NUM_OUTPUTS) begin
@@ -31,7 +31,7 @@ module VX_stream_switch #(
                     assign data_in_r[i][j]  = '0;
                 end
             end
-        end        
+        end
         wire [NUM_OUTPUTS-1:0]            valid_out_r;
         wire [NUM_OUTPUTS-1:0][DATAW-1:0] data_out_r;
         wire [NUM_OUTPUTS-1:0]            ready_out_r;
@@ -41,27 +41,27 @@ module VX_stream_switch #(
         end
         for (genvar i = 0; i < NUM_OUTPUTS; ++i) begin
             for (genvar j = 0; j < NUM_REQS; ++j) begin
-                localparam ii = i * NUM_REQS + j;                
-                if (ii < NUM_INPUTS) begin                    
+                localparam ii = i * NUM_REQS + j;
+                if (ii < NUM_INPUTS) begin
                     assign ready_in[ii] = ready_out_r[i] & (sel_in[i] == LOG_NUM_REQS'(j));
                 end
             end
         end
-        for (genvar i = 0; i < NUM_OUTPUTS; ++i) begin
-    wire [1-1:0] out_buf_reset;                        
-    VX_reset_relay #(.N(1), .MAX_FANOUT((((NUM_OUTPUTS > 1)) ? 0 : -1))) __out_buf_reset ( 
+    wire [NUM_OUTPUTS-1:0] out_buf_reset;                        
+    VX_reset_relay #(.N(NUM_OUTPUTS), .MAX_FANOUT(8)) __out_buf_reset ( 
         .clk     (clk),                         
         .reset   (reset),                         
         .reset_o (out_buf_reset)                          
     );
+        for (genvar i = 0; i < NUM_OUTPUTS; ++i) begin
             VX_elastic_buffer #(
                 .DATAW   (DATAW),
-                .SIZE    ((((OUT_REG) < (2)) ? (OUT_REG) : (2))),
-                .OUT_REG (((OUT_REG & 1) + ((OUT_REG >> 2) << 1)))
+                .SIZE    ((((OUT_BUF) < (2)) ? (OUT_BUF) : (2))),
+                .OUT_REG (((OUT_BUF < 2) ? OUT_BUF : (OUT_BUF - 2)))
             ) out_buf (
                 .clk       (clk),
-                .reset     (out_buf_reset),
-                .valid_in  (valid_out_r[i]),                    
+                .reset     (out_buf_reset[i]),
+                .valid_in  (valid_out_r[i]),
                 .ready_in  (ready_out_r[i]),
                 .data_in   (data_out_r[i]),
                 .data_out  (data_out[i]),
@@ -78,50 +78,50 @@ module VX_stream_switch #(
             end
             assign ready_in[i] = ready_out_r[i][sel_in[i]];
         end
-        for (genvar i = 0; i < NUM_INPUTS; ++i) begin
-            for (genvar j = 0; j < NUM_REQS; ++j) begin
-                localparam ii = i * NUM_REQS + j;
-                if (ii < NUM_OUTPUTS) begin
-    wire [1-1:0] out_buf_reset;                        
-    VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __out_buf_reset ( 
+    wire [NUM_OUTPUTS-1:0] out_buf_reset;                        
+    VX_reset_relay #(.N(NUM_OUTPUTS), .MAX_FANOUT(8)) __out_buf_reset ( 
         .clk     (clk),                         
         .reset   (reset),                         
         .reset_o (out_buf_reset)                          
     );
+        for (genvar i = 0; i < NUM_INPUTS; ++i) begin
+            for (genvar j = 0; j < NUM_REQS; ++j) begin
+                localparam ii = i * NUM_REQS + j;
+                if (ii < NUM_OUTPUTS) begin
                     VX_elastic_buffer #(
                         .DATAW    (DATAW),
-                        .SIZE     ((((OUT_REG) < (2)) ? (OUT_REG) : (2))),
-                        .OUT_REG  (((OUT_REG & 1) + ((OUT_REG >> 2) << 1)))
+                        .SIZE     ((((OUT_BUF) < (2)) ? (OUT_BUF) : (2))),
+                        .OUT_REG  (((OUT_BUF < 2) ? OUT_BUF : (OUT_BUF - 2)))
                     ) out_buf (
                         .clk       (clk),
-                        .reset     (out_buf_reset),
+                        .reset     (out_buf_reset[ii]),
                         .valid_in  (valid_out_r[i][j]),
                         .ready_in  (ready_out_r[i][j]),
-                        .data_in   (data_in[i]),                                                     
+                        .data_in   (data_in[i]),
                         .data_out  (data_out[ii]),
                         .valid_out (valid_out[ii]),
                         .ready_out (ready_out[ii])
                     );
                 end else begin
                     assign ready_out_r[i][j] = '0;
-                end                
+                end
             end
         end
     end else begin
-        for (genvar i = 0; i < NUM_OUTPUTS; ++i) begin
-    wire [1-1:0] out_buf_reset;                        
-    VX_reset_relay #(.N(1), .MAX_FANOUT((((NUM_OUTPUTS > 1)) ? 0 : -1))) __out_buf_reset ( 
+    wire [NUM_OUTPUTS-1:0] out_buf_reset;                        
+    VX_reset_relay #(.N(NUM_OUTPUTS), .MAX_FANOUT(8)) __out_buf_reset ( 
         .clk     (clk),                         
         .reset   (reset),                         
         .reset_o (out_buf_reset)                          
     );
+        for (genvar i = 0; i < NUM_OUTPUTS; ++i) begin
             VX_elastic_buffer #(
                 .DATAW    (DATAW),
-                .SIZE     ((((OUT_REG) < (2)) ? (OUT_REG) : (2))),
-                .OUT_REG  (((OUT_REG & 1) + ((OUT_REG >> 2) << 1)))
+                .SIZE     ((((OUT_BUF) < (2)) ? (OUT_BUF) : (2))),
+                .OUT_REG  (((OUT_BUF < 2) ? OUT_BUF : (OUT_BUF - 2)))
             ) out_buf (
                 .clk       (clk),
-                .reset     (out_buf_reset),
+                .reset     (out_buf_reset[i]),
                 .valid_in  (valid_in[i]),
                 .ready_in  (ready_in[i]),
                 .data_in   (data_in[i]),

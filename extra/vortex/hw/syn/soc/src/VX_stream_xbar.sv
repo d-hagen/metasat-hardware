@@ -4,10 +4,10 @@ module VX_stream_xbar #(
     parameter DATAW         = 4,
     parameter IN_WIDTH      = (((NUM_INPUTS) > 1) ? $clog2(NUM_INPUTS) : 1),
     parameter OUT_WIDTH     = (((NUM_OUTPUTS) > 1) ? $clog2(NUM_OUTPUTS) : 1),
-    parameter ARBITER       = "P",
-    parameter LOCK_ENABLE   = 0,
-    parameter OUT_REG      = 0,
-    parameter MAX_FANOUT    = 4,
+    parameter ARBITER       = "R",
+    parameter OUT_BUF       = 0,
+    parameter LUTRAM        = 0,
+    parameter MAX_FANOUT    = 8,
     parameter PERF_CTR_BITS = $clog2(NUM_INPUTS+1)
 ) (
     input wire                              clk,
@@ -18,7 +18,7 @@ module VX_stream_xbar #(
     input wire [NUM_INPUTS-1:0][OUT_WIDTH-1:0] sel_in,
     output wire [NUM_INPUTS-1:0]            ready_in,
     output wire [NUM_OUTPUTS-1:0]           valid_out,
-    output wire [NUM_OUTPUTS-1:0][DATAW-1:0] data_out,  
+    output wire [NUM_OUTPUTS-1:0][DATAW-1:0] data_out,
     output wire [NUM_OUTPUTS-1:0][IN_WIDTH-1:0] sel_out,
     input  wire [NUM_OUTPUTS-1:0]           ready_out
 );
@@ -41,9 +41,9 @@ module VX_stream_xbar #(
                     .NUM_OUTPUTS (1),
                     .DATAW       (DATAW),
                     .ARBITER     (ARBITER),
-                    .LOCK_ENABLE (LOCK_ENABLE),
                     .MAX_FANOUT  (MAX_FANOUT),
-                    .OUT_REG     (OUT_REG)
+                    .OUT_BUF     (OUT_BUF),
+                    .LUTRAM      (LUTRAM)
                 ) xbar_arb (
                     .clk       (clk),
                     .reset     (slice_reset),
@@ -65,9 +65,9 @@ module VX_stream_xbar #(
                 .NUM_OUTPUTS (1),
                 .DATAW       (DATAW),
                 .ARBITER     (ARBITER),
-                .LOCK_ENABLE (LOCK_ENABLE),
                 .MAX_FANOUT  (MAX_FANOUT),
-                .OUT_REG     (OUT_REG)
+                .OUT_BUF     (OUT_BUF),
+                .LUTRAM      (LUTRAM)
             ) xbar_arb (
                 .clk       (clk),
                 .reset     (reset),
@@ -89,20 +89,21 @@ module VX_stream_xbar #(
         end
         assign data_out_r = {NUM_OUTPUTS{data_in}};
         assign ready_in = ready_out_r[sel_in];
-        for (genvar i = 0; i < NUM_OUTPUTS; ++i) begin
-    wire [1-1:0] out_buf_reset;                        
-    VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __out_buf_reset ( 
+    wire [NUM_OUTPUTS-1:0] out_buf_reset;                        
+    VX_reset_relay #(.N(NUM_OUTPUTS), .MAX_FANOUT(8)) __out_buf_reset ( 
         .clk     (clk),                         
         .reset   (reset),                         
         .reset_o (out_buf_reset)                          
     );
+        for (genvar i = 0; i < NUM_OUTPUTS; ++i) begin
             VX_elastic_buffer #(
                 .DATAW   (DATAW),
-                .SIZE    ((((OUT_REG) < (2)) ? (OUT_REG) : (2))),
-                .OUT_REG (((OUT_REG & 1) + ((OUT_REG >> 2) << 1)))
+                .SIZE    ((((OUT_BUF) < (2)) ? (OUT_BUF) : (2))),
+                .OUT_REG (((OUT_BUF < 2) ? OUT_BUF : (OUT_BUF - 2))),
+                .LUTRAM  (LUTRAM)
             ) out_buf (
                 .clk       (clk),
-                .reset     (out_buf_reset),
+                .reset     (out_buf_reset[i]),
                 .valid_in  (valid_out_r[i]),
                 .ready_in  (ready_out_r[i]),
                 .data_in   (data_out_r[i]),
@@ -115,8 +116,9 @@ module VX_stream_xbar #(
     end else begin
         VX_elastic_buffer #(
             .DATAW   (DATAW),
-            .SIZE    ((((OUT_REG) < (2)) ? (OUT_REG) : (2))),
-            .OUT_REG (((OUT_REG & 1) + ((OUT_REG >> 2) << 1)))
+            .SIZE    ((((OUT_BUF) < (2)) ? (OUT_BUF) : (2))),
+            .OUT_REG (((OUT_BUF < 2) ? OUT_BUF : (OUT_BUF - 2))),
+            .LUTRAM  (LUTRAM)
         ) out_buf (
             .clk       (clk),
             .reset     (reset),
@@ -129,24 +131,36 @@ module VX_stream_xbar #(
         );
         assign sel_out = 0;
     end
+    reg [NUM_INPUTS-1:0] per_cycle_collision, per_cycle_collision_r;
+    wire [$clog2(NUM_INPUTS+1)-1:0] collision_count;
     reg [PERF_CTR_BITS-1:0] collisions_r;
-    reg [NUM_INPUTS-1:0] per_cycle_collision;
     always @(*) begin
         per_cycle_collision = 0;
         for (integer i = 0; i < NUM_INPUTS; ++i) begin
             for (integer j = 1; j < (NUM_INPUTS-i); ++j) begin
-                if (valid_in[i] && valid_in[j+i] && sel_in[i] == sel_in[j+i]) begin
-                    per_cycle_collision[i] |= ready_in[i] | ready_in[j+i];
-                end
+                per_cycle_collision[i] |= valid_in[i]
+                                       && valid_in[j+i]
+                                       && (sel_in[i] == sel_in[j+i])
+                                       && (ready_in[i] | ready_in[j+i]);
             end
         end
     end
-    wire [$clog2(NUM_INPUTS+1)-1:0] collision_count;
-    VX_popcount #( 
-        .N ($bits(per_cycle_collision)), 
-        .MODEL (1) 
-    ) __collision_count ( 
+    VX_pipe_register #( 
+        .DATAW  ($bits(per_cycle_collision_r)), 
+        .RESETW ($bits(per_cycle_collision_r)), 
+        .DEPTH  (1) 
+    ) __per_cycle_collision_r__ ( 
+        .clk      (clk), 
+        .reset    (reset), 
+        .enable   (1'b1), 
         .data_in  (per_cycle_collision), 
+        .data_out (per_cycle_collision_r) 
+    );
+    VX_popcount #( 
+        .N ($bits(per_cycle_collision_r)), 
+        .MODEL (1) 
+    ) __collision_count__ ( 
+        .data_in  (per_cycle_collision_r), 
         .data_out (collision_count) 
     );
     always @(posedge clk) begin

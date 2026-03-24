@@ -1,5 +1,5 @@
-module VX_muldiv_unit #(
-    parameter CORE_ID   = 0,
+module VX_alu_muldiv #(
+    parameter  INSTANCE_ID = "",
     parameter NUM_LANES = 1
 ) (
     input wire          clk,
@@ -9,7 +9,7 @@ module VX_muldiv_unit #(
 );
     localparam PID_BITS  = $clog2(4 / NUM_LANES);
     localparam PID_WIDTH = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam TAGW = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + 32 + $clog2(32) + 1 + PID_WIDTH + 1 + 1;
+    localparam TAG_WIDTH = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + PID_WIDTH + 1 + 1;
     wire [3-1:0] muldiv_op = 3'(execute_if.data.op_type);
     wire is_mulx_op = (~muldiv_op[2]);
     wire is_signed_op = (~muldiv_op[0]);
@@ -18,7 +18,7 @@ module VX_muldiv_unit #(
     wire [1-1:0] mul_uuid_out;
     wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] mul_wid_out;
     wire [NUM_LANES-1:0] mul_tmask_out;
-    wire [32-1:0] mul_PC_out;
+    wire [(32-1)-1:0] mul_PC_out;
     wire [$clog2(32)-1:0] mul_rd_out;
     wire mul_wb_out;
     wire [PID_WIDTH-1:0] mul_pid_out;
@@ -35,7 +35,7 @@ module VX_muldiv_unit #(
     wire is_mul_w_out;
     for (genvar i = 0; i < NUM_LANES; ++i) begin
         wire [32:0] mul_in1 = {is_signed_mul_a && execute_if.data.rs1_data[i][32-1], execute_if.data.rs1_data[i]};
-        wire [32:0] mul_in2 = {is_signed_mul_b && execute_if.data.rs2_data[i][32-1], execute_if.data.rs2_data[i]};        
+        wire [32:0] mul_in2 = {is_signed_mul_b && execute_if.data.rs2_data[i][32-1], execute_if.data.rs2_data[i]};
         VX_multiplier #(
             .A_WIDTH (32+1),
             .B_WIDTH (32+1),
@@ -48,10 +48,10 @@ module VX_muldiv_unit #(
             .dataa  (mul_in1),
             .datab  (mul_in2),
             .result (mul_result_tmp[i])
-        );        
+        );
     end
     VX_shift_register #(
-        .DATAW  (1 + TAGW + 1 + 1),
+        .DATAW  (1 + TAG_WIDTH + 1 + 1),
         .DEPTH  (4),
         .RESETW (1)
     ) mul_shift_reg (
@@ -69,24 +69,24 @@ module VX_muldiv_unit #(
     wire [1-1:0] div_uuid_out;
     wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] div_wid_out;
     wire [NUM_LANES-1:0] div_tmask_out;
-    wire [32-1:0] div_PC_out;
+    wire [(32-1)-1:0] div_PC_out;
     wire [$clog2(32)-1:0] div_rd_out;
     wire div_wb_out;
     wire [PID_WIDTH-1:0] div_pid_out;
     wire div_sop_out, div_eop_out;
     wire is_rem_op = muldiv_op[1];
-    wire div_valid_in = execute_if.valid && ~is_mulx_op;  
+    wire div_valid_in = execute_if.valid && ~is_mulx_op;
     wire div_ready_in;
     wire div_valid_out;
     wire div_ready_out;
     wire [NUM_LANES-1:0][32-1:0] div_in1;
     wire [NUM_LANES-1:0][32-1:0] div_in2;
     for (genvar i = 0; i < NUM_LANES; ++i) begin
-        assign div_in1[i] = is_alu_w ? {{(32-32){is_signed_op && execute_if.data.rs1_data[i][31]}}, execute_if.data.rs1_data[i][31:0]}: execute_if.data.rs1_data[i];
-        assign div_in2[i] = is_alu_w ? {{(32-32){is_signed_op && execute_if.data.rs2_data[i][31]}}, execute_if.data.rs2_data[i][31:0]}: execute_if.data.rs2_data[i];
+        assign div_in1[i] = execute_if.data.rs1_data[i];
+        assign div_in2[i] = execute_if.data.rs2_data[i];
     end
     wire [NUM_LANES-1:0][32-1:0] div_quotient, div_remainder;
-    wire is_rem_op_out;    
+    wire is_rem_op_out;
     wire is_div_w_out;
     wire div_strode;
     wire div_busy;
@@ -111,13 +111,13 @@ module VX_muldiv_unit #(
         .reset     (reset),
         .strobe    (div_strode),
         .busy      (div_busy),
-        .is_signed (is_signed_op), 
+        .is_signed (is_signed_op),
         .numer     (div_in1),
         .denom     (div_in2),
         .quotient  (div_quotient),
-        .remainder (div_remainder)        
+        .remainder (div_remainder)
     );
-    reg [TAGW+2-1:0] div_tag_r;
+    reg [TAG_WIDTH+2-1:0] div_tag_r;
     always @(posedge clk) begin
         if (div_valid_in && div_ready_in) begin
             div_tag_r <= {execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.PC, execute_if.data.rd, execute_if.data.wb, is_rem_op, is_alu_w, execute_if.data.pid, execute_if.data.sop, execute_if.data.eop};
@@ -130,8 +130,9 @@ module VX_muldiv_unit #(
     assign execute_if.ready = is_mulx_op ? mul_ready_in : div_ready_in;
     VX_stream_arb #(
         .NUM_INPUTS (2),
-        .DATAW (TAGW + (NUM_LANES * 32)),
-        .OUT_REG (1)
+        .DATAW (TAG_WIDTH + (NUM_LANES * 32)),
+        .ARBITER ("F"),
+        .OUT_BUF (1)
     ) rsp_buf (
         .clk       (clk),
         .reset     (reset),

@@ -17,25 +17,23 @@ module VX_bypass_buffer #(
         assign data_out  = data_in;
     end else begin
         reg [DATAW-1:0] buffer;
-        reg buffer_valid;
+        reg has_data;
         always @(posedge clk) begin
             if (reset) begin
-                buffer_valid <= 0;
+                has_data <= 0;
             end else begin            
                 if (ready_out) begin
-                    buffer_valid <= 0;
-                end
-                if (valid_in && ~ready_out) begin
-                    ;
-                    buffer_valid <= 1;
+                    has_data <= 0;
+                end else if (~has_data) begin
+                    has_data <= valid_in;
                 end
             end
-            if (valid_in && ~ready_out) begin
+            if (~has_data) begin
                 buffer <= data_in;
             end
         end
-        assign ready_in  = ready_out || !buffer_valid;
-        assign data_out  = buffer_valid ? buffer : data_in;
-        assign valid_out = valid_in || buffer_valid;
+        assign ready_in  = ready_out || ~has_data;
+        assign data_out  = has_data ? buffer : data_in;
+        assign valid_out = valid_in || has_data;
     end
 endmodule

@@ -1,7 +1,7 @@
 module VX_afu_dma #(
 	parameter C_M_AXI_MEM_ID_WIDTH    = 8,
 	parameter C_M_AXI_MEM_ADDR_WIDTH  = 64,
-	parameter C_M_AXI_MEM_DATA_WIDTH  = (((0 || 0) ? 16 : 16) * 8),
+	parameter C_M_AXI_MEM_DATA_WIDTH  = (16 * 8),
 	parameter CMD_REG_SIZE            = 32
 ) (
 	input  wire                                 clk,

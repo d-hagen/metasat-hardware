@@ -1,4 +1,4 @@
-interface VX_fpu_to_csr_if import VX_fpu_pkg::*; ();
+interface VX_fpu_csr_if import VX_fpu_pkg::*; ();
     wire                    write_enable;
     wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]    write_wid;
     fflags_t                write_fflags;
