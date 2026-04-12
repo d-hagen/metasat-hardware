@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <vortex.h>
-#include <utils.h>
+#include <common.h>
 #include <malloc.h>
 #include "axictrl.h"
 #include <iostream>

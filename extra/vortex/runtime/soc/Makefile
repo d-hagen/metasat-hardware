@@ -92,7 +92,7 @@ $(BUILDIR)/vortex.o: $(BUILDIR)/ $(H_FILES) vortex.cpp
 	$(CXX) $(CXXFLAGS) vortex.cpp -c -o $@
 $(BUILDIR)/axictrl.o: $(BUILDIR)/ $(H_FILES) axictrl.cpp
 	$(CXX) $(CXXFLAGS) axictrl.cpp -c -o $@
-$(BUILDIR)/utils.o: $(BUILDIR)/ $(H_FILES) ../common/utils.cpp
+$(BUILDIR)/utils.o: $(BUILDIR)/ $(H_FILES) ../stub/utils.cpp
 	$(CXX) $(CXXFLAGS) ../common/utils.cpp -c -o $@
 
 $(DESTDIR)/$(PROJECT): $(DESTDIR)/ $(BUILDIR)/vortex.o $(BUILDIR)/axictrl.o $(BUILDIR)/utils.o 
