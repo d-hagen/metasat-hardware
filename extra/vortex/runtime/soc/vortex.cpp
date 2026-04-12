@@ -98,6 +98,14 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
+class vx_device;
+
+struct vx_buffer {
+  vx_device* device;
+  uint64_t addr;
+  uint64_t size;
+};
+
 class vx_device {
     public:
 
@@ -108,6 +116,37 @@ class vx_device {
         ~vx_device() 
         {
         }
+
+        //// MEM SECTION ////
+
+        int mem_alloc(uint64_t size, int flags, uint64_t* dev_addr) {
+            uint64_t addr;
+            CHECK_ERR(global_mem->allocate(size, &addr), { //allocation sucessfull ? 
+                return err;
+            });
+            *dev_addr = addr;
+            return 0;
+        }
+
+        int mem_reserve(uint64_t dev_addr, uint64_t size, int flags){
+            CHECK_ERR(global_mem->reserve(dev_addr, size),{
+                return err;
+            });
+            return 0;
+        }
+
+        int mem_free(uint64_t dev_addr) {           
+            return global_mem->release(dev_addr);                                   
+            // DO I still check for local mem  for safty -- memory managment local gloabl now internal (hardware managed)             
+            //  if (dev_addr >= LMEM_BASE_ADDR) {                                       
+            //      return local_mem->release(dev_addr);                                
+            //  } else {                                                                
+            //      return global_mem->release(dev_addr);                               
+            //  }                                                                       
+          }                              
+
+
+        ////// 
 
         int write_register(uint64_t addr, uint64_t value)
         {
@@ -330,106 +369,155 @@ extern int vx_dev_close(vx_device_h hdevice) {
     return 0;
 }
 
-extern int vx_mem_alloc(vx_device_h hdevice, uint64_t size, int type, uint64_t* dev_addr) {
-    if (nullptr == hdevice 
-     || nullptr == dev_addr
-     || 0 == size)
+
+///MEM SECTION ////////
+
+extern int vx_mem_alloc(vx_device_h hdevice, uint64_t size, int flags, vx_buffer_h* hbuffer) {
+    if  (nullptr == hdevice || nullptr == hbuffer || 0 == size)
         return -1;
 
     auto device = ((vx_device*)hdevice);
-    if (type == VX_MEM_TYPE_GLOBAL) {
-        return device->global_mem->allocate(size, dev_addr);
-    } else if (type == VX_MEM_TYPE_LOCAL) {        
-        return device->local_mem->allocate(size, dev_addr);
-    }
-    return -1;
-}
 
-extern int vx_mem_free(vx_device_h hdevice, uint64_t dev_addr) {
-    if (nullptr == hdevice)
-        return -1;
+    uint64_t dev_addr;
 
-    if (0 == dev_addr)
-        return 0;
+    CHECK_ERR(device->mem_alloc(size, flags, &dev_addr), {
+          return err;
+      });
 
-    auto device = ((vx_device*)hdevice);
-    if (dev_addr >= LMEM_BASE_ADDR) {
-        return device->local_mem->release(dev_addr);
-    } else {    
-        return device->global_mem->release(dev_addr);
-    }
-}
-
-extern int vx_mem_info(vx_device_h hdevice, int type, uint64_t* mem_free, uint64_t* mem_used) {
-    if (nullptr == hdevice)
-        return -1;
-
-    auto device = ((vx_device*)hdevice);    
-    if (type == VX_MEM_TYPE_GLOBAL) {
-        if (mem_free)
-            *mem_free = device->global_mem->free();
-        if (mem_used)
-            *mem_used = device->global_mem->allocated();
-    } else if (type == VX_MEM_TYPE_LOCAL) {
-        if (mem_free)
-            *mem_free = device->local_mem->free();
-        if (mem_used)
-            *mem_free = device->local_mem->allocated();
-    } else {
-        return -1;
-    }
+    auto buffer = new vx_buffer{device, dev_addr, size}; //bundle ass new buffer
+    if (nullptr == buffer) {  //if creating a new buffer fails free mem
+          device->mem_free(dev_addr);
+          return -1;
+      }
+    
+    *hbuffer = buffer; //CHANGE return buffer instead of addr 
     return 0;
 }
 
-extern int vx_copy_to_dev(vx_device_h hdevice, uint64_t dev_addr, const void* host_ptr, uint64_t size) {
-    if (nullptr == hdevice)
-        return -1;
-    
-    auto device = (vx_device*)hdevice;
 
-    // check alignment
-    if (!is_aligned(dev_addr, CACHE_BLOCK_SIZE))
-        return -1;
+//same as alloc but u dotn get adress but rather know adress and set it 
+extern int vx_mem_reserve(vx_device_h hdevice, uint64_t address, uint64_t size, int flags, vx_buffer_h* hbuffer) {
+      if (nullptr == hdevice || nullptr == hbuffer || 0 == size)
+          return -1;
 
-    auto asize = aligned_size(size, CACHE_BLOCK_SIZE);
+      auto device = ((vx_device*)hdevice);
 
-    // bound checking
-    if (dev_addr + asize > device->global_mem_size)
-        return -1;
+      CHECK_ERR(device->mem_reserve(address, size, flags), {
+          return err;
+      });
 
-    CHECK_ERR(device->upload(dev_addr, (uint32_t*)host_ptr, asize), {
-        return -1;
-    });
+      auto buffer = new vx_buffer{device, address, size};
+      if (nullptr == buffer) {
+          device->mem_free(address);
+          return -1;
+      }
 
-    DBGPRINT("COPY_TO_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n", dev_addr, (uintptr_t)host_ptr, asize);
-    
-    return 0;
-}
+      *hbuffer = buffer;
+      return 0;
+  }
 
-extern int vx_copy_from_dev(vx_device_h hdevice, void* host_ptr, uint64_t dev_addr, uint64_t size) {
-    if (nullptr == hdevice)
-        return -1;
+extern int vx_mem_free(vx_buffer_h hbuffer) {
+      if (nullptr == hbuffer)                                                         
+          return 0;
+                                                                                      
+      auto buffer = ((vx_buffer*)hbuffer);                                            
+      auto device = buffer->device;      
+                                                                                      
+      int err = device->mem_free(buffer->addr);
+      delete buffer;                                                                  
+      return err;                                                                     
+  }  
 
-    auto device = (vx_device*)hdevice;
 
-    // check alignment
-    if (!is_aligned(dev_addr, CACHE_BLOCK_SIZE))
-        return -1;
+// to extract adress from the buffer wrapper
+extern int vx_mem_address(vx_buffer_h hbuffer, uint64_t* address) {                 
+      if (nullptr == hbuffer)                                                         
+          return -1;                                                                  
+                                                                                      
+      auto buffer = ((vx_buffer*)hbuffer);                                            
+      *address = buffer->addr;           
+      return 0;
+  }                                    
 
-    auto asize = aligned_size(size, CACHE_BLOCK_SIZE);
 
-    // bound checking
-    if (dev_addr + asize > device->global_mem_size)
-        return -1;
+extern int vx_mem_info(vx_device_h hdevice, uint64_t* mem_free, uint64_t* mem_used) 
+  {                                                                                   
+      if (nullptr == hdevice)
+          return -1;                                                                  
+                                                                                      
+      auto device = ((vx_device*)hdevice);
+      if (mem_free)
+          *mem_free = device->global_mem->free();                                     
+      if (mem_used)
+          *mem_used = device->global_mem->allocated();                                
+      return 0;                                                                       
+  }                
 
-    CHECK_ERR(device->download((uint32_t*)host_ptr, dev_addr, size), {
-        return -1;
-    });
 
-    DBGPRINT("COPY_FROM_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n", dev_addr, (uintptr_t)host_ptr, size);
-    
-    return 0;
-}
+extern int vx_copy_to_dev(vx_buffer_h hbuffer, const void* host_ptr, uint64_t dst_offset, uint64_t size) {                                                        
+      if (nullptr == hbuffer || nullptr == host_ptr)
+          return -1;                                                                  
+                                                                                      
+      auto buffer = ((vx_buffer*)hbuffer);                                            
+      auto device = buffer->device;
+                                                                                      
+      if ((dst_offset + size) > buffer->size)                                         
+          return -1;                     
+
+      uint64_t dev_addr = buffer->addr + dst_offset;                                  
+   
+      // check alignment                                                              
+      if (!is_aligned(dev_addr, CACHE_BLOCK_SIZE))                                    
+          return -1;                     
+
+      auto asize = aligned_size(size, CACHE_BLOCK_SIZE);                              
+   
+      // bound checking                                                               
+      if (dev_addr + asize > device->global_mem_size)                                 
+          return -1;                     
+
+      CHECK_ERR(device->upload(dev_addr, (uint32_t*)host_ptr, asize), {
+          return -1;
+      });                                                                             
+   
+      DBGPRINT("COPY_TO_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n",      
+  dev_addr, (uintptr_t)host_ptr, asize);                                              
+                                                                                      
+      return 0;                                                                       
+  }  
+
+extern int vx_copy_from_dev(void* host_ptr, vx_buffer_h hbuffer, uint64_t 
+  src_offset, uint64_t size) {                                                        
+      if (nullptr == hbuffer || nullptr == host_ptr)
+          return -1;                                                                  
+                                                                                      
+      auto buffer = ((vx_buffer*)hbuffer);                                            
+      auto device = buffer->device;
+                                                                                      
+      if ((src_offset + size) > buffer->size) // offset where to start reading + how much to read can not go over area end point                                        
+          return -1;                     
+
+      uint64_t dev_addr = buffer->addr + src_offset;
+
+      // check alignment                                                              
+      if (!is_aligned(dev_addr, CACHE_BLOCK_SIZE))
+          return -1;                                                                  
+                                                                                      
+      auto asize = aligned_size(size, CACHE_BLOCK_SIZE);
+
+      // bound checking
+      if (dev_addr + asize > device->global_mem_size)
+          return -1;                                                                  
+   
+      CHECK_ERR(device->download((uint32_t*)host_ptr, dev_addr, size), {              
+          return -1;                                                                  
+      });                                
+
+      DBGPRINT("COPY_FROM_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n",    
+  dev_addr, (uintptr_t)host_ptr, size);
+                                                                                      
+      return 0;                                                                       
+  } 
 
 extern int vx_start(vx_device_h hdevice) {
     if (nullptr == hdevice)
