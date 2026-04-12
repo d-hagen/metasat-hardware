@@ -257,10 +257,6 @@ extern int vx_dev_caps(vx_device_h hdevice, uint32_t caps_id, uint64_t *value) {
     case VX_CAPS_LOCAL_MEM_SIZE:
         *value = 1ull << ((device->dev_caps >> 40) & 0xff);
         break;
-    case VX_CAPS_KERNEL_BASE_ADDR:
-        *value = (uint64_t(device->dcrs.read(VX_DCR_BASE_STARTUP_ADDR1)) << 32) |
-                           device->dcrs.read(VX_DCR_BASE_STARTUP_ADDR0);
-        break;
     case VX_CAPS_ISA_FLAGS:
         *value = device->isa_caps;
         break;
@@ -269,6 +265,28 @@ extern int vx_dev_caps(vx_device_h hdevice, uint32_t caps_id, uint64_t *value) {
         std::abort();
         return -1;
     }
+
+    return 0;
+}
+
+static int dcr_initialize(vx_device_h hdevice) {
+    const uint64_t startup_addr(STARTUP_ADDR);
+
+    CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ADDR0, startup_addr & 0xffffffff), {
+        return err;
+    });
+    CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ADDR1, startup_addr >> 32), {
+        return err;
+    });
+    CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ARG0, 0), {
+        return err;
+    });
+    CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ARG1, 0), {
+        return err;
+    });
+    CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_MPM_CLASS, 0), {
+        return err;
+    });
 
     return 0;
 }
@@ -298,7 +316,7 @@ extern int vx_dev_open(vx_device_h* hdevice) {
     }
 
     device->global_mem = std::make_shared<vortex::MemoryAllocator>(
-        ALLOC_BASE_ADDR, ALLOC_MAX_ADDR - ALLOC_BASE_ADDR, RAM_PAGE_SIZE, CACHE_BLOCK_SIZE);
+        ALLOC_BASE_ADDR, GLOBAL_MEM_SIZE - ALLOC_BASE_ADDR, RAM_PAGE_SIZE, CACHE_BLOCK_SIZE);
 
     uint64_t local_mem_size = 0;
     vx_dev_caps(device, VX_CAPS_LOCAL_MEM_SIZE, &local_mem_size);
@@ -625,8 +643,16 @@ extern int vx_dcr_write(vx_device_h hdevice, uint32_t addr, uint32_t value) { //
   }                                                                                   
 
 
-//needed for vx_upload_kernel_bytes but as i understand there is no permissions 
-extern int vx_mem_access(vx_buffer_h hbuffer, uint64_t offset, uint64_t size, int  flags) {                                                                            
+//needed for vx_upload_kernel_bytes but as i understand there is no permissions
+extern int vx_mem_access(vx_buffer_h hbuffer, uint64_t offset, uint64_t size, int  flags) {
       return 0;
-  }   
+  }
+
+// stub — MetaSat AFU does not expose performance counters via MMIO
+extern int vx_mpm_query(vx_device_h hdevice, uint32_t addr, uint32_t core_id, uint64_t* value) {
+    if (nullptr == hdevice || nullptr == value)
+        return -1;
+    *value = 0;
+    return 0;
+}   
 
