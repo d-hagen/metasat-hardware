@@ -519,20 +519,47 @@ extern int vx_copy_from_dev(void* host_ptr, vx_buffer_h hbuffer, uint64_t
       return 0;                                                                       
   } 
 
-extern int vx_start(vx_device_h hdevice) {
-    if (nullptr == hdevice)
-        return -1;
+/// END OF MEM /////////
 
-    auto device = (vx_device*)hdevice;
 
-    CHECK_ERR(device->write_register(MMIO_CMD_TYPE, CMD_RUN), {
-        return -1;
-    });
-    
-    DBGPRINT("START\n",NULL);
+// Kernal now not always at same adress so need to actually write the adress 
 
-    return 0;
-}
+extern int vx_start(vx_device_h hdevice, vx_buffer_h hkernel, vx_buffer_h harguments) {                                                                       
+      if (nullptr == hdevice || nullptr == hkernel || nullptr == harguments)          
+          return -1;                                                                  
+                                                                                      
+      auto device = (vx_device*)hdevice;                                              
+      auto kernel = ((vx_buffer*)hkernel);
+      auto arguments = ((vx_buffer*)harguments);                                      
+   
+      uint64_t krnl_addr = kernel->addr;                                              
+      uint64_t args_addr = arguments->addr;                                           
+                                                                                      
+      // write kernel address to DCRs                                                  
+      CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ADDR0, krnl_addr ), {   // interface only 32  adress can be 64                                                         
+          return -1;                                                                          // -> split into two sends   
+      });                                                                             
+      CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ADDR1, krnl_addr >> 32), {   // >> 32 to get upper half
+          return -1;                                                                  
+      });
+                                                                                      
+      // write arguments address to DCRs
+      CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ARG0, args_addr), {                                                                      
+          return -1;                                                                  
+      });                                                                             
+      CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ARG1, args_addr >> 32), {    
+          return -1;                                                                  
+      });
+
+      // issue run command                                                            
+      CHECK_ERR(device->write_register(MMIO_CMD_TYPE, CMD_RUN), {
+          return -1;                                                                  
+      });                                                                             
+                                                                                      
+      DBGPRINT("START: krnl_addr=0x%lx, args_addr=0x%lx\n", krnl_addr, args_addr);    
+   
+      return 0;                                                                       
+  }        
 
 extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
     if (nullptr == hdevice)
@@ -571,7 +598,7 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
     return 0;
 }
 
-extern int vx_dcr_write(vx_device_h hdevice, uint32_t addr, uint64_t value) {
+extern int vx_dcr_write(vx_device_h hdevice, uint32_t addr, uint32_t value) { //switch to 32 as the writes are 32 anyway
     if (nullptr == hdevice)
         return -1;
 
