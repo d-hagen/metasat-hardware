@@ -614,3 +614,19 @@ extern int vx_dcr_write(vx_device_h hdevice, uint32_t addr, uint32_t value) { //
     
     return 0;
 }
+
+  extern int vx_dcr_read(vx_device_h hdevice, uint32_t addr, uint32_t* value) {
+      if (nullptr == hdevice || nullptr == value)                                     
+          return -1;
+                                                                                      
+      auto device = (vx_device*)hdevice;                                              
+                                                                                      
+      return device->dcrs.read(addr, value);                                          
+  }                                                                                   
+
+
+//needed for vx_upload_kernel_bytes but as i understand there is no permissions 
+extern int vx_mem_access(vx_buffer_h hbuffer, uint64_t offset, uint64_t size, int  flags) {                                                                            
+      return 0;
+  }   
+
