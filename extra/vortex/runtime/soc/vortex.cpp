@@ -74,11 +74,7 @@
 #define MEM_TRANSF_WIDTH    (32/8)
 #endif
 
-#ifndef NDEBUG
-#define DBGPRINT(format, ...) do { printf("[VXDRV] " format "", ##__VA_ARGS__); } while (0)
-#else
-#define DBGPRINT(format, ...) ((void)0)
-#endif
+// DBGPRINT and CHECK_ERR provided by common.h
 
 #define CHECK_HANDLE(handle, _expr, _cleanup)   \
     auto handle = _expr;                        \
@@ -86,15 +82,6 @@
         printf("[VXDRV] Error: '%s' returned NULL!\n", #_expr); \
         _cleanup                                \
     }
-
-#define CHECK_ERR(_expr, _cleanup)              \
-    do {                                        \
-        auto err = _expr;                       \
-        if (err == 0)                           \
-            break;                              \
-        printf("[VXDRV] Error: '%s' returned %d!\n", #_expr, (int)err); \
-        _cleanup                                \
-    } while (false)
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -151,14 +138,14 @@ class vx_device {
         int write_register(uint64_t addr, uint64_t value)
         {
             CHECK_ERR(axi_.write32(addr, (uint32_t) value), { return -1; });
-            DBGPRINT("*** write_register: addr=0x%x, value=0x%x\n", addr, value);
+            DBGPRINT("*** write_register: addr=0x%lx, value=0x%lx\n", addr, value);
             return 0;
         }
 
         int read_register(uint64_t addr, uint64_t* value)
         {
             CHECK_ERR(axi_.read32(addr, (uint32_t*)value), { return -1; });
-            DBGPRINT("*** read_register: addr=0x%x, value=0x%x\n", addr, *value);
+            DBGPRINT("*** read_register: addr=0x%lx, value=0x%lx\n", addr, *value);
             return 0;
 
         }
@@ -166,14 +153,14 @@ class vx_device {
         int write_register64(uint64_t addr, uint64_t value)
         {
             CHECK_ERR(axi_.write64(addr, value), { return -1; });
-            DBGPRINT("*** write_register: addr=0x%x, value=0x%lx\n", addr, value);
+            DBGPRINT("*** write_register: addr=0x%lx, value=0x%lx\n", addr, value);
             return 0;
         }
 
         int read_register64(uint64_t addr, uint64_t* value)
         {
             CHECK_ERR(axi_.read64(addr, value), { return -1; });
-            DBGPRINT("*** read_register: addr=0x%x, value=0x%lx\n", addr, *value);
+            DBGPRINT("*** read_register: addr=0x%lx, value=0x%lx\n", addr, *value);
             return 0;
 
         }
@@ -362,7 +349,7 @@ extern int vx_dev_open(vx_device_h* hdevice) {
 
     *hdevice = device;    
 
-    DBGPRINT("device creation complete!\n",NULL);
+    DBGPRINT("device creation complete!\n");
     return 0;
 }
 
@@ -382,7 +369,7 @@ extern int vx_dev_close(vx_device_h hdevice) {
 
     delete device;
 
-    DBGPRINT("device destroyed!\n",NULL);
+    DBGPRINT("device destroyed!\n");
 
     return 0;
 }
@@ -627,7 +614,7 @@ extern int vx_dcr_write(vx_device_h hdevice, uint32_t addr, uint32_t value) { //
     CHECK_ERR(device->write_register(MMIO_CMD_TYPE, CMD_DCR_WRITE), { return -1; });
 
     // save the value
-    DBGPRINT("DCR_WRITE: addr=0x%x, value=0x%lx\n", addr, value);
+    DBGPRINT("DCR_WRITE: addr=0x%x, value=0x%x\n", addr, value);
     device->dcrs.write(addr, value);
     
     return 0;
