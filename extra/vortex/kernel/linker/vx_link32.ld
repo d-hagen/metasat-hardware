@@ -1,0 +1,1 @@
+../scripts/link32.ld
