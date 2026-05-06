@@ -1,13 +1,9 @@
 # QuestaSim Simulation Setup Makefile
 #
 # Usage:
-#   make -f setup_sim.mk UNISIM_SRC=~/unisims SIM_DIR=$(pwd) all
-#
-# Or run individual targets:
-#   make -f setup_sim.mk UNISIM_SRC=~/unisims compile-unisim
-#   make -f setup_sim.mk SIM_DIR=$(pwd) map-unisim
-#   make -f setup_sim.mk SIM_DIR=$(pwd) TEST=memory select-test
-#   make -f setup_sim.mk SIM_DIR=$(pwd) run-sim
+#   make -f setup_sim.mk UNISIM_SRC=~/unisims all
+#   make -f setup_sim.mk run-sim
+#   make -f setup_sim.mk TEST=evaluation run-sim
 
 # ---- Environment setup ----
 export PATH := /opt/siemens/questasim/bin:$(PATH)
@@ -23,6 +19,7 @@ TEST         ?= memory
 
 # ---- Derived paths ----
 UNISIM_LIB   = $(UNISIM_SRC)/unisim
+AXIMEM       = $(GRLIB)/lib/gaisler/sim/aximem.vhd
 
 .PHONY: all check-paths compile-unisim map-unisim scripts-gen \
         patch-aximem select-test run-sim clean-unisim help
@@ -30,8 +27,7 @@ UNISIM_LIB   = $(UNISIM_SRC)/unisim
 all: check-paths compile-unisim scripts-gen map-unisim select-test
 	@echo ""
 	@echo "=== Setup complete ==="
-	@echo "Run:  make metasat-sim"
-	@echo "Or:   make vsim-launch"
+	@echo "Run:  make -f setup_sim.mk run-sim"
 
 # ---- Step 1: Verify prerequisites ----
 check-paths:
@@ -53,7 +49,12 @@ compile-unisim: check-paths
 	cd $(UNISIM_SRC) && vcom -work unisim retarget/*.vhd
 	@echo "=== UNISIM compiled ==="
 
-# ---- Step 3: Map UNISIM into simulation directory ----
+# ---- Step 3: Generate GRLIB scripts ----
+scripts-gen:
+	@echo "=== Generating GRLIB scripts ==="
+	cd $(SIM_DIR) && $(MAKE) scripts
+
+# ---- Step 4: Map UNISIM into simulation directory ----
 map-unisim:
 	@echo "=== Mapping UNISIM library ==="
 	cd $(SIM_DIR) && vmap unisim $(abspath $(UNISIM_LIB))
@@ -61,16 +62,11 @@ map-unisim:
 		echo 'vmap unisim $(abspath $(UNISIM_LIB))' >> $(SIM_DIR)/libs.do
 	@echo "=== UNISIM mapped ==="
 
-# ---- Step 4: Generate GRLIB scripts ----
-scripts-gen:
-	@echo "=== Generating GRLIB scripts ==="
-	cd $(SIM_DIR) && $(MAKE) scripts
-
 # ---- Step 5: Patch aximem.vhd AXI ID width (4 -> 32) ----
 patch-aximem:
 	@echo "=== Patching aximem.vhd ID width to 32 ==="
-	sed -i 's/id: std_logic_vector(3 downto 0)/id: std_logic_vector(31 downto 0)/g' \
-		$(GRLIB)/lib/gaisler/sim/aximem.vhd
+	sed -i 's/id: std_logic_vector(3 downto 0)/id: std_logic_vector(31 downto 0)/g' $(AXIMEM)
+	sed -i "s/id => \"0000\"/id => (others => '0')/g" $(AXIMEM)
 	@echo "=== Patched ==="
 
 # ---- Step 6: Select test program ----
@@ -87,7 +83,7 @@ else
 endif
 
 # ---- Step 7: Run simulation ----
-run-sim: patch-aximem
+run-sim: patch-aximem select-test
 	@echo "=== Running simulation ==="
 	cd $(SIM_DIR) && $(MAKE) metasat-sim
 
@@ -109,7 +105,5 @@ help:
 	@echo "  clean-unisim    - Delete compiled UNISIM library"
 	@echo ""
 	@echo "Variables:"
-	@echo "  UNISIM_SRC      - Path to unisims/ source folder  (default: ~/unisims)"
-	@echo "  SIM_DIR         - Simulation working directory     (default: current dir)"
+	@echo "  UNISIM_SRC      - Path to unisims/ source folder  (default: ../../../unisims)"
 	@echo "  TEST            - Test to run: memory|evaluation   (default: memory)"
-	@echo "  QUESTASIM       - QuestaSim bin path               (default: /opt/siemens/questasim/bin)"
