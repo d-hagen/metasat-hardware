@@ -19,7 +19,7 @@ TEST         ?= memory
 
 # ---- Derived paths ----
 UNISIM_LIB   = $(UNISIM_SRC)/unisim
-AXIMEM       = $(GRLIB)/lib/gaisler/sim/aximem.vhd
+AXI_SIM_DIR  = $(GRLIB)/lib/gaisler/sim
 
 .PHONY: all check-paths compile-unisim map-unisim scripts-gen \
         patch-aximem select-test run-sim clean-unisim help
@@ -62,11 +62,13 @@ map-unisim:
 		echo 'vmap unisim $(abspath $(UNISIM_LIB))' >> $(SIM_DIR)/libs.do
 	@echo "=== UNISIM mapped ==="
 
-# ---- Step 5: Patch aximem.vhd AXI ID width (4 -> 32) ----
+# ---- Step 5: Patch AXI sim models ID width (4 -> 32) ----
 patch-aximem:
-	@echo "=== Patching aximem.vhd ID width to 32 ==="
-	sed -i 's/id: std_logic_vector(3 downto 0)/id: std_logic_vector(31 downto 0)/g' $(AXIMEM)
-	sed -i "s/id => \"0000\"/id => (others => '0')/g" $(AXIMEM)
+	@echo "=== Patching AXI sim model ID widths to 32 ==="
+	for f in $(AXI_SIM_DIR)/aximem.vhd $(AXI_SIM_DIR)/axirep.vhd $(AXI_SIM_DIR)/axixmem.vhd; do \
+		sed -i 's/id: std_logic_vector(3 downto 0)/id: std_logic_vector(31 downto 0)/g' $$f; \
+		sed -i "s/id => \"0000\"/id => (others => '0')/g" $$f; \
+	done
 	@echo "=== Patched ==="
 
 # ---- Step 6: Select test program ----
@@ -99,7 +101,7 @@ help:
 	@echo "  compile-unisim  - Compile Xilinx UNISIM VHDL library"
 	@echo "  map-unisim      - Map UNISIM library into simulation directory"
 	@echo "  scripts-gen     - Generate GRLIB simulation scripts"
-	@echo "  patch-aximem    - Fix AXI ID width in aximem.vhd (4 -> 32 bits)"
+	@echo "  patch-aximem    - Fix AXI ID width in sim models (4 -> 32 bits)"
 	@echo "  select-test     - Copy test .srec to ram.srec (TEST=memory|evaluation)"
 	@echo "  run-sim         - Patch + run full simulation (make metasat-sim)"
 	@echo "  clean-unisim    - Delete compiled UNISIM library"
