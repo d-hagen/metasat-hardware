@@ -1,9 +1,9 @@
 # QuestaSim Simulation Setup Makefile
 #
 # Usage:
-#   make -f setup_sim.mk UNISIM_SRC=~/unisims all
-#   make -f setup_sim.mk run-sim
-#   make -f setup_sim.mk TEST=evaluation run-sim
+#   make -f setup_sim.mk all              # first-time setup
+#   make -f setup_sim.mk run-sim          # run memory test
+#   make -f setup_sim.mk TEST=evaluation run-sim  # run evaluation test
 
 # ---- Environment setup ----
 export PATH := /opt/siemens/questasim/bin:$(PATH)
@@ -13,7 +13,6 @@ export SALT_LICENSE_SERVER := 1717@questa.fib.upc.edu
 UNISIM_SRC   ?= ../../../unisims
 SIM_DIR      ?= $(CURDIR)
 GRLIB        ?= ../../grlib
-QUESTASIM    ?= /opt/siemens/questasim/bin
 EVAL_DIR     ?= ../../extra/vortex/eval
 TEST         ?= memory
 
@@ -21,10 +20,10 @@ TEST         ?= memory
 UNISIM_LIB   = $(UNISIM_SRC)/unisim
 AXI_SIM_DIR  = $(GRLIB)/lib/gaisler/sim
 
-.PHONY: all check-paths compile-unisim map-unisim scripts-gen \
+.PHONY: all check-paths compile-unisim scripts-gen map-unisim \
         patch-aximem select-test run-sim clean-unisim help
 
-all: check-paths compile-unisim scripts-gen map-unisim select-test
+all: check-paths compile-unisim scripts-gen map-unisim patch-aximem select-test
 	@echo ""
 	@echo "=== Setup complete ==="
 	@echo "Run:  make -f setup_sim.mk run-sim"
@@ -49,9 +48,10 @@ compile-unisim: check-paths
 	cd $(UNISIM_SRC) && vcom -work unisim retarget/*.vhd
 	@echo "=== UNISIM compiled ==="
 
-# ---- Step 3: Generate GRLIB scripts ----
+# ---- Step 3: Regenerate GRLIB scripts (discovers vortex library via dirs.txt) ----
 scripts-gen:
 	@echo "=== Generating GRLIB scripts ==="
+	cd $(SIM_DIR) && $(MAKE) scripts-clean
 	cd $(SIM_DIR) && $(MAKE) scripts
 
 # ---- Step 4: Map UNISIM into simulation directory ----
@@ -99,8 +99,8 @@ help:
 	@echo "Targets:"
 	@echo "  all             - Full setup (compile UNISIM, map, generate scripts, select test)"
 	@echo "  compile-unisim  - Compile Xilinx UNISIM VHDL library"
+	@echo "  scripts-gen     - Clean and regenerate GRLIB simulation scripts"
 	@echo "  map-unisim      - Map UNISIM library into simulation directory"
-	@echo "  scripts-gen     - Generate GRLIB simulation scripts"
 	@echo "  patch-aximem    - Fix AXI ID width in sim models (4 -> 32 bits)"
 	@echo "  select-test     - Copy test .srec to ram.srec (TEST=memory|evaluation)"
 	@echo "  run-sim         - Patch + run full simulation (make metasat-sim)"
