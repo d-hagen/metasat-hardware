@@ -27,7 +27,7 @@ UNISIM_LIB   = $(UNISIM_SRC)/unisim
 .PHONY: all check-paths compile-unisim map-unisim scripts-gen \
         patch-aximem select-test run-sim clean-unisim help
 
-all: check-paths compile-unisim map-unisim scripts-gen select-test
+all: check-paths compile-unisim scripts-gen map-unisim select-test
 	@echo ""
 	@echo "=== Setup complete ==="
 	@echo "Run:  make metasat-sim"
