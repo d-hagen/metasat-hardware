@@ -11,7 +11,7 @@ export PATH := /opt/siemens/questasim/bin:$(PATH)
 export SALT_LICENSE_SERVER := 1717@questa.fib.upc.edu
 
 # ---- User-configurable paths ----
-UNISIM_SRC   ?= /dades/unisims
+UNISIM_SRC   ?= /dades/dan.joshua.hagen/unisims
 SIM_DIR      ?= $(CURDIR)
 GRLIB        ?= ../../grlib
 EVAL_DIR     ?= ../../extra/vortex/eval
@@ -36,7 +36,7 @@ check-paths:
 	@echo "=== Checking prerequisites ==="
 	@which vlib  > /dev/null 2>&1 || (echo "ERROR: QuestaSim not on PATH" && exit 1)
 	@which vcom  > /dev/null 2>&1 || (echo "ERROR: QuestaSim not on PATH" && exit 1)
-	@test -d "$(UNISIM_SRC)" || (echo "ERROR: UNISIM_SRC=$(UNISIM_SRC) not found. Place unisims/ in /dades/" && exit 1)
+	@test -d "$(UNISIM_SRC)" || (echo "ERROR: UNISIM_SRC=$(UNISIM_SRC) not found. Place unisims/ in /dades/dan.joshua.hagen/" && exit 1)
 	@test -f "$(UNISIM_SRC)/unisim_VCOMP.vhd" || (echo "ERROR: unisim_VCOMP.vhd not found in $(UNISIM_SRC)" && exit 1)
 	@echo "OK"
 
@@ -128,5 +128,5 @@ help:
 	@echo "  clean-unisim    - Delete compiled UNISIM library"
 	@echo ""
 	@echo "Variables:"
-	@echo "  UNISIM_SRC      - Path to unisims/ folder  (default: /dades/unisims)"
+	@echo "  UNISIM_SRC      - Path to unisims/ folder  (default: /dades/dan.joshua.hagen/unisims)"
 	@echo "  TEST            - memory | evaluation       (default: memory)"
