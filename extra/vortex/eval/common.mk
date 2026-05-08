@@ -13,6 +13,8 @@ ELF_CLASS = elf$(XLEN)-littleriscv
 # Compiler flags
 CXXFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
 CFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
+# Heap configuration for bare-metal simulation (BCC startup needs heap bounds)
+LDFLAGS += -Wl,--defsym=__bcc_heap_max=0x10000000
 
 # Vortex Compiler
 RISCV_TOOLCHAIN_PATH = /home/dan/tools/riscv32-gnu-toolchain
