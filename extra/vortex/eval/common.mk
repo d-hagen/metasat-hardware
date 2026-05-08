@@ -13,8 +13,6 @@ ELF_CLASS = elf$(XLEN)-littleriscv
 # Compiler flags
 CXXFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
 CFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
-# Heap configuration for bare-metal simulation (BCC startup needs heap bounds)
-LDFLAGS += -Wl,--defsym=__bcc_heap_max=0x10000000
 
 # Vortex Compiler
 RISCV_TOOLCHAIN_PATH = /home/dan/tools/riscv32-gnu-toolchain
@@ -24,6 +22,7 @@ VX_CC  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-gcc
 VX_CXX = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-g++
 VX_DP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objdump
 VX_CP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objcopy
+VXBIN  = python3 $(VORTEX_KN_PATH)/scripts/vxbin.py
 
 VORTEX_KN_PATH = /home/dan/metasat-hardware/extra/vortex/kernel
 VORTEX_RT_PATH = /home/dan/metasat-hardware/extra/vortex/runtime
@@ -46,7 +45,7 @@ BDIR := build
 ODIR ?= .
 
 BDIR_CPU := $(BDIR)/cpu
-BDIR_GPU := $(BDIR)/cpu
+BDIR_GPU := $(BDIR)/gpu
 
 OBJ = $(addprefix $(BDIR_CPU)/, $(patsubst %,%.o, $(basename $(notdir $(SRC)))))
 VX_OBJ = $(addprefix $(BDIR_GPU)/, $(patsubst %,%.vx, $(basename $(notdir $(VX_SRC)))))
@@ -54,7 +53,7 @@ VX_OBJ = $(addprefix $(BDIR_GPU)/, $(patsubst %,%.vx, $(basename $(notdir $(VX_S
 ### RULES
 # Rule to create the build directory
 $(BDIR):
-	@mkdir -p $(BDIR)/{cpu,gpu}
+	@mkdir -p $(BDIR)/cpu $(BDIR)/gpu
 
 # Pattern rule to compile .c files
 $(BDIR_CPU)/%.o: $(SDIR)/%.c | $(BDIR)
@@ -77,7 +76,7 @@ $(TEST)-$(MAKECMDGOALS): $(VX_OBJ) $(OBJ)
             $< $@
 
 %.bin: %.elf
-	$(VX_CP) -O binary $^ $@
+	OBJCOPY=$(VX_CP) $(VXBIN) $< $@
 
 %.elf: $(VX_SRC) | $(BDIR)
 	$(VX_CXX) $(VX_CFLAGS) $(VX_SRC) $(VX_LDFLAGS) -o $@

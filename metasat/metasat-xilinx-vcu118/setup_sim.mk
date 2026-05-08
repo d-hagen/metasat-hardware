@@ -4,7 +4,9 @@
 #   cd metasat/metasat-xilinx-vcu118
 #   make -f setup_sim.mk all       # one-time setup (compiles UNISIM, generates scripts, patches)
 #   make -f setup_sim.mk run-sim   # run memory test
-#   make -f setup_sim.mk TEST=evaluation run-sim  # run evaluation test
+#   make -f setup_sim.mk TEST=evaluation run-sim       # run evaluation test
+#   make -f setup_sim.mk TEST=memory-light run-sim     # run fast memory test (SIZE=16)
+#   make -f setup_sim.mk TEST=evaluation-light run-sim # run fast evaluation test (SIZE=16)
 
 # ---- Environment setup ----
 export PATH := /opt/siemens/questasim/bin:$(PATH)
@@ -87,13 +89,19 @@ patch-aximem:
 # ---- Step 7: Select test program ----
 select-test:
 ifeq ($(TEST),memory)
-	@echo "=== Selecting memory test ==="
+	@echo "=== Selecting memory test (SIZE=1024) ==="
 	cp $(EVAL_DIR)/memory/gpu-memory.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),memory-light)
+	@echo "=== Selecting memory-light test (SIZE=16) ==="
+	cp $(EVAL_DIR)/memory/gpu-memory-light.srec $(SIM_DIR)/ram.srec
 else ifeq ($(TEST),evaluation)
-	@echo "=== Selecting evaluation test ==="
+	@echo "=== Selecting evaluation test (SIZE=1024) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),evaluation-light)
+	@echo "=== Selecting evaluation-light test (SIZE=16) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-light.srec $(SIM_DIR)/ram.srec
 else
-	@echo "ERROR: Unknown TEST=$(TEST). Use TEST=memory or TEST=evaluation"
+	@echo "ERROR: Unknown TEST=$(TEST). Use TEST=memory|memory-light|evaluation|evaluation-light"
 	@exit 1
 endif
 
@@ -129,4 +137,4 @@ help:
 	@echo ""
 	@echo "Variables:"
 	@echo "  UNISIM_SRC      - Path to unisims/ folder  (default: /dades/dan.joshua.hagen/unisims)"
-	@echo "  TEST            - memory | evaluation       (default: memory)"
+	@echo "  TEST            - memory | memory-light | evaluation | evaluation-light  (default: memory)"

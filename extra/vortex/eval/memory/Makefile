@@ -16,3 +16,13 @@ all:
 include ../common.mk
 
 vortex: $(TEST)-vortex
+
+vortex-light:
+	$(MAKE) clean-all
+	$(MAKE) vortex SIZE=16
+
+srec: gpu-memory-vortex
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec $< gpu-memory.srec
+
+srec-light: vortex-light
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-memory-vortex gpu-memory-light.srec
