@@ -1,6 +1,6 @@
 TEST = gpu-evaluation
 
-SRC = src/main.c
+SRC = src/main.c src/heap_init.c
 
 VX_SRC = src/kernel.c
 

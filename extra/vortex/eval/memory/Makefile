@@ -1,6 +1,6 @@
 TEST = gpu-memory
 
-SRC = src/main.c
+SRC = src/main.c src/heap_init.c
 
 CFLAGS += -I$(VORTEX_RT_PATH)/include -I$(VORTEX_KN_PATH)/../hw
 LDFLAGS += $(VORTEX_RT_PATH)/soc/libvortex.a
