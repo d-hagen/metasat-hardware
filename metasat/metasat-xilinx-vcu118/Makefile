@@ -1,3 +1,6 @@
+export PATH := /opt/siemens/questasim/bin:$(PATH)
+export SALT_LICENSE_SERVER := 1717@questa.fib.upc.edu
+
 ### GRLIB general setup and extra target to clean software
 
 ############  RISC-V NOEL-V Core  ########################
