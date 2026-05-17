@@ -19,7 +19,6 @@ extra/vortex/hw/syn/soc/grlib/svlogsyn.txt
 extra/vortex/hw/syn/soc/obj_dir/
 
 # Generated eval-test artifacts
-extra/vortex/eval/*/gpu-*.srec
 extra/vortex/eval/*/gpu-*-vortex
 extra/vortex/eval/*/build/
 
