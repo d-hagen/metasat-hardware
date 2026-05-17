@@ -138,3 +138,173 @@ help:
 	@echo "Variables:"
 	@echo "  UNISIM_SRC      - Path to unisims/ folder  (default: /dades/dan.joshua.hagen/unisims)"
 	@echo "  TEST            - memory | memory-light | evaluation | evaluation-light  (default: memory)"
+	@echo ""
+	@echo "Reconfiguring after vx_config.inc changes:"
+	@echo "  make -f setup_sim.mk reconfig                    (uses current vx_config.inc)"
+	@echo "  make -f setup_sim.mk reconfig CORES=1            (set NUM_CORES=1 then rebuild)"
+	@echo "  make -f setup_sim.mk reconfig CORES=2 WARPS=4 THREADS=4"
+	@echo "  make -f setup_sim.mk reconfig NCPU=1 L2_EN=0 CPU_CFG=513   (CPU config in config.vhd)"
+	@echo "  make -f setup_sim.mk reconfig CORES=1 NCPU=1 L2_EN=0 CPU_CFG=513   (combined)"
+	@echo "  make -f setup_sim.mk check-config                (read-only diagnostic, no rebuild)"
+	@echo "  make -f setup_sim.mk reconfig-full CORES=1 NCPU=1 (true ground-up rebuild incl. UNISIM, ~15+ min)"
+
+# ============================================================
+# Reconfigure: clean rebuild after editing vx_config.inc
+# ============================================================
+# Usage:
+#   1. edit vx_config.inc (e.g. NUM_CORES = 1)
+#   2. make -f setup_sim.mk reconfig
+#   3. make -f setup_sim.mk TEST=memory-light run-sim
+#
+# This nukes all cached Vortex/QuestaSim state and verifies that
+# NUM_CORES from vx_config.inc actually propagates through the
+# build pipeline (sources.txt -> work library).
+
+VX_SOC_DIR = ../../extra/vortex/hw/syn/soc
+
+.PHONY: reconfig check-config
+
+reconfig:
+	@if [ -n "$(CORES)" ]; then \
+		echo "=== Setting NUM_CORES = $(CORES) in vx_config.inc ==="; \
+		sed -i "s|^\([[:space:]]*NUM_CORES[[:space:]]*=[[:space:]]*\).*|\\1$(CORES)|" vx_config.inc; \
+	fi; \
+	if [ -n "$(WARPS)" ]; then \
+		echo "=== Setting NUM_WARPS = $(WARPS) in vx_config.inc ==="; \
+		sed -i "s|^\([[:space:]]*NUM_WARPS[[:space:]]*=[[:space:]]*\).*|\\1$(WARPS)|" vx_config.inc; \
+	fi; \
+	if [ -n "$(THREADS)" ]; then \
+		echo "=== Setting NUM_THREADS = $(THREADS) in vx_config.inc ==="; \
+		sed -i "s|^\([[:space:]]*NUM_THREADS[[:space:]]*=[[:space:]]*\).*|\\1$(THREADS)|" vx_config.inc; \
+	fi; \
+	if [ -n "$(XLEN)" ]; then \
+		echo "=== Setting XLEN = $(XLEN) in vx_config.inc ==="; \
+		sed -i "s|^\([[:space:]]*XLEN[[:space:]]*=[[:space:]]*\).*|\\1$(XLEN)|" vx_config.inc; \
+	fi; \
+	if [ -n "$(NCPU)" ]; then \
+		echo "=== Setting CFG_NCPU = $(NCPU) in config.vhd ==="; \
+		sed -i "s|^\([[:space:]]*constant CFG_NCPU[[:space:]]*:[[:space:]]*integer[[:space:]]*:=[[:space:]]*\)([0-9]\+);|\\1($(NCPU));|" config.vhd; \
+	fi; \
+	if [ -n "$(L2_EN)" ]; then \
+		echo "=== Setting CFG_L2_EN = $(L2_EN) in config.vhd ==="; \
+		sed -i "s|^\([[:space:]]*constant CFG_L2_EN[[:space:]]*:[[:space:]]*integer[[:space:]]*:=[[:space:]]*\)[0-9]\+;|\\1$(L2_EN);|" config.vhd; \
+	fi; \
+	if [ -n "$(CPU_CFG)" ]; then \
+		echo "=== Setting CFG_CFG = $(CPU_CFG) in config.vhd ==="; \
+		sed -i "s|^\([[:space:]]*constant CFG_CFG[[:space:]]*:[[:space:]]*integer[[:space:]]*:=[[:space:]]*\).*;|\\1$(CPU_CFG);|" config.vhd; \
+	fi; \
+	EXPECTED_CORES=$$(grep -E "^[[:space:]]*NUM_CORES[[:space:]]*=" vx_config.inc | sed "s/.*=[[:space:]]*//" | tr -d " "); \
+	echo "=== Expected NUM_CORES from vx_config.inc: $$EXPECTED_CORES ==="; \
+	if [ -z "$$EXPECTED_CORES" ]; then echo "FAIL: NUM_CORES not found in vx_config.inc"; exit 1; fi; \
+	echo ""; \
+	echo "=== Wiping cached state ==="; \
+	rm -rf .vortex work libs make.work make.vsim make.bem; \
+	$(MAKE) -C $(VX_SOC_DIR) clean 2>/dev/null || true; \
+	echo ""; \
+	echo "=== Regenerating Vortex sources ==="; \
+	$(MAKE) -C $(VX_SOC_DIR) grlib VX_CONFIG=$(abspath vx_config.inc); \
+	echo ""; \
+	echo "=== Verifying sources.txt has NUM_CORES=$$EXPECTED_CORES ==="; \
+	grep "NUM_CORES\|NUM_CLUSTERS" $(VX_SOC_DIR)/sources.txt; \
+	if ! grep -q "+define+NUM_CORES=$$EXPECTED_CORES" $(VX_SOC_DIR)/sources.txt; then \
+		echo "FAIL: sources.txt does not have +define+NUM_CORES=$$EXPECTED_CORES"; \
+		exit 1; \
+	fi; \
+	echo "OK: sources.txt correct"; \
+	echo ""; \
+	echo "=== Regenerating GRLIB scripts ==="; \
+	$(MAKE) scripts-clean; \
+	$(MAKE) scripts; \
+	echo ""; \
+	echo "=== Re-mapping libraries and patching sim models ==="; \
+	$(MAKE) -f setup_sim.mk map-unisim stub-libs patch-aximem; \
+	echo ""; \
+	echo "=== Recompiling RTL ==="; \
+	$(MAKE) metasat-sim; \
+	echo ""; \
+	echo "=== Verifying preprocessed src/VX_afu_ctrl.sv has NUM_CORES=$$EXPECTED_CORES ==="; \
+	if [ ! -f $(VX_SOC_DIR)/src/VX_afu_ctrl.sv ]; then \
+		echo "WARN: src/VX_afu_ctrl.sv does not exist - skip this check"; \
+	else \
+		BAKED=$$(grep -A6 "dev_caps" $(VX_SOC_DIR)/src/VX_afu_ctrl.sv | grep -oE "16.\([0-9]+ \* [0-9]+\)" | head -1); \
+		echo "  dev_caps NUM_CORES*NUM_CLUSTERS field: $$BAKED"; \
+		if [ -z "$$BAKED" ]; then \
+			echo "WARN: could not parse dev_caps line (file may have a different format)"; \
+		elif echo "$$BAKED" | grep -q "($$EXPECTED_CORES "; then \
+			echo "OK: preprocessed src/ has correct NUM_CORES"; \
+		else \
+			echo "FAIL: preprocessed src/ does NOT have NUM_CORES=$$EXPECTED_CORES"; \
+		fi; \
+	fi; \
+	echo "=== Verifying make.work has NUM_CORES=$$EXPECTED_CORES ==="; \
+	if [ -f make.work ]; then \
+		MW_CORES=$$(grep -oE "\+define\+NUM_CORES=[0-9]+" make.work | head -1); \
+		echo "  make.work: $$MW_CORES"; \
+		if echo "$$MW_CORES" | grep -q "=$$EXPECTED_CORES$$"; then \
+			echo "OK: make.work has correct NUM_CORES"; \
+		else \
+			echo "FAIL: make.work has wrong NUM_CORES"; \
+			exit 1; \
+		fi; \
+		MW_HOME=$$(grep -c "/home/dan" make.work); \
+		if [ "$$MW_HOME" = "0" ]; then \
+			echo "OK: make.work has no /home/dan paths"; \
+		else \
+			echo "FAIL: make.work has $$MW_HOME /home/dan references"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "WARN: make.work not found"; \
+	fi; \
+	echo "=== Verifying work library is fresher than vx_config.inc ==="; \
+	if [ -z "$$(find work -name _info -newer vx_config.inc 2>/dev/null | head -1)" ]; then \
+		echo "WARNING: no work/_info files newer than vx_config.inc - compile may have been skipped"; \
+	else \
+		echo "OK: work library was recompiled"; \
+	fi; \
+	echo ""; \
+	echo "=== Reconfiguration complete ==="; \
+	echo "Run: make -f setup_sim.mk TEST=memory-light run-sim"
+
+# ---- Full ground-up rebuild including UNISIM (slow, ~15+ min) ----
+# Use when you suspect anything cached is wrong. Accepts the same flags as reconfig.
+.PHONY: reconfig-full
+
+reconfig-full:
+	@echo "=== FULL REBUILD: wiping UNISIM library ==="
+	rm -rf $(UNISIM_LIB)
+	@echo "=== Recompiling UNISIM from source (this takes ~10 min) ==="
+	$(MAKE) -f setup_sim.mk compile-unisim
+	@echo "=== Running reconfig with same flags ==="
+	$(MAKE) -f setup_sim.mk reconfig CORES="$(CORES)" WARPS="$(WARPS)" THREADS="$(THREADS)" XLEN="$(XLEN)" NCPU="$(NCPU)" L2_EN="$(L2_EN)" CPU_CFG="$(CPU_CFG)"
+
+# ---- Check current build state without rebuilding ----
+check-config:
+	@echo "=== vx_config.inc ==="
+	@grep -E "^[[:space:]]*(NUM_CORES|NUM_WARPS|NUM_THREADS|XLEN)[[:space:]]*=" vx_config.inc
+	@echo ""
+	@echo "=== sources.txt defines ==="
+	@if [ -f $(VX_SOC_DIR)/sources.txt ]; then \
+		grep "NUM_CORES\|NUM_CLUSTERS\|XLEN\|NUM_WARPS\|NUM_THREADS" $(VX_SOC_DIR)/sources.txt; \
+	else \
+		echo "  (sources.txt not generated - run reconfig)"; \
+	fi
+	@echo ""
+	@echo "=== Work library state ==="
+	@if [ -d work ]; then \
+		echo "  vx_config.inc modified: $$(stat -c %y vx_config.inc)"; \
+		newest=$$(find work -name "_info" -printf "%TY-%Tm-%Td %TH:%TM  %p\n" 2>/dev/null | sort | tail -1); \
+		echo "  newest work/_info:      $$newest"; \
+		stale=$$(find work -name "_info" -not -newer vx_config.inc 2>/dev/null | wc -l); \
+		fresh=$$(find work -name "_info" -newer vx_config.inc 2>/dev/null | wc -l); \
+		echo "  fresh _info count: $$fresh    stale _info count: $$stale"; \
+	else \
+		echo "  (work/ does not exist - run reconfig)"; \
+	fi
+	@echo ""
+	@echo "=== Preprocessed dev_caps in src/VX_afu_ctrl.sv (NUM_CORES*NUM_CLUSTERS, NUM_WARPS, NUM_THREADS baked in) ==="
+	@if [ -f $(VX_SOC_DIR)/src/VX_afu_ctrl.sv ]; then \
+		grep -A6 "wire \[63:0\] dev_caps" $(VX_SOC_DIR)/src/VX_afu_ctrl.sv | head -8; \
+	else \
+		echo "  (src/VX_afu_ctrl.sv not generated - run reconfig)"; \
+	fi
