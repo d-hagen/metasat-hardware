@@ -3,7 +3,7 @@ COMMON_MK_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 VORTEX_HOME ?= $(abspath $(COMMON_MK_DIR)/..)
 
 # NOEL-V Compiler
-GCC_PREFIX ?= /home/dan/tools/ncc-1.0.4-gcc/bin/riscv-gaisler-elf-
+GCC_PREFIX ?= $(HOME)/tools/ncc-1.0.4-gcc/bin/riscv-gaisler-elf-
 CXX = $(GCC_PREFIX)g++
 CC  = $(GCC_PREFIX)gcc
 OD  = $(GCC_PREFIX)objdump
@@ -19,7 +19,7 @@ CXXFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
 CFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
 
 # Vortex Compiler
-RISCV_TOOLCHAIN_PATH ?= /home/dan/tools/riscv32-gnu-toolchain
+RISCV_TOOLCHAIN_PATH ?= $(HOME)/tools/riscv32-gnu-toolchain
 RISCV_PREFIX = riscv32-unknown-elf
 
 VX_CC  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-gcc

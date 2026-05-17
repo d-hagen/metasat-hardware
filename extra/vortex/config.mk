@@ -4,7 +4,7 @@ VORTEX_HOME ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 
 XLEN ?= 32
 
-TOOLDIR ?= /home/dan/tools
+TOOLDIR ?= $(HOME)/tools
 
 LLVM_VORTEX ?= $(TOOLDIR)/llvm-vortex
 
