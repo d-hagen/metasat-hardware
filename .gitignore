@@ -11,3 +11,17 @@ extra/vortex/.gitignore
 
 # Perf logs
 extra/vortex/perf/
+
+# Generated Vortex SoC build outputs
+extra/vortex/hw/syn/soc/sources.txt
+extra/vortex/hw/syn/soc/src/
+extra/vortex/hw/syn/soc/grlib/svlogsyn.txt
+extra/vortex/hw/syn/soc/obj_dir/
+
+# Generated eval-test artifacts
+extra/vortex/eval/*/gpu-*.srec
+extra/vortex/eval/*/gpu-*-vortex
+extra/vortex/eval/*/build/
+
+# OS junk
+.DS_Store
