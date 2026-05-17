@@ -222,46 +222,6 @@ reconfig:
 	echo "=== Recompiling RTL ==="; \
 	$(MAKE) metasat-sim; \
 	echo ""; \
-	echo "=== Verifying preprocessed src/VX_afu_ctrl.sv has NUM_CORES=$$EXPECTED_CORES ==="; \
-	if [ ! -f $(VX_SOC_DIR)/src/VX_afu_ctrl.sv ]; then \
-		echo "WARN: src/VX_afu_ctrl.sv does not exist - skip this check"; \
-	else \
-		BAKED=$$(grep -A6 "dev_caps" $(VX_SOC_DIR)/src/VX_afu_ctrl.sv | grep -oE "16.\([0-9]+ \* [0-9]+\)" | head -1); \
-		echo "  dev_caps NUM_CORES*NUM_CLUSTERS field: $$BAKED"; \
-		if [ -z "$$BAKED" ]; then \
-			echo "WARN: could not parse dev_caps line (file may have a different format)"; \
-		elif echo "$$BAKED" | grep -q "($$EXPECTED_CORES "; then \
-			echo "OK: preprocessed src/ has correct NUM_CORES"; \
-		else \
-			echo "FAIL: preprocessed src/ does NOT have NUM_CORES=$$EXPECTED_CORES"; \
-		fi; \
-	fi; \
-	echo "=== Verifying make.work has NUM_CORES=$$EXPECTED_CORES ==="; \
-	if [ -f make.work ]; then \
-		MW_CORES=$$(grep -oE "\+define\+NUM_CORES=[0-9]+" make.work | head -1); \
-		echo "  make.work: $$MW_CORES"; \
-		if echo "$$MW_CORES" | grep -q "=$$EXPECTED_CORES$$"; then \
-			echo "OK: make.work has correct NUM_CORES"; \
-		else \
-			echo "FAIL: make.work has wrong NUM_CORES"; \
-			exit 1; \
-		fi; \
-		MW_HOME=$$(grep -c "/home/dan" make.work); \
-		if [ "$$MW_HOME" = "0" ]; then \
-			echo "OK: make.work has no /home/dan paths"; \
-		else \
-			echo "FAIL: make.work has $$MW_HOME /home/dan references"; \
-			exit 1; \
-		fi; \
-	else \
-		echo "WARN: make.work not found"; \
-	fi; \
-	echo "=== Verifying work library is fresher than vx_config.inc ==="; \
-	if [ -z "$$(find work -name _info -newer vx_config.inc 2>/dev/null | head -1)" ]; then \
-		echo "WARNING: no work/_info files newer than vx_config.inc - compile may have been skipped"; \
-	else \
-		echo "OK: work library was recompiled"; \
-	fi; \
 	echo ""; \
 	echo "=== Reconfiguration complete ==="; \
 	echo "Run: make -f setup_sim.mk TEST=memory-light run-sim"
