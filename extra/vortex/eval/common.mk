@@ -1,3 +1,7 @@
+# Self-portable: derive VORTEX_HOME from this file location
+COMMON_MK_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
+VORTEX_HOME ?= $(abspath $(COMMON_MK_DIR)/..)
+
 # NOEL-V Compiler
 GCC_PREFIX ?= /home/dan/tools/ncc-1.0.4-gcc/bin/riscv-gaisler-elf-
 CXX = $(GCC_PREFIX)g++
@@ -15,7 +19,7 @@ CXXFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
 CFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
 
 # Vortex Compiler
-RISCV_TOOLCHAIN_PATH = /home/dan/tools/riscv32-gnu-toolchain
+RISCV_TOOLCHAIN_PATH ?= /home/dan/tools/riscv32-gnu-toolchain
 RISCV_PREFIX = riscv32-unknown-elf
 
 VX_CC  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-gcc
@@ -24,8 +28,8 @@ VX_DP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objdump
 VX_CP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objcopy
 VXBIN  = python3 $(VORTEX_KN_PATH)/scripts/vxbin.py
 
-VORTEX_KN_PATH = /home/dan/metasat-hardware/extra/vortex/kernel
-VORTEX_RT_PATH = /home/dan/metasat-hardware/extra/vortex/runtime
+VORTEX_KN_PATH = $(VORTEX_HOME)/kernel
+VORTEX_RT_PATH = $(VORTEX_HOME)/runtime
 
 # VX compiler flags
 VX_XLEN = 32

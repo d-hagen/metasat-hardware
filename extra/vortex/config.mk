@@ -1,6 +1,6 @@
 # MetaSat Vortex config.mk - generated for local VM build
 
-VORTEX_HOME ?= /home/dan/metasat-hardware/extra/vortex
+VORTEX_HOME ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 
 XLEN ?= 32
 
