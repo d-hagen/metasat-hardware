@@ -109,7 +109,7 @@ endif
 
 all: sources.txt
 
-sources.txt:
+sources.txt: $(VX_CONFIG)
 	mkdir -p $(BUILD_DIR); $(SCRIPT_DIR)/gen_sources.sh -P $(CFLAGS) -C$(BUILD_DIR) -Osources.txt
 	@rm -rf obj_dir
 
