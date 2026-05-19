@@ -1,4 +1,4 @@
-METASAT_DIR = /mnt/caos_hw/metasat/
+METASAT_DIR ?= /mnt/caos_hw/metasat/
 CXX = $(METASAT_DIR)/software/tools/compiler/riscv-sparrow-toolchain/bin/riscv-gaisler-elf-g++
 AR = $(METASAT_DIR)/software/tools/compiler/riscv-sparrow-toolchain/bin/riscv-gaisler-elf-ar
 
