@@ -151,3 +151,53 @@ wipe:
 	@echo "=== Wipe complete. Next: ==="
 	@echo "  make -f setup_sim.mk scripts-gen map-unisim stub-libs patch-aximem select-test compile-rtl"
 	@echo "  make -f setup_sim.mk TEST=evaluation-light run-sim"
+
+# ============================================================
+# check-config: report CPU + GPU config from source files AND
+# from current build artifacts. Surface drift between what the
+# files say and what was actually baked into the build.
+# ============================================================
+.PHONY: check-config
+check-config:
+	@echo
+	@echo "===== CPU config (config.vhd) ====="
+	@grep -E "^[[:space:]]*constant (CFG_NOELV|CFG_NCPU|CFG_CFG|CFG_L2_EN|CFG_L2_SIZE|CFG_L2_WAYS|CFG_VX_EN|CFG_FPNPEN)" config.vhd
+	@echo "  (CFG_CFG = CPU_TYPE*256 + FPU*128 + DUAL*2 + LITE; CPU_TYPE: HP=4, GP=3, MC=2)"
+	@echo
+	@echo "===== GPU config (vx_config.inc) ====="
+	@grep -E "^[[:space:]]*(XLEN|NUM_CORES|NUM_WARPS|NUM_THREADS|NUM_BARRIERS|EXT_F_EN|EXT_M_EN|DBG_TRACE_EN)[[:space:]]*=" vx_config.inc
+	@echo
+	@echo "===== Build state — Vortex preprocessed sources ====="
+	@if [ -f ../../extra/vortex/hw/syn/soc/sources.txt ]; then \
+		echo "  sources.txt defines:"; \
+		grep -E "\+define\+(NUM_CORES|NUM_CLUSTERS|NUM_WARPS|NUM_THREADS|XLEN|EXT)" ../../extra/vortex/hw/syn/soc/sources.txt | sed "s/^/    /"; \
+	else \
+		echo "  sources.txt: not generated  (run: make -f setup_sim.mk scripts-gen)"; \
+	fi
+	@if [ -f ../../extra/vortex/hw/syn/soc/src/VX_afu_ctrl.sv ]; then \
+		echo; \
+		echo "  src/VX_afu_ctrl.sv dev_caps (NUM_CORES*NUM_CLUSTERS, NUM_WARPS, NUM_THREADS literally baked in):"; \
+		grep -A6 "wire \[63:0\] dev_caps" ../../extra/vortex/hw/syn/soc/src/VX_afu_ctrl.sv | head -8 | sed "s/^/    /"; \
+	fi
+	@echo
+	@echo "===== Build state — QuestaSim ====="
+	@if [ -f make.vsim ]; then \
+		echo "  make.vsim NUM_CORES/CLUSTERS defines:"; \
+		grep -E "\+define\+(NUM_CORES|NUM_CLUSTERS)" make.vsim | head -3 | sed "s/^/    /" || echo "    (no NUM_CORES defines — patch_vortex_sim did not run)"; \
+	else \
+		echo "  make.vsim: not generated  (run: make -f setup_sim.mk scripts-gen)"; \
+	fi
+	@if [ -d work ]; then \
+		fresh=$$(find work -name _info -newer vx_config.inc 2>/dev/null | wc -l); \
+		stale=$$(find work -name _info -not -newer vx_config.inc 2>/dev/null | wc -l); \
+		echo "  work/_info: $$fresh newer than vx_config.inc, $$stale older"; \
+		if [ "$$stale" -gt 0 ] && [ "$$fresh" -eq 0 ]; then \
+			echo "  >>> STALE: work library predates current config — run make -f setup_sim.mk wipe <<<"; \
+		fi; \
+	else \
+		echo "  work/: not built yet"; \
+	fi
+	@if [ -f .vortex ]; then \
+		echo "  .vortex marker: present (blocks Vortex source regen — wipe if vx_config.inc changed)"; \
+	fi
+	@echo
