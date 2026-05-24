@@ -26,7 +26,7 @@ package config is
 -- NOEL-V processor core
   constant CFG_NOELV : integer := 1;
   constant CFG_NOELV_XLEN : integer := (64);
-  constant CFG_NCPU : integer := (4);
+  constant CFG_NCPU : integer := (1);
   -- HP(4), GP(3), MC(2) + LITE + NO_FPU + SINGLE_ISSUE
   constant CFG_CFG : integer := 4 * 256 + 0 * 128 + 0 * 2 + 0;
   constant CFG_NODBUS : integer := 1;

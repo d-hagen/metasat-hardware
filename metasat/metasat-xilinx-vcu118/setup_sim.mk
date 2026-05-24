@@ -138,3 +138,16 @@ help:
 	@echo "Variables:"
 	@echo "  UNISIM_SRC      - Path to unisims/ folder  (default: /dades/dan.joshua.hagen/unisims)"
 	@echo "  TEST            - memory | memory-light | evaluation | evaluation-light  (default: memory)"
+
+# ============================================================
+# wipe: clear all cached build state after editing vx_config.inc / config.vhd
+# Run this before scripts-gen / compile-rtl when config changes.
+# ============================================================
+.PHONY: wipe
+wipe:
+	@echo "=== Wiping cached state (work, .vortex, make.*) ==="
+	rm -rf work libs make.work make.vsim make.bem .vortex
+	$(MAKE) -C ../../extra/vortex/hw/syn/soc clean
+	@echo "=== Wipe complete. Next: ==="
+	@echo "  make -f setup_sim.mk scripts-gen map-unisim stub-libs patch-aximem select-test compile-rtl"
+	@echo "  make -f setup_sim.mk TEST=evaluation-light run-sim"
