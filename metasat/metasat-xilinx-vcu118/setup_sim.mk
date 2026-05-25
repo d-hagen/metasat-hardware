@@ -108,6 +108,7 @@ endif
 # ---- Step 8: Compile all RTL (GRLIB + NOEL-V + Vortex) ----
 compile-rtl:
 	@echo "=== Compiling RTL ==="
+	@touch .vortex   # uni-machine workaround: prevent gen_sources.sh from running (no verilator)
 	cd $(SIM_DIR) && $(MAKE) metasat-sim
 
 # ---- Step 9: Run simulation ----
@@ -145,9 +146,9 @@ help:
 # ============================================================
 .PHONY: wipe
 wipe:
-	@echo "=== Wiping cached state (work, .vortex, make.*) ==="
-	rm -rf work libs make.work make.vsim make.bem .vortex
-	$(MAKE) -C ../../extra/vortex/hw/syn/soc clean
+	@echo "=== Wiping cached build state (work, libs, make.*) ==="
+	rm -rf work libs make.work make.vsim make.bem
+	@echo "=== Keeping .vortex + Vortex src/ (no verilator on this machine to regenerate them) ==="
 	@echo "=== Wipe complete. Next: ==="
 	@echo "  make -f setup_sim.mk scripts-gen map-unisim stub-libs patch-aximem select-test compile-rtl"
 	@echo "  make -f setup_sim.mk TEST=evaluation-light run-sim"
@@ -212,19 +213,18 @@ check-config:
 .PHONY: nuke
 nuke:
 	@echo "=== NUCLEAR wipe: repo build state ==="
-	rm -rf work libs make.work make.vsim make.bem .vortex
-	@echo "=== Compiled libraries (vortex/, grlib/, gaisler/, ...) ==="
-	rm -rf vortex grlib gaisler techmap noelv sparrow secureip unisims_ver
+	rm -rf work libs make.work make.vsim make.bem
+	@echo "=== Compiled libraries (vortex/, grlib/, gaisler/, modelsim/, ...) ==="
+	rm -rf vortex grlib gaisler techmap noelv sparrow secureip unisims_ver modelsim
 	@echo "=== ModelSim config + stub libs in cwd ==="
 	rm -f modelsim.ini
 	@echo "=== vsim run artifacts ==="
 	rm -f transcript vsim.wlf vsim*.dbg vsim*.vstf vsim_stacktrace.vstf .vsim*
 	@echo "=== Selected test image ==="
 	rm -f ram.srec
-	@echo "=== Vortex preprocessed src/ + sources.txt ==="
-	$(MAKE) -C ../../extra/vortex/hw/syn/soc clean
 	@echo "=== Compiled UNISIM library ($(UNISIM_SRC)/unisim) -- the big one ==="
 	rm -rf $(UNISIM_SRC)/unisim
+	@echo "=== Keeping .vortex + Vortex src/ (no verilator on this machine to regenerate them) ==="
 	@echo ""
 	@echo "=== NUKE complete. Run next: ==="
 	@echo "  make -f setup_sim.mk all                            # ~15 min: full rebuild incl. UNISIM"
