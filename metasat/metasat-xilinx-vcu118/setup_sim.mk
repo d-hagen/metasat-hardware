@@ -277,3 +277,13 @@ check-all: check-config
 	@ls -la transcript vsim.wlf modelsim.ini ram.srec 2>/dev/null | sed "s/^/  /" || true
 	@if [ ! -f ram.srec ]; then echo "  (ram.srec missing -- run select-test before run-sim)"; fi
 	@echo
+
+# ============================================================
+# rebuild: bundle the incremental build pipeline. Equivalent to:
+#   scripts-gen map-unisim stub-libs patch-aximem select-test compile-rtl
+# Use after editing config.vhd or pulling new src/. Skips UNISIM
+# (already-compiled). For a full rebuild including UNISIM, use `all`.
+# ============================================================
+.PHONY: rebuild
+rebuild: scripts-gen map-unisim stub-libs patch-aximem select-test compile-rtl
+	@echo "=== rebuild complete; run: make -f setup_sim.mk TEST=<name> run-sim ==="
