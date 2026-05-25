@@ -187,17 +187,93 @@ check-config:
 	else \
 		echo "  make.vsim: not generated  (run: make -f setup_sim.mk scripts-gen)"; \
 	fi
-	@if [ -d work ]; then \
-		fresh=$$(find work -name _info -newer vx_config.inc 2>/dev/null | wc -l); \
-		stale=$$(find work -name _info -not -newer vx_config.inc 2>/dev/null | wc -l); \
-		echo "  work/_info: $$fresh newer than vx_config.inc, $$stale older"; \
-		if [ "$$stale" -gt 0 ] && [ "$$fresh" -eq 0 ]; then \
-			echo "  >>> STALE: work library predates current config — run make -f setup_sim.mk wipe <<<"; \
-		fi; \
+	@fresh=$$(find . -maxdepth 2 -name _info -newer vx_config.inc 2>/dev/null | wc -l); \
+	stale=$$(find . -maxdepth 2 -name _info -not -newer vx_config.inc 2>/dev/null | wc -l); \
+	if [ "$$fresh" -eq 0 ] && [ "$$stale" -eq 0 ]; then \
+		echo "  compiled libraries: none built yet"; \
 	else \
-		echo "  work/: not built yet"; \
+		echo "  compiled libraries: $$fresh _info files newer than vx_config.inc, $$stale older"; \
+		if [ "$$stale" -gt 0 ] && [ "$$fresh" -eq 0 ]; then \
+			echo "  >>> STALE: libraries predate current config -- run make -f setup_sim.mk wipe <<<"; \
+		fi; \
 	fi
 	@if [ -f .vortex ]; then \
 		echo "  .vortex marker: present (blocks Vortex source regen — wipe if vx_config.inc changed)"; \
 	fi
+	@echo
+
+# ============================================================
+# nuke: maximal wipe -- repo state + all compiled libraries +
+# UNISIM library + stubs + run artifacts + Vortex src/.
+# Use when you suspect environmental corruption (aborted
+# compiles, partial files, stale UNISIM, etc.). Takes ~15 min
+# to rebuild from scratch.
+# ============================================================
+.PHONY: nuke
+nuke:
+	@echo "=== NUCLEAR wipe: repo build state ==="
+	rm -rf work libs make.work make.vsim make.bem .vortex
+	@echo "=== Compiled libraries (vortex/, grlib/, gaisler/, ...) ==="
+	rm -rf vortex grlib gaisler techmap noelv sparrow secureip unisims_ver
+	@echo "=== ModelSim config + stub libs in cwd ==="
+	rm -f modelsim.ini
+	@echo "=== vsim run artifacts ==="
+	rm -f transcript vsim.wlf vsim*.dbg vsim*.vstf vsim_stacktrace.vstf .vsim*
+	@echo "=== Selected test image ==="
+	rm -f ram.srec
+	@echo "=== Vortex preprocessed src/ + sources.txt ==="
+	$(MAKE) -C ../../extra/vortex/hw/syn/soc clean
+	@echo "=== Compiled UNISIM library ($(UNISIM_SRC)/unisim) -- the big one ==="
+	rm -rf $(UNISIM_SRC)/unisim
+	@echo ""
+	@echo "=== NUKE complete. Run next: ==="
+	@echo "  make -f setup_sim.mk all                            # ~15 min: full rebuild incl. UNISIM"
+	@echo "  make -f setup_sim.mk TEST=memory-light run-sim      # run smallest test"
+
+# ============================================================
+# check-all: check-config + library timestamps + UNISIM
+# status + corruption probes (empty files in src/).
+# Run anytime to verify the build is in a sane state.
+# ============================================================
+.PHONY: check-all
+check-all: check-config
+	@echo
+	@echo "===== Compiled libraries (timestamps) ====="
+	@found=0; \
+	for info in $$(find . -maxdepth 2 -name _info 2>/dev/null | sort); do \
+		found=1; \
+		lib=$$(dirname $$info | sed "s|^\./||"); \
+		ts=$$(stat -c "%y" $$info 2>/dev/null | cut -d. -f1); \
+		if [ $$info -nt vx_config.inc ]; then status="fresh"; else status="STALE"; fi; \
+		printf "  %-15s %s  [%s]\n" "$$lib" "$$ts" "$$status"; \
+	done; \
+	if [ "$$found" -eq 0 ]; then echo "  (no libraries built yet)"; fi
+	@echo
+	@echo "===== UNISIM compiled library ====="
+	@if [ -d "$(UNISIM_SRC)/unisim" ]; then \
+		sz=$$(du -sh $(UNISIM_SRC)/unisim 2>/dev/null | cut -f1); \
+		echo "  $(UNISIM_SRC)/unisim: present ($$sz)"; \
+	else \
+		echo "  $(UNISIM_SRC)/unisim: MISSING -- run make -f setup_sim.mk compile-unisim"; \
+	fi
+	@echo
+	@echo "===== Vortex preprocessed src/ (corruption probe) ====="
+	@if [ -d ../../extra/vortex/hw/syn/soc/src ]; then \
+		n=$$(ls ../../extra/vortex/hw/syn/soc/src/ 2>/dev/null | wc -l); \
+		echo "  src/: $$n files"; \
+		empty=$$(find ../../extra/vortex/hw/syn/soc/src/ -type f -size 0 2>/dev/null | wc -l); \
+		if [ "$$empty" -gt 0 ]; then \
+			echo "  >>> $$empty empty files in src/ -- preprocessing aborted mid-way <<<"; \
+			find ../../extra/vortex/hw/syn/soc/src/ -type f -size 0 | sed "s/^/    /"; \
+			echo "  Fix: make -f setup_sim.mk nuke (then make all)"; \
+		else \
+			echo "  no empty files -- preprocessing complete"; \
+		fi; \
+	else \
+		echo "  src/: NOT GENERATED -- run make -f setup_sim.mk wipe + scripts-gen"; \
+	fi
+	@echo
+	@echo "===== Run artifacts (cwd) ====="
+	@ls -la transcript vsim.wlf modelsim.ini ram.srec 2>/dev/null | sed "s/^/  /" || true
+	@if [ ! -f ram.srec ]; then echo "  (ram.srec missing -- run select-test before run-sim)"; fi
 	@echo
