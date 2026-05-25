@@ -94,7 +94,7 @@ import VX_gpu_pkg::*;
             12'hCC3: read_data_ro_r = 32'(active_warps);
             12'hFC0: read_data_ro_r = 32'(4);
             12'hFC1  : read_data_ro_r = 32'(4);
-            12'hFC2  : read_data_ro_r = 32'(8 * 1);
+            12'hFC2  : read_data_ro_r = 32'(1 * 1);
             12'hFC3: read_data_ro_r = 32'(2130706432);
         12'hB00 : read_data_ro_r = cycles[31:0]; 
         12'hB00+12'h80 : read_data_ro_r = 32'(cycles[$bits(cycles)-1:32]);

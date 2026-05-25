@@ -11,7 +11,7 @@ module VX_socket import VX_gpu_pkg::*; #(
     VX_mem_bus_if #(
         .DATA_SIZE (ICACHE_WORD_SIZE),
         .TAG_WIDTH (ICACHE_TAG_WIDTH)
-    ) per_core_icache_bus_if[(((4) < (8)) ? (4) : (8))]();
+    ) per_core_icache_bus_if[(((4) < (1)) ? (4) : (1))]();
     VX_mem_bus_if #(
         .DATA_SIZE (ICACHE_LINE_SIZE),
         .TAG_WIDTH (ICACHE_MEM_TAG_WIDTH)
@@ -24,8 +24,8 @@ module VX_socket import VX_gpu_pkg::*; #(
     );
     VX_cache_cluster #(
         .INSTANCE_ID    ($sformatf("%s-icache", INSTANCE_ID)),
-        .NUM_UNITS      (((((((4) < (8)) ? (4) : (8)) / 4) != 0) ? ((((4) < (8)) ? (4) : (8)) / 4) : 1)),
-        .NUM_INPUTS     ((((4) < (8)) ? (4) : (8))),
+        .NUM_UNITS      (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)),
+        .NUM_INPUTS     ((((4) < (1)) ? (4) : (1))),
         .TAG_SEL_IDX    (0),
         .CACHE_SIZE     (16384),
         .LINE_SIZE      (ICACHE_LINE_SIZE),
@@ -52,7 +52,7 @@ module VX_socket import VX_gpu_pkg::*; #(
     VX_mem_bus_if #(
         .DATA_SIZE (DCACHE_WORD_SIZE),
         .TAG_WIDTH (DCACHE_TAG_WIDTH)
-    ) per_core_dcache_bus_if[(((4) < (8)) ? (4) : (8)) * DCACHE_NUM_REQS]();
+    ) per_core_dcache_bus_if[(((4) < (1)) ? (4) : (1)) * DCACHE_NUM_REQS]();
     VX_mem_bus_if #(
         .DATA_SIZE (DCACHE_LINE_SIZE),
         .TAG_WIDTH (DCACHE_MEM_TAG_WIDTH)
@@ -65,8 +65,8 @@ module VX_socket import VX_gpu_pkg::*; #(
     );
     VX_cache_cluster #(
         .INSTANCE_ID    ($sformatf("%s-dcache", INSTANCE_ID)),
-        .NUM_UNITS      (((((((4) < (8)) ? (4) : (8)) / 4) != 0) ? ((((4) < (8)) ? (4) : (8)) / 4) : 1)),
-        .NUM_INPUTS     ((((4) < (8)) ? (4) : (8))),
+        .NUM_UNITS      (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)),
+        .NUM_INPUTS     ((((4) < (1)) ? (4) : (1))),
         .TAG_SEL_IDX    (0),
         .CACHE_SIZE     (16384),
         .LINE_SIZE      (DCACHE_LINE_SIZE),
@@ -150,9 +150,9 @@ module VX_socket import VX_gpu_pkg::*; #(
     assign l1_mem_arb_bus_if[0].rsp_valid  = mem_bus_if.rsp_valid; 
     assign l1_mem_arb_bus_if[0].rsp_data   = mem_bus_if.rsp_data; 
     assign mem_bus_if.rsp_ready  = l1_mem_arb_bus_if[0].rsp_ready;
-    wire [(((4) < (8)) ? (4) : (8))-1:0] per_core_busy;
+    wire [(((4) < (1)) ? (4) : (1))-1:0] per_core_busy;
     VX_dcr_bus_if core_dcr_bus_if();
-    if (((((4) < (8)) ? (4) : (8)) > 1)) begin 
+    if (((((4) < (1)) ? (4) : (1)) > 1)) begin 
         reg [(1 + 12 + 32)-1:0] __dst; 
         always @(posedge clk) begin 
             __dst <= {dcr_bus_if.write_valid, dcr_bus_if.write_addr, dcr_bus_if.write_data}; 
@@ -161,7 +161,7 @@ module VX_socket import VX_gpu_pkg::*; #(
     end else begin 
         assign {core_dcr_bus_if.write_valid, core_dcr_bus_if.write_addr, core_dcr_bus_if.write_data} = {dcr_bus_if.write_valid, dcr_bus_if.write_addr, dcr_bus_if.write_data}; 
     end;
-    for (genvar core_id = 0; core_id < (((4) < (8)) ? (4) : (8)); ++core_id) begin : cores
+    for (genvar core_id = 0; core_id < (((4) < (1)) ? (4) : (1)); ++core_id) begin : cores
     wire [1-1:0] core_reset;                        
     VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __core_reset ( 
         .clk     (clk),                         
@@ -169,7 +169,7 @@ module VX_socket import VX_gpu_pkg::*; #(
         .reset_o (core_reset)                          
     );
         VX_core #(
-            .CORE_ID  ((SOCKET_ID * (((4) < (8)) ? (4) : (8))) + core_id),
+            .CORE_ID  ((SOCKET_ID * (((4) < (1)) ? (4) : (1))) + core_id),
             .INSTANCE_ID ($sformatf("%s-core%0d", INSTANCE_ID, core_id))
         ) core (
             .clk            (clk),
@@ -183,7 +183,7 @@ module VX_socket import VX_gpu_pkg::*; #(
     VX_pipe_register #( 
         .DATAW  ($bits(busy)), 
         .RESETW ($bits(busy)), 
-        .DEPTH  (((((4) < (8)) ? (4) : (8)) > 1)) 
+        .DEPTH  (((((4) < (1)) ? (4) : (1)) > 1)) 
     ) __busy__ ( 
         .clk      (clk), 
         .reset    (reset), 
