@@ -28,7 +28,7 @@ AR  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-gcc-ar
 DP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objdump
 CP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objcopy
 
-CFLAGS += -O3 -mcmodel=medany -fno-exceptions -fdata-sections -ffunction-sections
+CFLAGS += -Os -flto -mcmodel=medany -fno-exceptions -fdata-sections -ffunction-sections
 CFLAGS += -I$(INC_DIR) -I$(ROOT_DIR)/hw
 CFLAGS += -DXLEN_$(XLEN)
 
