@@ -44,11 +44,9 @@ make -C extra/vortex/hw/syn/soc all grlib \
     VX_CONFIG="$REPO_ROOT/metasat/metasat-xilinx-vcu118/vx_config.inc"
 
 echo "=== [3a/5] Build GPU-side Vortex kernel runtime (libvortexrt.a) ==="
-# On sim/uni-machine, kernel/Makefile uses -Os -flto to shrink the runtime
-# (default upstream is -O3, much larger). The smaller libvortexrt.a is what
-# vx_upload_kernel_bytes pushes through MMIO during evaluation tests.
-# kernel/Makefile produces libvortex.a — eval/common.mk expects libvortexrt.a,
-# so we copy under both names (BSC historical naming).
+# Standard upstream build (kernel/Makefile uses -O3 which is what Vortex's
+# intrinsics expect for inlining). Produces libvortex.a; eval/common.mk
+# expects libvortexrt.a (BSC historical naming), so copy under both names.
 make -C extra/vortex/kernel clean
 make -C extra/vortex/kernel
 cp extra/vortex/kernel/libvortex.a extra/vortex/kernel/libvortexrt.a
