@@ -31,6 +31,12 @@ CP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objcopy
 CFLAGS += -O3 -mcmodel=medany -fno-exceptions -fdata-sections -ffunction-sections
 CFLAGS += -I$(INC_DIR) -I$(ROOT_DIR)/hw
 CFLAGS += -DXLEN_$(XLEN)
+# Strip tinyprintf features unused by sim test kernels — drops ~15 KB of
+# double-precision math + %f/%e/%g/%lld formatters that --gc-sections can't
+# remove because tinyprintf.c references them unconditionally.
+CFLAGS += -DPRINTF_DISABLE_SUPPORT_FLOAT
+CFLAGS += -DPRINTF_DISABLE_SUPPORT_EXPONENTIAL
+CFLAGS += -DPRINTF_DISABLE_SUPPORT_LONG_LONG
 
 PROJECT := libvortex
 
