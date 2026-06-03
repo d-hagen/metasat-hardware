@@ -30,6 +30,11 @@ TEST         ?= memory
 UNISIM_LIB   = $(UNISIM_SRC)/unisim
 AXI_SIM_DIR  = $(GRLIB)/lib/gaisler/sim
 
+# Per-test sim output log: written to the repo root, named per test + timestamp
+# so each run gets its own file. e.g. sim-memory-light-20260603-143012.log
+REPO_ROOT_DIR := $(abspath $(SIM_DIR)/../..)
+LOG_FILE       = $(REPO_ROOT_DIR)/sim-$(TEST)-$(shell date +%Y%m%d-%H%M%S).log
+
 .PHONY: all check-paths compile-unisim scripts-gen map-unisim \
         stub-libs patch-aximem select-test compile-rtl run-sim \
         wipe nuke rebuild check-config check-all clean-unisim help
@@ -128,9 +133,12 @@ compile-rtl:
 	cd $(SIM_DIR) && $(MAKE) metasat-sim
 
 # ---- Step 9: Run simulation ----
+# Output streamed to console AND tee'd to a per-test timestamped log file in repo root.
 run-sim: select-test
 	@echo "=== Launching simulation ==="
-	cd $(SIM_DIR) && $(MAKE) sim-run
+	@echo "=== Log file: $(LOG_FILE) ==="
+	@cd $(SIM_DIR) && $(MAKE) sim-run 2>&1 | tee $(LOG_FILE)
+	@echo "=== Sim finished. Full log: $(LOG_FILE) ==="
 
 # ---- Utilities ----
 clean-unisim:

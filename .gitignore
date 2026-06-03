@@ -16,3 +16,6 @@ extra/vortex/config.mk
 
 # macOS Finder cruft
 .DS_Store
+
+# Sim output logs (written to repo root by setup_sim.mk run-sim)
+sim-*.log

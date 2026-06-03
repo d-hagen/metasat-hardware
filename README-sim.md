@@ -50,6 +50,20 @@ Test names:
 - `evaluation` / `evaluation-light` — full end-to-end. Host uploads a Vortex
   kernel binary, launches it via `vx_start`, reads results back.
 
+### Sim output is logged automatically
+
+Every `run-sim` invocation streams the QuestaSim transcript to your terminal
+AND tees it to a per-test, per-run log file in the repo root:
+
+```
+metasat-hardware/sim-memory-light-20260603-143012.log
+metasat-hardware/sim-evaluation-20260603-143945.log
+```
+
+Filename pattern: `sim-<TEST>-<YYYYMMDD-HHMMSS>.log`. Each run gets its own
+file (timestamped) so multiple runs of the same test don't overwrite. Logs
+are gitignored.
+
 ## On the sim machine — when the VM has regenerated artifacts
 
 ```bash
