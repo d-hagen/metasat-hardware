@@ -18,9 +18,8 @@
 .type vx_putchar, @function
 .global vx_putchar
 vx_putchar:
-    csrr t0, VX_CSR_MHARTID
-    andi t0, t0, %lo(IO_COUT_SIZE-1)
-    li t1, IO_COUT_ADDR
-    add t0, t0, t1
-    sb a0, 0(t0)
+    # sim/uni-machine ONLY: original writes a byte to IO_COUT_ADDR (0x40) which
+    # in the BSC SoC AFU integration is NOT intercepted — writes go to GPU DRAM
+    # which may or may not respond cleanly. Stub to no-op to eliminate this as
+    # a hang cause. printf/puts/_write calls all funnel through here.
     ret

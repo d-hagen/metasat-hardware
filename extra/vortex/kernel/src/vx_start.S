@@ -68,9 +68,13 @@ _start:
 .type _Exit, @function
 .global _Exit
 _Exit:
-  call vx_perf_dump
-  li t0, IO_MPM_EXITCODE
-  sw a0, 0(t0)
+  # sim/uni-machine ONLY: vx_perf_dump and the IO_MPM_EXITCODE write target
+  # addresses (0x80..0xF0) that the BSC SoC AFU does not intercept. The
+  # writes go to GPU DRAM and may or may not get clean BVALID responses
+  # depending on the sim model, AXI fabric, and address decoding. The fence
+  # below blocks tmc x0 until all writes complete; if any hangs, Vortex's
+  # vx_busy never goes low and the host's vx_ready_wait hangs forever.
+  # Stub: just fence + tmc x0. No perf dump, no exit code write.
   fence
   .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0  # tmc x0
 
