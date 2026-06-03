@@ -31,7 +31,7 @@ VORTEX_RT_PATH ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../runtime)
 # VX compiler flags
 VX_XLEN = 32
 VX_STARTUP_ADDR = 0x60000000
-VX_CFLAGS += -Os -std=c++17
+VX_CFLAGS += -O2 -std=c++17
 VX_CFLAGS += -mcmodel=medany -fno-rtti -fno-exceptions -nostartfiles -fdata-sections -ffunction-sections
 VX_CFLAGS += -I$(VORTEX_KN_PATH)/include -I$(VORTEX_KN_PATH)/../hw -I$(IDIR)
 VX_CFLAGS += -DNDEBUG -DACCEL_=vortex
