@@ -49,9 +49,19 @@ make -C extra/vortex/runtime/soc \
     TOOLCHAIN_PREFIX="$TOOLCHAIN_PREFIX"
 
 echo "=== [4/5] Build eval test SRECs (memory + evaluation, full + light) ==="
+# Note: `srec` depends on the gpu-*-vortex ELF, which is built by `make vortex`.
+# We must invoke `vortex` before `srec` because the common.mk pattern target
+# $(TEST)-$(MAKECMDGOALS) only matches when MAKECMDGOALS=vortex. Then srec
+# (full SIZE=1024) is built. srec-light internally clean-alls + rebuilds at SIZE=16.
 for test in memory evaluation; do
     make -C extra/vortex/eval/"$test" clean-all
-    make -C extra/vortex/eval/"$test" srec srec-light \
+    make -C extra/vortex/eval/"$test" vortex \
+        GCC_PREFIX="$GCC_PREFIX" \
+        RISCV_TOOLCHAIN_PATH="$RISCV_TOOLCHAIN_PATH"
+    make -C extra/vortex/eval/"$test" srec \
+        GCC_PREFIX="$GCC_PREFIX" \
+        RISCV_TOOLCHAIN_PATH="$RISCV_TOOLCHAIN_PATH"
+    make -C extra/vortex/eval/"$test" srec-light \
         GCC_PREFIX="$GCC_PREFIX" \
         RISCV_TOOLCHAIN_PATH="$RISCV_TOOLCHAIN_PATH"
 done
