@@ -21,6 +21,13 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# VM toolchain locations (override via env if running on a different VM).
+# Defaults match the vortex22 host.
+export GCC_PREFIX="${GCC_PREFIX:-/home/dan/tools/ncc-1.0.4-gcc/bin/riscv-gaisler-elf-}"
+export RISCV_TOOLCHAIN_PATH="${RISCV_TOOLCHAIN_PATH:-/home/dan/tools/riscv32-gnu-toolchain}"
+export TOOLCHAIN_PREFIX="${TOOLCHAIN_PREFIX:-/home/dan/tools/ncc-1.0.4-gcc/bin/riscv-gaisler-elf-}"
+export LLVM_VORTEX="${LLVM_VORTEX:-/home/dan/tools/llvm-vortex}"
+
 # Sanity: must be on sim/uni-machine
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [ "$CURRENT_BRANCH" != "sim/uni-machine" ]; then
@@ -38,12 +45,15 @@ make -C extra/vortex/hw/syn/soc all grlib \
 
 echo "=== [3/5] Build SoC runtime library (libvortex.a + generated headers) ==="
 make -C extra/vortex/runtime/soc clean
-make -C extra/vortex/runtime/soc
+make -C extra/vortex/runtime/soc \
+    TOOLCHAIN_PREFIX="$TOOLCHAIN_PREFIX"
 
 echo "=== [4/5] Build eval test SRECs (memory + evaluation, full + light) ==="
 for test in memory evaluation; do
     make -C extra/vortex/eval/"$test" clean-all
-    make -C extra/vortex/eval/"$test" srec srec-light
+    make -C extra/vortex/eval/"$test" srec srec-light \
+        GCC_PREFIX="$GCC_PREFIX" \
+        RISCV_TOOLCHAIN_PATH="$RISCV_TOOLCHAIN_PATH"
 done
 
 echo "=== [5/5] Stage + commit + push ==="
