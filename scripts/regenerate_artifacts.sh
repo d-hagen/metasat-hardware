@@ -49,19 +49,22 @@ make -C extra/vortex/runtime/soc \
     TOOLCHAIN_PREFIX="$TOOLCHAIN_PREFIX"
 
 echo "=== [4/5] Build eval test SRECs (memory + evaluation, full + light) ==="
-# Note: `srec` depends on the gpu-*-vortex ELF, which is built by `make vortex`.
-# We must invoke `vortex` before `srec` because the common.mk pattern target
-# $(TEST)-$(MAKECMDGOALS) only matches when MAKECMDGOALS=vortex. Then srec
-# (full SIZE=1024) is built. srec-light internally clean-alls + rebuilds at SIZE=16.
+# Build order matters: srec-light internally clean-alls (rm -rf gpu-*),
+# so build it FIRST. Then clean only the obj dir and build the full-size
+# vortex ELF + srec. Final state: both .srec files + SIZE=1024 ELF.
 for test in memory evaluation; do
     make -C extra/vortex/eval/"$test" clean-all
+    # Light variant first (does its own clean-all + builds at SIZE=16)
+    make -C extra/vortex/eval/"$test" srec-light \
+        GCC_PREFIX="$GCC_PREFIX" \
+        RISCV_TOOLCHAIN_PATH="$RISCV_TOOLCHAIN_PATH"
+    # Clean obj dir (preserves .srec/.elf at repo root)
+    make -C extra/vortex/eval/"$test" clean
+    # Full variant at SIZE=1024
     make -C extra/vortex/eval/"$test" vortex \
         GCC_PREFIX="$GCC_PREFIX" \
         RISCV_TOOLCHAIN_PATH="$RISCV_TOOLCHAIN_PATH"
     make -C extra/vortex/eval/"$test" srec \
-        GCC_PREFIX="$GCC_PREFIX" \
-        RISCV_TOOLCHAIN_PATH="$RISCV_TOOLCHAIN_PATH"
-    make -C extra/vortex/eval/"$test" srec-light \
         GCC_PREFIX="$GCC_PREFIX" \
         RISCV_TOOLCHAIN_PATH="$RISCV_TOOLCHAIN_PATH"
 done
