@@ -61,10 +61,11 @@ def create_vxbin_binary(input_elf, output_bin, objcopy_path):
     with open(temp_bin_path, 'rb') as temp_file:
         binary_data = temp_file.read()
 
-    # Pad binary to cover BSS (MemSiz > FileSiz in ELF segments)
-    expected_size = max_vma - min_vma
-    if len(binary_data) < expected_size:
-        binary_data += b'\x00' * (expected_size - len(binary_data))
+    # sim/uni-machine ONLY: BSS padding removed to shrink the upload size for
+    # RTL sim. Vortex 2.2's vx_start.S already zeros BSS at runtime (memset
+    # call before main), so the padding is redundant. Do NOT cherry-pick this
+    # change to vortex-2.2 release branch without first validating that
+    # nothing in libvortexrt's init path reads BSS before that memset runs.
 
     # Pack addresses into 64-bit unsigned integer
     min_vma_bytes = struct.pack('<Q', min_vma)
