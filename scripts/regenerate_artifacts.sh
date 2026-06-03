@@ -62,7 +62,8 @@ if git diff --cached --quiet; then
     echo "Nothing to commit — artifacts unchanged."
 else
     git commit -m "Regenerate sim artifacts ($(date +%Y-%m-%d_%H:%M:%S))"
-    git push origin sim/uni-machine
+    # Push to whatever remote sim/uni-machine is tracking (github on the VM)
+    git push
     echo ""
     echo "=== DONE. Pull on the sim machine:"
     echo "    git checkout sim/uni-machine && git pull"
