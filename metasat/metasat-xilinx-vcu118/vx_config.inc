@@ -7,8 +7,8 @@
     EXT_M_EN = 1
 
     # GPU configuration
-    NUM_WARPS = 4
-    NUM_THREADS = 4
+    NUM_WARPS = 2
+    NUM_THREADS = 2
     NUM_BARRIERS = 4
 
     STARTUP_ADDR = $$((0x60000000))
