@@ -115,10 +115,23 @@ compile-rtl:
 
 # ---- Step 9: Run simulation ----
 # Output streamed to console AND tee'd to a per-test timestamped log file in repo root.
+#
+# Speed-tuned VSIMOPT override (sim-branch only — pass/fail mode, no debug):
+#   -voptargs="-O5 -nowarn 1"  Replace GRLIB's default "+acc" (which DISABLES
+#                              optimization for signal visibility) with -O5.
+#                              Biggest single speedup; trades waveform-debug
+#                              ability for ~2-5x faster sim.
+#   -do "run -all; quit -f"    Same as GRLIB's runvsim.do but inline (replacing
+#                              GRLIB's stdin redirect, since VSIMOPT can't carry "<").
+#   -nowlf                     Don't emit vsim.wlf waveform file (saves disk I/O).
+#   -quiet                     Suppress vsim's own status chatter.
+#   testbench                  GRLIB's SIMTOP for this design.
+VSIMOPT_FAST = -voptargs="-O5 -nowarn 1" -do "run -all; quit -f" -nowlf -quiet testbench
+
 run-sim: select-test
 	@echo "=== Launching simulation ==="
 	@echo "=== Log file: $(LOG_FILE) ==="
-	@cd $(SIM_DIR) && $(MAKE) sim-run 2>&1 | tee $(LOG_FILE)
+	@cd $(SIM_DIR) && $(MAKE) sim-run VSIMOPT='$(VSIMOPT_FAST)' 2>&1 | tee $(LOG_FILE)
 	@echo "=== Sim finished. Full log: $(LOG_FILE) ==="
 
 # ---- Utilities ----
