@@ -36,7 +36,7 @@ package config is
   constant CFG_APLIC_NDOM : integer := (4);
   constant CFG_NEIID : integer := (63);
 -- L2 Cache
-  constant CFG_L2_EN : integer := 1;
+  constant CFG_L2_EN : integer := 0;
   constant CFG_L2_SIZE : integer := 128;
   constant CFG_L2_WAYS : integer := 1;
   constant CFG_L2_REPL : integer := 0;
@@ -59,7 +59,7 @@ package config is
 -- RS-485 UART
   constant CFG_APB_UART : integer := 1;
 -- JTAG based DSU interface
-  constant CFG_AHB_JTAG : integer := 1;
+  constant CFG_AHB_JTAG : integer := 0;
 -- Ethernet DSU
   constant CFG_DSU_ETH : integer := 1 + 0 + 0;
   constant CFG_ETH_BUF : integer := 16;
@@ -74,7 +74,7 @@ package config is
   constant CFG_AHBSTAT : integer := 1;
   constant CFG_AHBSTATN : integer := (1);
 -- Gaisler Ethernet core
-  constant CFG_GRETH : integer := 1;
+  constant CFG_GRETH : integer := 0;
   constant CFG_GRETH1G : integer := 0;
   constant CFG_ETH_FIFO : integer := 512;
   constant CFG_GRETH_FMC : integer := 0;
