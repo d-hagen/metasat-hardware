@@ -5,17 +5,17 @@ module VX_sfu_unit import VX_gpu_pkg::*; #(
     input wire              clk,
     input wire              reset,
     input base_dcrs_t       base_dcrs,
-    VX_dispatch_if.slave    dispatch_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
+    VX_dispatch_if.slave    dispatch_if [(((2 / 8) != 0) ? (2 / 8) : 1)],
     VX_commit_csr_if.slave  commit_csr_if,
     VX_sched_csr_if.slave   sched_csr_if,
-    VX_commit_if.master     commit_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
+    VX_commit_if.master     commit_if [(((2 / 8) != 0) ? (2 / 8) : 1)],
     VX_warp_ctl_if.master   warp_ctl_if
 );
     localparam BLOCK_SIZE = 1;
-    localparam NUM_LANES  = 4;
-    localparam PID_BITS   = $clog2(4 / NUM_LANES);
+    localparam NUM_LANES  = 2;
+    localparam PID_BITS   = $clog2(2 / NUM_LANES);
     localparam PID_WIDTH  = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam RSP_ARB_DATAW = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (NUM_LANES * 32) + $clog2(32) + 1 + (32-1) + PID_WIDTH + 1 + 1;
+    localparam RSP_ARB_DATAW = 1 + ((($clog2(2)) != 0) ? ($clog2(2)) : 1) + NUM_LANES + (NUM_LANES * 32) + $clog2(32) + 1 + (32-1) + PID_WIDTH + 1 + 1;
     localparam RSP_ARB_SIZE = 1 + 1;
     localparam RSP_ARB_IDX_WCTL = 0;
     localparam RSP_ARB_IDX_CSRS = 1;

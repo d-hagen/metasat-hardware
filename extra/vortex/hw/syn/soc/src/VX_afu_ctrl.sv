@@ -92,7 +92,7 @@ module VX_afu_ctrl #(
 	localparam ADDR_BITS = CTRL_ADDR_BITS;
 	localparam WORDS = C_S_AXI_CTRL_DATA_WIDTH/32;
 	wire clk_en = 1;
-	localparam NUM_DEBUG_REGS = (2 + 1 + (((4 / 8) != 0) ? (4 / 8) : 1) + (((4 / 8) != 0) ? (4 / 8) : 1) + (((4 / 8) != 0) ? (4 / 8) : 1));  
+	localparam NUM_DEBUG_REGS = (2 + 1 + (((2 / 8) != 0) ? (2 / 8) : 1) + (((2 / 8) != 0) ? (2 / 8) : 1) + (((2 / 8) != 0) ? (2 / 8) : 1));  
 	reg vx_running;
 	reg  vx_busy_wait;
 	reg  [STATE_BITS-1:0] state;
@@ -104,8 +104,8 @@ module VX_afu_ctrl #(
 	wire [63:0] dev_caps = {16'b0,
 		8'(1 ? 14 : 0),
 		16'(1 * 1), 
-		8'(4), 
-		8'(4), 
+		8'(2), 
+		8'(2), 
 		8'(0)};
 	wire [63:0] isa_caps = {32'((1  << 0) 
                 | (1  << 1) 

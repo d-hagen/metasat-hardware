@@ -16,13 +16,13 @@ module VX_core import VX_gpu_pkg::*; #(
     VX_decode_sched_if  decode_sched_if();
     VX_commit_sched_if  commit_sched_if();
     VX_commit_csr_if    commit_csr_if();
-    VX_branch_ctl_if    branch_ctl_if[(((4 / 8) != 0) ? (4 / 8) : 1)]();
+    VX_branch_ctl_if    branch_ctl_if[(((2 / 8) != 0) ? (2 / 8) : 1)]();
     VX_warp_ctl_if      warp_ctl_if();
-    VX_dispatch_if      dispatch_if[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)]();
-    VX_commit_if        commit_if[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)]();
-    VX_writeback_if     writeback_if[(((4 / 8) != 0) ? (4 / 8) : 1)]();
+    VX_dispatch_if      dispatch_if[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)]();
+    VX_commit_if        commit_if[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)]();
+    VX_writeback_if     writeback_if[(((2 / 8) != 0) ? (2 / 8) : 1)]();
     VX_lsu_mem_if #(
-        .NUM_LANES (4),
+        .NUM_LANES (2),
         .DATA_SIZE (LSU_WORD_SIZE),
         .TAG_WIDTH (LSU_TAG_WIDTH)
     ) lsu_mem_if[1]();
@@ -143,7 +143,7 @@ module VX_core import VX_gpu_pkg::*; #(
         .commit_sched_if(commit_sched_if)
     );
     VX_lsu_mem_if #(
-        .NUM_LANES (4),
+        .NUM_LANES (2),
         .DATA_SIZE (LSU_WORD_SIZE),
         .TAG_WIDTH (LSU_TAG_WIDTH)
     ) lsu_dcache_if[1]();
@@ -176,14 +176,14 @@ module VX_core import VX_gpu_pkg::*; #(
     );
             VX_mem_coalescer #(
                 .INSTANCE_ID    ($sformatf("%s-coalescer%0d", INSTANCE_ID, i)),
-                .NUM_REQS       (4),
+                .NUM_REQS       (2),
                 .DATA_IN_SIZE   (LSU_WORD_SIZE),
                 .DATA_OUT_SIZE  (DCACHE_WORD_SIZE),
                 .ADDR_WIDTH     (LSU_ADDR_WIDTH),
                 .ATYPE_WIDTH    ((2 + 1)),
                 .TAG_WIDTH      (LSU_TAG_WIDTH),
                 .UUID_WIDTH     (1),
-                .QUEUE_SIZE     (((((2 * (4 / 4))) > ((((4 * (32 / 8)) < (16)) ? (4 * (32 / 8)) : (16)) / (32 / 8))) ? ((2 * (4 / 4))) : ((((4 * (32 / 8)) < (16)) ? (4 * (32 / 8)) : (16)) / (32 / 8))))
+                .QUEUE_SIZE     (((((2 * (2 / 2))) > ((((2 * (32 / 8)) < (16)) ? (2 * (32 / 8)) : (16)) / (32 / 8))) ? ((2 * (2 / 2))) : ((((2 * (32 / 8)) < (16)) ? (2 * (32 / 8)) : (16)) / (32 / 8))))
             ) mem_coalescer (
                 .clk   (clk),
                 .reset (mem_coalescer_reset),

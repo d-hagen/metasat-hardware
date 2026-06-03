@@ -15,13 +15,13 @@ module VX_operands import VX_gpu_pkg::*; #(
     localparam BANK_SEL_BITS = $clog2(NUM_BANKS);
     localparam BANK_SEL_WIDTH = (((BANK_SEL_BITS) != 0) ? (BANK_SEL_BITS) : 1);
     localparam PER_BANK_REGS = 32 / NUM_BANKS;
-    localparam META_DATAW = ISSUE_WIS_W + 4 + (32-1) + 1 + $clog2((3 + 0)) + 4 + $bits(op_args_t) + $clog2(32) + 1;
-    localparam REGS_DATAW = 32 * 4;
+    localparam META_DATAW = ISSUE_WIS_W + 2 + (32-1) + 1 + $clog2((3 + 0)) + 4 + $bits(op_args_t) + $clog2(32) + 1;
+    localparam REGS_DATAW = 32 * 2;
     localparam DATAW = META_DATAW + NUM_SRC_REGS * REGS_DATAW;
     localparam RAM_ADDRW = (((32 * PER_ISSUE_WARPS) > 1) ? $clog2(32 * PER_ISSUE_WARPS) : 1);
     localparam PER_BANK_ADDRW = RAM_ADDRW - BANK_SEL_BITS;
     localparam XLEN_SIZE = 32 / 8;
-    localparam BYTEENW = 4 * XLEN_SIZE;
+    localparam BYTEENW = 2 * XLEN_SIZE;
     wire [NUM_SRC_REGS-1:0] src_valid;
     wire [NUM_SRC_REGS-1:0] req_in_valid, req_in_ready;
     wire [NUM_SRC_REGS-1:0][PER_BANK_ADDRW-1:0] req_in_data;
@@ -29,13 +29,13 @@ module VX_operands import VX_gpu_pkg::*; #(
     wire [NUM_BANKS-1:0] gpr_rd_valid, gpr_rd_ready;
     wire [NUM_BANKS-1:0] gpr_rd_valid_st1, gpr_rd_valid_st2;
     wire [NUM_BANKS-1:0][PER_BANK_ADDRW-1:0] gpr_rd_addr, gpr_rd_addr_st1;
-    wire [NUM_BANKS-1:0][4-1:0][32-1:0] gpr_rd_data_st1, gpr_rd_data_st2;
+    wire [NUM_BANKS-1:0][2-1:0][32-1:0] gpr_rd_data_st1, gpr_rd_data_st2;
     wire [NUM_BANKS-1:0][REQ_SEL_WIDTH-1:0] gpr_rd_req_idx, gpr_rd_req_idx_st1, gpr_rd_req_idx_st2;
     wire pipe_valid_st1, pipe_ready_st1;
     wire pipe_valid_st2, pipe_ready_st2;
     wire [META_DATAW-1:0] pipe_data, pipe_data_st1, pipe_data_st2;
-    reg [NUM_SRC_REGS-1:0][4-1:0][32-1:0] src_data_n;
-    wire [NUM_SRC_REGS-1:0][4-1:0][32-1:0] src_data_st1, src_data_st2;
+    reg [NUM_SRC_REGS-1:0][2-1:0][32-1:0] src_data_n;
+    wire [NUM_SRC_REGS-1:0][2-1:0][32-1:0] src_data_st1, src_data_st2;
     reg [NUM_SRC_REGS-1:0] data_fetched_n;
     wire [NUM_SRC_REGS-1:0] data_fetched_st1;
     reg has_collision_n;
@@ -206,7 +206,7 @@ module VX_operands import VX_gpu_pkg::*; #(
             assign gpr_wr_enabled = wr_enabled && writeback_if.valid;
         end
         wire [BYTEENW-1:0] wren;
-        for (genvar i = 0; i < 4; ++i) begin
+        for (genvar i = 0; i < 2; ++i) begin
             assign wren[i*XLEN_SIZE+:XLEN_SIZE] = {XLEN_SIZE{writeback_if.data.tmask[i]}};
         end
         VX_dp_ram #(

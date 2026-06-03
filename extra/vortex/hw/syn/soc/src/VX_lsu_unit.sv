@@ -3,12 +3,12 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
 ) (
     input wire              clk,
     input wire              reset,
-    VX_dispatch_if.slave    dispatch_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
-    VX_commit_if.master     commit_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
+    VX_dispatch_if.slave    dispatch_if [(((2 / 8) != 0) ? (2 / 8) : 1)],
+    VX_commit_if.master     commit_if [(((2 / 8) != 0) ? (2 / 8) : 1)],
     VX_lsu_mem_if.master    lsu_mem_if [1]
 );
     localparam BLOCK_SIZE = 1;
-    localparam NUM_LANES  = 4;
+    localparam NUM_LANES  = 2;
     VX_execute_if #(
         .NUM_LANES (NUM_LANES)
     ) per_block_execute_if[BLOCK_SIZE]();

@@ -9,17 +9,17 @@ import VX_gpu_pkg::*;
     input base_dcrs_t                   base_dcrs,
     VX_commit_csr_if.slave              commit_csr_if,
     input wire [44-1:0]     cycles,
-    input wire [4-1:0]         active_warps,
-    input wire [4-1:0][4-1:0] thread_masks,
+    input wire [2-1:0]         active_warps,
+    input wire [2-1:0][2-1:0] thread_masks,
     input wire                          read_enable,
     input wire [1-1:0]        read_uuid,
-    input wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]          read_wid,
+    input wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0]          read_wid,
     input wire [12-1:0]  read_addr,
     output wire [32-1:0]             read_data_ro,
     output wire [32-1:0]             read_data_rw,
     input wire                          write_enable,
     input wire [1-1:0]        write_uuid,
-    input wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]          write_wid,
+    input wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0]          write_wid,
     input wire [12-1:0]  write_addr,
     input wire [32-1:0]              write_data
 );
@@ -92,8 +92,8 @@ import VX_gpu_pkg::*;
             12'hCC2    : read_data_ro_r = 32'(CORE_ID);
             12'hCC4: read_data_ro_r = 32'(thread_masks[read_wid]);
             12'hCC3: read_data_ro_r = 32'(active_warps);
-            12'hFC0: read_data_ro_r = 32'(4);
-            12'hFC1  : read_data_ro_r = 32'(4);
+            12'hFC0: read_data_ro_r = 32'(2);
+            12'hFC1  : read_data_ro_r = 32'(2);
             12'hFC2  : read_data_ro_r = 32'(1 * 1);
             12'hFC3: read_data_ro_r = 32'(2130706432);
         12'hB00 : read_data_ro_r = cycles[31:0]; 

@@ -1,29 +1,29 @@
 package VX_gpu_pkg;
     typedef struct packed {
         logic                    valid;
-        logic [4-1:0] tmask;
+        logic [2-1:0] tmask;
     } tmc_t;
     typedef struct packed {
         logic                   valid;
-        logic [4-1:0]  wmask;
+        logic [2-1:0]  wmask;
         logic [(32-1)-1:0]    pc;
     } wspawn_t;
     typedef struct packed {
         logic                    valid;
         logic                    is_dvg;
-        logic [4-1:0] then_tmask;
-        logic [4-1:0] else_tmask;
+        logic [2-1:0] then_tmask;
+        logic [2-1:0] else_tmask;
         logic [(32-1)-1:0]     next_pc;
     } split_t;
     typedef struct packed {
         logic valid;
-        logic [((($clog2((((4-1) != 0) ? (4-1) : 1))) != 0) ? ($clog2((((4-1) != 0) ? (4-1) : 1))) : 1)-1:0] stack_ptr;
+        logic [((($clog2((((2-1) != 0) ? (2-1) : 1))) != 0) ? ($clog2((((2-1) != 0) ? (2-1) : 1))) : 1)-1:0] stack_ptr;
     } join_t;
     typedef struct packed {
         logic                   valid;
         logic [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]   id;
         logic                   is_global;
-        logic [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]   size_m1;
+        logic [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0]   size_m1;
         logic                   is_noop;
     } barrier_t;
     typedef struct packed {
@@ -95,35 +95,35 @@ package VX_gpu_pkg;
     localparam LSU_WORD_SIZE        = 32 / 8;
     localparam LSU_ADDR_WIDTH	    = (32 - $clog2(LSU_WORD_SIZE));
     localparam LSU_MEM_BATCHES      = 1;
-    localparam LSU_TAG_ID_BITS      = ($clog2((2 * (4 / 4))) + $clog2(LSU_MEM_BATCHES));
+    localparam LSU_TAG_ID_BITS      = ($clog2((2 * (2 / 2))) + $clog2(LSU_MEM_BATCHES));
     localparam LSU_TAG_WIDTH        = (1 + LSU_TAG_ID_BITS);
-    localparam LSU_NUM_REQS	        = 1 * 4;
+    localparam LSU_NUM_REQS	        = 1 * 2;
     localparam ICACHE_WORD_SIZE	    = 4;
     localparam ICACHE_ADDR_WIDTH	= (32 - $clog2(ICACHE_WORD_SIZE));
     localparam ICACHE_LINE_SIZE	    = 16;
-    localparam ICACHE_TAG_ID_BITS	= ((($clog2(4)) != 0) ? ($clog2(4)) : 1);
+    localparam ICACHE_TAG_ID_BITS	= ((($clog2(2)) != 0) ? ($clog2(2)) : 1);
     localparam ICACHE_TAG_WIDTH	    = (1 + ICACHE_TAG_ID_BITS);
     localparam ICACHE_MEM_DATA_WIDTH = (ICACHE_LINE_SIZE * 8);
     localparam ICACHE_MEM_TAG_WIDTH = 
         (
         ($clog2(16) + $clog2(1)) + (((((((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) != 0) ? (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) : 1) > 1) ? $clog2((((((((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) != 0) ? (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) : 1) + 1 - 1) / (1))) : 0));
-    localparam DCACHE_WORD_SIZE	    = (((4 * (32 / 8)) < (16)) ? (4 * (32 / 8)) : (16));
+    localparam DCACHE_WORD_SIZE	    = (((2 * (32 / 8)) < (16)) ? (2 * (32 / 8)) : (16));
     localparam DCACHE_ADDR_WIDTH	= (32 - $clog2(DCACHE_WORD_SIZE));
     localparam DCACHE_LINE_SIZE 	= 16;
-    localparam DCACHE_CHANNELS	    = ((((4 * LSU_WORD_SIZE) / DCACHE_WORD_SIZE) != 0) ? ((4 * LSU_WORD_SIZE) / DCACHE_WORD_SIZE) : 1);
+    localparam DCACHE_CHANNELS	    = ((((2 * LSU_WORD_SIZE) / DCACHE_WORD_SIZE) != 0) ? ((2 * LSU_WORD_SIZE) / DCACHE_WORD_SIZE) : 1);
     localparam DCACHE_NUM_REQS	    = 1 * DCACHE_CHANNELS;
-    localparam DCACHE_MERGED_REQS   = (4 * LSU_WORD_SIZE) / DCACHE_WORD_SIZE;
+    localparam DCACHE_MERGED_REQS   = (2 * LSU_WORD_SIZE) / DCACHE_WORD_SIZE;
     localparam DCACHE_MEM_BATCHES   = ((DCACHE_MERGED_REQS + DCACHE_CHANNELS - 1) / (DCACHE_CHANNELS));
-    localparam DCACHE_TAG_ID_BITS   = ($clog2(((((2 * (4 / 4))) > ((((4 * (32 / 8)) < (16)) ? (4 * (32 / 8)) : (16)) / (32 / 8))) ? ((2 * (4 / 4))) : ((((4 * (32 / 8)) < (16)) ? (4 * (32 / 8)) : (16)) / (32 / 8)))) + $clog2(DCACHE_MEM_BATCHES));
+    localparam DCACHE_TAG_ID_BITS   = ($clog2(((((2 * (2 / 2))) > ((((2 * (32 / 8)) < (16)) ? (2 * (32 / 8)) : (16)) / (32 / 8))) ? ((2 * (2 / 2))) : ((((2 * (32 / 8)) < (16)) ? (2 * (32 / 8)) : (16)) / (32 / 8)))) + $clog2(DCACHE_MEM_BATCHES));
     localparam DCACHE_TAG_WIDTH	    = (1 + DCACHE_TAG_ID_BITS);
     localparam DCACHE_MEM_DATA_WIDTH = (DCACHE_LINE_SIZE * 8);
     localparam DCACHE_MEM_TAG_WIDTH = 
         (
         ((((
-        ($clog2(16) + $clog2((((4) < (4)) ? (4) : (4))))) > (
+        ($clog2(16) + $clog2((((2) < (4)) ? (2) : (4))))) > (
         ($clog2(DCACHE_NUM_REQS) + $clog2(DCACHE_LINE_SIZE / DCACHE_WORD_SIZE) + 
         (DCACHE_TAG_WIDTH + (((((4) < (1)) ? (4) : (1)) > (((((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) != 0) ? (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) : 1)) ? $clog2((((((4) < (1)) ? (4) : (1)) + (((((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) != 0) ? (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) : 1) - 1) / ((((((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) != 0) ? (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) : 1)))) : 0))))) ? (
-        ($clog2(16) + $clog2((((4) < (4)) ? (4) : (4))))) : (
+        ($clog2(16) + $clog2((((2) < (4)) ? (2) : (4))))) : (
         ($clog2(DCACHE_NUM_REQS) + $clog2(DCACHE_LINE_SIZE / DCACHE_WORD_SIZE) + 
         (DCACHE_TAG_WIDTH + (((((4) < (1)) ? (4) : (1)) > (((((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) != 0) ? (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) : 1)) ? $clog2((((((4) < (1)) ? (4) : (1)) + (((((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) != 0) ? (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) : 1) - 1) / ((((((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) != 0) ? (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) : 1)))) : 0))))) + 1) + (((((((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) != 0) ? (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) : 1) > 1) ? $clog2((((((((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) != 0) ? (((((((4) < (1)) ? (4) : (1)) / 4) != 0) ? ((((4) < (1)) ? (4) : (1)) / 4) : 1)) : 1) + 1 - 1) / (1))) : 0));
     localparam L1_MEM_TAG_WIDTH     = (((ICACHE_MEM_TAG_WIDTH) > (DCACHE_MEM_TAG_WIDTH)) ? (ICACHE_MEM_TAG_WIDTH) : (DCACHE_MEM_TAG_WIDTH));
@@ -142,25 +142,25 @@ package VX_gpu_pkg;
     localparam L3_MEM_DATA_WIDTH	= (16 * 8);
     localparam L3_MEM_TAG_WIDTH     = 
         ($clog2(L3_NUM_REQS) + $clog2(16 / L3_WORD_SIZE) + L3_TAG_WIDTH);
-    localparam ISSUE_ISW   = $clog2((((4 / 8) != 0) ? (4 / 8) : 1));
+    localparam ISSUE_ISW   = $clog2((((2 / 8) != 0) ? (2 / 8) : 1));
     localparam ISSUE_ISW_W = (((ISSUE_ISW) != 0) ? (ISSUE_ISW) : 1);
-    localparam PER_ISSUE_WARPS = 4 / (((4 / 8) != 0) ? (4 / 8) : 1);
+    localparam PER_ISSUE_WARPS = 2 / (((2 / 8) != 0) ? (2 / 8) : 1);
     localparam ISSUE_WIS   = $clog2(PER_ISSUE_WARPS);
     localparam ISSUE_WIS_W = (((ISSUE_WIS) != 0) ? (ISSUE_WIS) : 1);
-    function logic [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] wis_to_wid(
+    function logic [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] wis_to_wid(
         input logic [ISSUE_WIS_W-1:0] wis,
         input logic [ISSUE_ISW_W-1:0] isw
     );
         if (ISSUE_WIS == 0) begin
-            wis_to_wid = ((($clog2(4)) != 0) ? ($clog2(4)) : 1)'(isw);
+            wis_to_wid = ((($clog2(2)) != 0) ? ($clog2(2)) : 1)'(isw);
         end else if (ISSUE_ISW == 0) begin
-            wis_to_wid = ((($clog2(4)) != 0) ? ($clog2(4)) : 1)'(wis);
+            wis_to_wid = ((($clog2(2)) != 0) ? ($clog2(2)) : 1)'(wis);
         end else begin
-            wis_to_wid = ((($clog2(4)) != 0) ? ($clog2(4)) : 1)'({wis, isw});
+            wis_to_wid = ((($clog2(2)) != 0) ? ($clog2(2)) : 1)'({wis, isw});
         end
     endfunction
     function logic [ISSUE_ISW_W-1:0] wid_to_isw(
-        input logic [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] wid
+        input logic [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] wid
     );
         if (ISSUE_ISW != 0) begin
             wid_to_isw = wid[ISSUE_ISW_W-1:0];
@@ -169,7 +169,7 @@ package VX_gpu_pkg;
         end
     endfunction
     function logic [ISSUE_WIS_W-1:0] wid_to_wis(
-        input logic [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] wid
+        input logic [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] wid
     );
         if (ISSUE_WIS != 0) begin
             wid_to_wis = ISSUE_WIS_W'(wid >> ISSUE_ISW);

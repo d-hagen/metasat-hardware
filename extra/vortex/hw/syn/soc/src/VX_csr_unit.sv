@@ -11,9 +11,9 @@ module VX_csr_unit import VX_gpu_pkg::*; #(
     VX_execute_if.slave         execute_if,
     VX_commit_if.master         commit_if
 );
-    localparam PID_BITS   = $clog2(4 / NUM_LANES);
+    localparam PID_BITS   = $clog2(2 / NUM_LANES);
     localparam PID_WIDTH  = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam DATAW      = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
+    localparam DATAW      = 1 + ((($clog2(2)) != 0) ? ($clog2(2)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
     reg [NUM_LANES-1:0][32-1:0]  csr_read_data;
     reg  [32-1:0]                csr_write_data;
     wire [32-1:0]                csr_read_data_ro, csr_read_data_rw;
@@ -63,7 +63,7 @@ module VX_csr_unit import VX_gpu_pkg::*; #(
         end else begin
             assign wtid[i] = 32'(i);
         end
-        assign gtid[i] = (32'(CORE_ID) << ($clog2(4) + $clog2(4))) + (32'(execute_if.data.wid) << $clog2(4)) + wtid[i];
+        assign gtid[i] = (32'(CORE_ID) << ($clog2(2) + $clog2(2))) + (32'(execute_if.data.wid) << $clog2(2)) + wtid[i];
     end
     always @(*) begin
         csr_rd_enable = 0;

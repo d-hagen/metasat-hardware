@@ -5,8 +5,8 @@ module VX_issue_top import VX_gpu_pkg::*; #(
     input wire                              reset,
     input wire                              decode_valid,
     input wire [1-1:0]            decode_uuid,
-    input wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]              decode_wid,
-    input wire [4-1:0]           decode_tmask,
+    input wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0]              decode_wid,
+    input wire [2-1:0]           decode_tmask,
     input wire [(32-1)-1:0]               decode_PC,
     input wire [$clog2((3 + 0))-1:0]               decode_ex_type,
     input wire [4-1:0]          decode_op_type,
@@ -17,33 +17,33 @@ module VX_issue_top import VX_gpu_pkg::*; #(
     input wire [$clog2(32)-1:0]               decode_rs2,
     input wire [$clog2(32)-1:0]               decode_rs3,
     output wire                             decode_ready,
-    input wire                              writeback_valid[(((4 / 8) != 0) ? (4 / 8) : 1)],
-    input wire [1-1:0]            writeback_uuid[(((4 / 8) != 0) ? (4 / 8) : 1)],
-    input wire [ISSUE_WIS_W-1:0]            writeback_wis[(((4 / 8) != 0) ? (4 / 8) : 1)],
-    input wire [4-1:0]           writeback_tmask[(((4 / 8) != 0) ? (4 / 8) : 1)],
-    input wire [(32-1)-1:0]               writeback_PC[(((4 / 8) != 0) ? (4 / 8) : 1)],
-    input wire [$clog2(32)-1:0]               writeback_rd[(((4 / 8) != 0) ? (4 / 8) : 1)],
-    input wire [4-1:0][32-1:0] writeback_data[(((4 / 8) != 0) ? (4 / 8) : 1)],
-    input wire                              writeback_sop[(((4 / 8) != 0) ? (4 / 8) : 1)],
-    input wire                              writeback_eop[(((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire                             dispatch_valid[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [1-1:0]           dispatch_uuid[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [ISSUE_WIS_W-1:0]           dispatch_wis[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [4-1:0]          dispatch_tmask[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [(32-1)-1:0]              dispatch_PC[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [4-1:0]        dispatch_op_type[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output op_args_t                        dispatch_op_args[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire                             dispatch_wb[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [$clog2(32)-1:0]              dispatch_rd[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]             dispatch_tid[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [4-1:0][32-1:0] dispatch_rs1_data[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [4-1:0][32-1:0] dispatch_rs2_data[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [4-1:0][32-1:0] dispatch_rs3_data[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    input wire                             dispatch_ready[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)]
+    input wire                              writeback_valid[(((2 / 8) != 0) ? (2 / 8) : 1)],
+    input wire [1-1:0]            writeback_uuid[(((2 / 8) != 0) ? (2 / 8) : 1)],
+    input wire [ISSUE_WIS_W-1:0]            writeback_wis[(((2 / 8) != 0) ? (2 / 8) : 1)],
+    input wire [2-1:0]           writeback_tmask[(((2 / 8) != 0) ? (2 / 8) : 1)],
+    input wire [(32-1)-1:0]               writeback_PC[(((2 / 8) != 0) ? (2 / 8) : 1)],
+    input wire [$clog2(32)-1:0]               writeback_rd[(((2 / 8) != 0) ? (2 / 8) : 1)],
+    input wire [2-1:0][32-1:0] writeback_data[(((2 / 8) != 0) ? (2 / 8) : 1)],
+    input wire                              writeback_sop[(((2 / 8) != 0) ? (2 / 8) : 1)],
+    input wire                              writeback_eop[(((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire                             dispatch_valid[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire [1-1:0]           dispatch_uuid[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire [ISSUE_WIS_W-1:0]           dispatch_wis[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire [2-1:0]          dispatch_tmask[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire [(32-1)-1:0]              dispatch_PC[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire [4-1:0]        dispatch_op_type[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output op_args_t                        dispatch_op_args[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire                             dispatch_wb[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire [$clog2(32)-1:0]              dispatch_rd[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0]             dispatch_tid[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire [2-1:0][32-1:0] dispatch_rs1_data[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire [2-1:0][32-1:0] dispatch_rs2_data[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    output wire [2-1:0][32-1:0] dispatch_rs3_data[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    input wire                             dispatch_ready[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)]
 );
     VX_decode_if    decode_if();
-    VX_dispatch_if  dispatch_if[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)]();
-    VX_writeback_if writeback_if[(((4 / 8) != 0) ? (4 / 8) : 1)]();
+    VX_dispatch_if  dispatch_if[(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)]();
+    VX_writeback_if writeback_if[(((2 / 8) != 0) ? (2 / 8) : 1)]();
     assign decode_if.valid = decode_valid;
     assign decode_if.data.uuid = decode_uuid;
     assign decode_if.data.wid = decode_wid;
@@ -58,7 +58,7 @@ module VX_issue_top import VX_gpu_pkg::*; #(
     assign decode_if.data.rs2 = decode_rs2;
     assign decode_if.data.rs3 = decode_rs3;
     assign decode_ready = decode_if.ready;
-    for (genvar i = 0; i < (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
+    for (genvar i = 0; i < (((2 / 8) != 0) ? (2 / 8) : 1); ++i) begin
         assign writeback_if[i].valid = writeback_valid[i];
         assign writeback_if[i].data.uuid = writeback_uuid[i];
         assign writeback_if[i].data.wis = writeback_wis[i];
@@ -69,7 +69,7 @@ module VX_issue_top import VX_gpu_pkg::*; #(
         assign writeback_if[i].data.sop = writeback_sop[i];
         assign writeback_if[i].data.eop = writeback_eop[i];
     end
-    for (genvar i = 0; i < (3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
+    for (genvar i = 0; i < (3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1); ++i) begin
         assign dispatch_valid[i] = dispatch_if[i].valid;
         assign dispatch_uuid[i] = dispatch_if[i].data.uuid;
         assign dispatch_wis[i] = dispatch_if[i].data.wis;

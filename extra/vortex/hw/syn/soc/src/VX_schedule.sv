@@ -6,50 +6,50 @@ module VX_schedule import VX_gpu_pkg::*; #(
     input wire              reset,
     input base_dcrs_t       base_dcrs,
     VX_warp_ctl_if.slave    warp_ctl_if,
-    VX_branch_ctl_if.slave  branch_ctl_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
+    VX_branch_ctl_if.slave  branch_ctl_if [(((2 / 8) != 0) ? (2 / 8) : 1)],
     VX_decode_sched_if.slave decode_sched_if,
     VX_commit_sched_if.slave commit_sched_if,
     VX_schedule_if.master   schedule_if,
     VX_sched_csr_if.master  sched_csr_if,
     output wire             busy
 );
-    reg [4-1:0] active_warps, active_warps_n;  
-    reg [4-1:0] stalled_warps, stalled_warps_n;   
-    reg [4-1:0][4-1:0] thread_masks, thread_masks_n;
-    reg [4-1:0][(32-1)-1:0] warp_pcs, warp_pcs_n;
-    wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]    schedule_wid;
-    wire [4-1:0] schedule_tmask;
+    reg [2-1:0] active_warps, active_warps_n;  
+    reg [2-1:0] stalled_warps, stalled_warps_n;   
+    reg [2-1:0][2-1:0] thread_masks, thread_masks_n;
+    reg [2-1:0][(32-1)-1:0] warp_pcs, warp_pcs_n;
+    wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0]    schedule_wid;
+    wire [2-1:0] schedule_tmask;
     wire [(32-1)-1:0]     schedule_pc;
     wire                    schedule_valid;
     wire                    schedule_ready;
     wire                    join_valid;
     wire                    join_is_dvg;
     wire                    join_is_else;
-    wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]    join_wid;
-    wire [4-1:0] join_tmask;
+    wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0]    join_wid;
+    wire [2-1:0] join_tmask;
     wire [(32-1)-1:0]     join_pc;
     reg [44-1:0] cycles;
-    reg [4-1:0][1-1:0] issued_instrs;
+    reg [2-1:0][1-1:0] issued_instrs;
     wire schedule_fire = schedule_valid && schedule_ready;
     wire schedule_if_fire = schedule_if.valid && schedule_if.ready;
-    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0]                  branch_valid;
-    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0][((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]   branch_wid;
-    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0]                  branch_taken;
-    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0][(32-1)-1:0]    branch_dest;
-    for (genvar i = 0; i < (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
+    wire [(((2 / 8) != 0) ? (2 / 8) : 1)-1:0]                  branch_valid;
+    wire [(((2 / 8) != 0) ? (2 / 8) : 1)-1:0][((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0]   branch_wid;
+    wire [(((2 / 8) != 0) ? (2 / 8) : 1)-1:0]                  branch_taken;
+    wire [(((2 / 8) != 0) ? (2 / 8) : 1)-1:0][(32-1)-1:0]    branch_dest;
+    for (genvar i = 0; i < (((2 / 8) != 0) ? (2 / 8) : 1); ++i) begin
         assign branch_valid[i] = branch_ctl_if[i].valid;
         assign branch_wid[i]   = branch_ctl_if[i].wid;
         assign branch_taken[i] = branch_ctl_if[i].taken;
         assign branch_dest[i]  = branch_ctl_if[i].dest;
     end
-    reg [4-1:0][4-1:0] barrier_masks, barrier_masks_n;
-    reg [4-1:0][((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] barrier_ctrs, barrier_ctrs_n;
-    reg [4-1:0] barrier_stalls, barrier_stalls_n;
-    reg [4-1:0] curr_barrier_mask_p1;
+    reg [4-1:0][2-1:0] barrier_masks, barrier_masks_n;
+    reg [4-1:0][((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] barrier_ctrs, barrier_ctrs_n;
+    reg [2-1:0] barrier_stalls, barrier_stalls_n;
+    reg [2-1:0] curr_barrier_mask_p1;
     wspawn_t wspawn;
-    reg [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] wspawn_wid;
+    reg [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] wspawn_wid;
     reg is_single_warp;
-    wire [$clog2(4+1)-1:0] active_warps_cnt;
+    wire [$clog2(2+1)-1:0] active_warps_cnt;
     VX_popcount #( 
         .N ($bits(active_warps)), 
         .MODEL (1) 
@@ -67,7 +67,7 @@ module VX_schedule import VX_gpu_pkg::*; #(
         warp_pcs_n      = warp_pcs;
         if (wspawn.valid && is_single_warp) begin
             active_warps_n |= wspawn.wmask;
-            for (integer i = 0; i < 4; ++i) begin
+            for (integer i = 0; i < 2; ++i) begin
                 if (wspawn.wmask[i]) begin
                     thread_masks_n[i][0] = 1;
                     warp_pcs_n[i] = wspawn.pc;
@@ -100,20 +100,20 @@ module VX_schedule import VX_gpu_pkg::*; #(
         if (warp_ctl_if.valid && warp_ctl_if.barrier.valid) begin
             if (~warp_ctl_if.barrier.is_noop) begin
                 if (~warp_ctl_if.barrier.is_global
-                 && (barrier_ctrs[warp_ctl_if.barrier.id] == ((($clog2(4)) != 0) ? ($clog2(4)) : 1)'(warp_ctl_if.barrier.size_m1))) begin
+                 && (barrier_ctrs[warp_ctl_if.barrier.id] == ((($clog2(2)) != 0) ? ($clog2(2)) : 1)'(warp_ctl_if.barrier.size_m1))) begin
                     barrier_ctrs_n[warp_ctl_if.barrier.id] = '0;  
                     barrier_masks_n[warp_ctl_if.barrier.id] = '0;  
                     stalled_warps_n &= ~barrier_masks[warp_ctl_if.barrier.id];  
                     stalled_warps_n[warp_ctl_if.wid] = 0;  
                 end else begin
-                    barrier_ctrs_n[warp_ctl_if.barrier.id] = barrier_ctrs[warp_ctl_if.barrier.id] + ((($clog2(4)) != 0) ? ($clog2(4)) : 1)'(1);
+                    barrier_ctrs_n[warp_ctl_if.barrier.id] = barrier_ctrs[warp_ctl_if.barrier.id] + ((($clog2(2)) != 0) ? ($clog2(2)) : 1)'(1);
                     barrier_masks_n[warp_ctl_if.barrier.id] = curr_barrier_mask_p1;
                 end
             end else begin
                 stalled_warps_n[warp_ctl_if.wid] = 0;  
             end
         end
-        for (integer i = 0; i < (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
+        for (integer i = 0; i < (((2 / 8) != 0) ? (2 / 8) : 1); ++i) begin
             if (branch_valid[i]) begin
                 if (branch_taken[i]) begin
                     warp_pcs_n[branch_wid[i]] = branch_dest[i];
@@ -200,26 +200,26 @@ module VX_schedule import VX_gpu_pkg::*; #(
         .stack_wid  (warp_ctl_if.dvstack_wid),
         .stack_ptr  (warp_ctl_if.dvstack_ptr)
     );
-    wire [4-1:0] ready_warps = active_warps & ~stalled_warps;
+    wire [2-1:0] ready_warps = active_warps & ~stalled_warps;
     VX_lzc #(
-        .N (4),
+        .N (2),
         .REVERSE (1)
     ) wid_select (
         .data_in   (ready_warps),
         .data_out  (schedule_wid),
         .valid_out (schedule_valid)
     );
-    wire [4-1:0][(4 + (32-1))-1:0] schedule_data;
-    for (genvar i = 0; i < 4; ++i) begin
+    wire [2-1:0][(2 + (32-1))-1:0] schedule_data;
+    for (genvar i = 0; i < 2; ++i) begin
         assign schedule_data[i] = {thread_masks[i], warp_pcs[i]};
     end
     assign {schedule_tmask, schedule_pc} = {
-        schedule_data[schedule_wid][(4 + (32-1))-1:(4 + (32-1))-4],
-        schedule_data[schedule_wid][(4 + (32-1))-5:0]
+        schedule_data[schedule_wid][(2 + (32-1))-1:(2 + (32-1))-4],
+        schedule_data[schedule_wid][(2 + (32-1))-5:0]
     };
     wire [1-1:0] instr_uuid = '0;
     VX_elastic_buffer #(
-        .DATAW (4 + (32-1) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1))
+        .DATAW (2 + (32-1) + ((($clog2(2)) != 0) ? ($clog2(2)) : 1))
     ) out_buf (
         .clk       (clk),
         .reset     (reset),
@@ -231,22 +231,22 @@ module VX_schedule import VX_gpu_pkg::*; #(
         .ready_out (schedule_if.ready)
     );
     assign schedule_if.data.uuid = instr_uuid;
-    reg [4-1:0] per_warp_incr;
+    reg [2-1:0] per_warp_incr;
     always @(*) begin
         per_warp_incr = 0;
         if (schedule_if_fire) begin
             per_warp_incr[schedule_if.data.wid] = 1;
         end
     end
-    wire [4-1:0] pending_warp_empty;
-    wire [4-1:0] pending_warp_alm_empty;
-    wire [4-1:0] pending_instr_reset;                        
-    VX_reset_relay #(.N(4), .MAX_FANOUT(8)) __pending_instr_reset ( 
+    wire [2-1:0] pending_warp_empty;
+    wire [2-1:0] pending_warp_alm_empty;
+    wire [2-1:0] pending_instr_reset;                        
+    VX_reset_relay #(.N(2), .MAX_FANOUT(8)) __pending_instr_reset ( 
         .clk     (clk),                         
         .reset   (reset),                         
         .reset_o (pending_instr_reset)                          
     );
-    for (genvar i = 0; i < 4; ++i) begin
+    for (genvar i = 0; i < 2; ++i) begin
         VX_pending_size #(
             .SIZE      (4096),
             .ALM_EMPTY (1)

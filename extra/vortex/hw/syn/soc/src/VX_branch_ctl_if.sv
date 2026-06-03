@@ -1,6 +1,6 @@
 interface VX_branch_ctl_if ();
     wire                    valid;
-    wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]    wid;
+    wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0]    wid;
     wire                    taken;
     wire [(32-1)-1:0]     dest;
     modport master (

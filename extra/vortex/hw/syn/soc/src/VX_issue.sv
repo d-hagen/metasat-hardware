@@ -4,14 +4,14 @@ module VX_issue import VX_gpu_pkg::*; #(
     input wire              clk,
     input wire              reset,
     VX_decode_if.slave      decode_if,
-    VX_writeback_if.slave   writeback_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
-    VX_dispatch_if.master   dispatch_if [(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)]
+    VX_writeback_if.slave   writeback_if [(((2 / 8) != 0) ? (2 / 8) : 1)],
+    VX_dispatch_if.master   dispatch_if [(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)]
 );
     wire [ISSUE_ISW_W-1:0] decode_isw = wid_to_isw(decode_if.data.wid);
     wire [ISSUE_WIS_W-1:0] decode_wis = wid_to_wis(decode_if.data.wid);
-    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0] decode_ready_in;
+    wire [(((2 / 8) != 0) ? (2 / 8) : 1)-1:0] decode_ready_in;
     assign decode_if.ready = decode_ready_in[decode_isw];
-    for (genvar issue_id = 0; issue_id < (((4 / 8) != 0) ? (4 / 8) : 1); ++issue_id) begin : issue_slices
+    for (genvar issue_id = 0; issue_id < (((2 / 8) != 0) ? (2 / 8) : 1); ++issue_id) begin : issue_slices
         VX_decode_if #(
             .NUM_WARPS (PER_ISSUE_WARPS)
         ) per_issue_decode_if();
@@ -47,9 +47,9 @@ module VX_issue import VX_gpu_pkg::*; #(
             .dispatch_if  (per_issue_dispatch_if)
         );
         for (genvar ex_id = 0; ex_id < (3 + 0); ++ex_id) begin
-    assign dispatch_if[ex_id * (((4 / 8) != 0) ? (4 / 8) : 1) + issue_id].valid = per_issue_dispatch_if[ex_id].valid; 
-    assign dispatch_if[ex_id * (((4 / 8) != 0) ? (4 / 8) : 1) + issue_id].data  = per_issue_dispatch_if[ex_id].data; 
-    assign per_issue_dispatch_if[ex_id].ready = dispatch_if[ex_id * (((4 / 8) != 0) ? (4 / 8) : 1) + issue_id].ready;
+    assign dispatch_if[ex_id * (((2 / 8) != 0) ? (2 / 8) : 1) + issue_id].valid = per_issue_dispatch_if[ex_id].valid; 
+    assign dispatch_if[ex_id * (((2 / 8) != 0) ? (2 / 8) : 1) + issue_id].data  = per_issue_dispatch_if[ex_id].data; 
+    assign per_issue_dispatch_if[ex_id].ready = dispatch_if[ex_id * (((2 / 8) != 0) ? (2 / 8) : 1) + issue_id].ready;
         end
      end
 endmodule

@@ -7,7 +7,7 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
     VX_decode_if.master     decode_if,
     VX_decode_sched_if.master decode_sched_if
 );
-    localparam DATAW = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + 4 + (32-1) + $clog2((3 + 0)) + 4 + $bits(op_args_t) + 1 + ($clog2(32) * 4);
+    localparam DATAW = 1 + ((($clog2(2)) != 0) ? ($clog2(2)) : 1) + 2 + (32-1) + $clog2((3 + 0)) + 4 + $bits(op_args_t) + 1 + ($clog2(32) * 4);
     reg [$clog2((3 + 0))-1:0] ex_type;
     reg [4-1:0] op_type;
     op_args_t op_args;

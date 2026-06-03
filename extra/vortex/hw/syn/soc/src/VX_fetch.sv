@@ -12,15 +12,15 @@ module VX_fetch import VX_gpu_pkg::*; #(
     wire [ICACHE_TAG_WIDTH-1:0] icache_req_tag;
     wire icache_req_ready;
     wire [1-1:0] rsp_uuid;
-    wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] req_tag, rsp_tag;
+    wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] req_tag, rsp_tag;
     wire icache_req_fire = icache_req_valid && icache_req_ready;
     assign req_tag = schedule_if.data.wid;
     assign {rsp_uuid, rsp_tag} = icache_bus_if.rsp_data.tag;
     wire [(32-1)-1:0] rsp_PC;
-    wire [4-1:0] rsp_tmask;
+    wire [2-1:0] rsp_tmask;
     VX_dp_ram #(
-        .DATAW  ((32-1) + 4),
-        .SIZE   (4),
+        .DATAW  ((32-1) + 2),
+        .SIZE   (2),
         .LUTRAM (1)
     ) tag_store (
         .clk   (clk),

@@ -9,10 +9,10 @@ module VX_wctl_unit import VX_gpu_pkg::*; #(
     VX_commit_if.master     commit_if
 );
     localparam LANE_BITS  = $clog2(NUM_LANES);
-    localparam PID_BITS   = $clog2(4 / NUM_LANES);
+    localparam PID_BITS   = $clog2(2 / NUM_LANES);
     localparam PID_WIDTH  = (((PID_BITS) != 0) ? (PID_BITS) : 1);
     localparam WCTL_WIDTH = $bits(tmc_t) + $bits(wspawn_t) + $bits(split_t) + $bits(join_t) + $bits(barrier_t);
-    localparam DATAW = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + WCTL_WIDTH + PID_WIDTH + 1 + 1 + ((($clog2((((4-1) != 0) ? (4-1) : 1))) != 0) ? ($clog2((((4-1) != 0) ? (4-1) : 1))) : 1);
+    localparam DATAW = 1 + ((($clog2(2)) != 0) ? ($clog2(2)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + WCTL_WIDTH + PID_WIDTH + 1 + 1 + ((($clog2((((2-1) != 0) ? (2-1) : 1))) != 0) ? ($clog2((((2-1) != 0) ? (2-1) : 1))) : 1);
     tmc_t       tmc, tmc_r;
     wspawn_t    wspawn, wspawn_r;
     split_t     split, split_r;
@@ -37,8 +37,8 @@ module VX_wctl_unit import VX_gpu_pkg::*; #(
     for (genvar i = 0; i < NUM_LANES; ++i) begin
         assign taken[i] = (execute_if.data.rs1_data[i][0] ^ not_pred);
     end
-    reg [4-1:0] then_tmask_r, then_tmask_n;
-    reg [4-1:0] else_tmask_r, else_tmask_n;
+    reg [2-1:0] then_tmask_r, then_tmask_n;
+    reg [2-1:0] else_tmask_r, else_tmask_n;
     always @(*) begin
         then_tmask_n = then_tmask_r;
         else_tmask_n = else_tmask_r;
@@ -57,10 +57,10 @@ module VX_wctl_unit import VX_gpu_pkg::*; #(
     end
     wire has_then = (then_tmask_n != 0);
     wire has_else = (else_tmask_n != 0);
-    wire [4-1:0] pred_mask = has_then ? then_tmask_n : rs2_data[4-1:0];
+    wire [2-1:0] pred_mask = has_then ? then_tmask_n : rs2_data[2-1:0];
     assign tmc.valid = (is_tmc || is_pred);
-    assign tmc.tmask = is_pred ? pred_mask : rs1_data[4-1:0];
-    wire [$clog2(4+1)-1:0] then_tmask_cnt, else_tmask_cnt;
+    assign tmc.tmask = is_pred ? pred_mask : rs1_data[2-1:0];
+    wire [$clog2(2+1)-1:0] then_tmask_cnt, else_tmask_cnt;
     VX_popcount #( 
         .N ($bits(then_tmask_n)), 
         .MODEL (1) 
@@ -76,25 +76,25 @@ module VX_wctl_unit import VX_gpu_pkg::*; #(
         .data_out (else_tmask_cnt) 
     );
     wire then_first = (then_tmask_cnt >= else_tmask_cnt);
-    wire [4-1:0] taken_tmask = then_first ? then_tmask_n : else_tmask_n;
-    wire [4-1:0] ntaken_tmask = then_first ? else_tmask_n : then_tmask_n;
+    wire [2-1:0] taken_tmask = then_first ? then_tmask_n : else_tmask_n;
+    wire [2-1:0] ntaken_tmask = then_first ? else_tmask_n : then_tmask_n;
     assign split.valid      = is_split;
     assign split.is_dvg     = has_then && has_else;
     assign split.then_tmask = taken_tmask;
     assign split.else_tmask = ntaken_tmask;
     assign split.next_pc    = execute_if.data.PC + (32-1)'(2);
     assign warp_ctl_if.dvstack_wid = execute_if.data.wid;
-    wire [((($clog2((((4-1) != 0) ? (4-1) : 1))) != 0) ? ($clog2((((4-1) != 0) ? (4-1) : 1))) : 1)-1:0] dvstack_ptr;
+    wire [((($clog2((((2-1) != 0) ? (2-1) : 1))) != 0) ? ($clog2((((2-1) != 0) ? (2-1) : 1))) : 1)-1:0] dvstack_ptr;
     assign sjoin.valid      = is_join;
-    assign sjoin.stack_ptr  = rs1_data[((($clog2((((4-1) != 0) ? (4-1) : 1))) != 0) ? ($clog2((((4-1) != 0) ? (4-1) : 1))) : 1)-1:0];
+    assign sjoin.stack_ptr  = rs1_data[((($clog2((((2-1) != 0) ? (2-1) : 1))) != 0) ? ($clog2((((2-1) != 0) ? (2-1) : 1))) : 1)-1:0];
     assign barrier.valid    = is_bar;
     assign barrier.id       = rs1_data[((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0];
     assign barrier.is_global = 1'b0;
     assign barrier.size_m1  = rs2_data[$bits(barrier.size_m1)-1:0] - $bits(barrier.size_m1)'(1);
     assign barrier.is_noop  = (rs2_data[$bits(barrier.size_m1)-1:0] == $bits(barrier.size_m1)'(1));
-    wire [4-1:0] wspawn_wmask;
-    for (genvar i = 0; i < 4; ++i) begin
-        assign wspawn_wmask[i] = (i < rs1_data[$clog2(4):0]) && (i != execute_if.data.wid);
+    wire [2-1:0] wspawn_wmask;
+    for (genvar i = 0; i < 2; ++i) begin
+        assign wspawn_wmask[i] = (i < rs1_data[$clog2(2):0]) && (i != execute_if.data.wid);
     end
     assign wspawn.valid = is_wspawn;
     assign wspawn.wmask = wspawn_wmask;

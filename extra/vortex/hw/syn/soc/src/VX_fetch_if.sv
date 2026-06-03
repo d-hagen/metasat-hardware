@@ -1,8 +1,8 @@
 interface VX_fetch_if ();
     typedef struct packed {
         logic [1-1:0]     uuid;
-        logic [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]       wid;
-        logic [4-1:0]    tmask;
+        logic [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0]       wid;
+        logic [2-1:0]    tmask;
         logic [(32-1)-1:0]        PC;
         logic [31:0]                instr;
     } data_t;

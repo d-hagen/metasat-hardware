@@ -11,7 +11,7 @@ module VX_alu_int #(
 );
     localparam LANE_BITS      = $clog2(NUM_LANES);
     localparam LANE_WIDTH     = (((LANE_BITS) != 0) ? (LANE_BITS) : 1);
-    localparam PID_BITS       = $clog2(4 / NUM_LANES);
+    localparam PID_BITS       = $clog2(2 / NUM_LANES);
     localparam PID_WIDTH      = (((PID_BITS) != 0) ? (PID_BITS) : 1);
     localparam SHIFT_IMM_BITS = $clog2(32);
     wire [NUM_LANES-1:0][32-1:0] add_result;
@@ -101,7 +101,7 @@ module VX_alu_int #(
         assign tid = 0;
     end
     VX_elastic_buffer #(
-        .DATAW (1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + $clog2(32) + 1 + PID_WIDTH + 1 + 1 + (NUM_LANES * 32) + (32-1) + (32-1) + 1 + 4 + LANE_WIDTH)
+        .DATAW (1 + ((($clog2(2)) != 0) ? ($clog2(2)) : 1) + NUM_LANES + $clog2(32) + 1 + PID_WIDTH + 1 + 1 + (NUM_LANES * 32) + (32-1) + (32-1) + 1 + 4 + LANE_WIDTH)
     ) rsp_buf (
         .clk      (clk),
         .reset    (reset),
@@ -121,18 +121,18 @@ module VX_alu_int #(
     wire br_enable = is_br_op_r && commit_if.valid && commit_if.ready && commit_if.data.eop;
     wire br_taken = ((is_br_less ? is_less : is_equal) ^ is_br_neg) | is_br_static;
     wire [(32-1)-1:0] br_dest = is_br_static ? br_result[1 +: (32-1)] : cbr_dest_r;
-    wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] br_wid;
-    if ((((4 / 8) != 0) ? (4 / 8) : 1) != 1) begin 
-        if ((((4 / 8) != 0) ? (4 / 8) : 1) != 4) begin 
-            assign br_wid = {commit_if.data.wid[((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:$clog2((((4 / 8) != 0) ? (4 / 8) : 1))], $clog2((((4 / 8) != 0) ? (4 / 8) : 1))'(BLOCK_IDX)}; 
+    wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] br_wid;
+    if ((((2 / 8) != 0) ? (2 / 8) : 1) != 1) begin 
+        if ((((2 / 8) != 0) ? (2 / 8) : 1) != 2) begin 
+            assign br_wid = {commit_if.data.wid[((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:$clog2((((2 / 8) != 0) ? (2 / 8) : 1))], $clog2((((2 / 8) != 0) ? (2 / 8) : 1))'(BLOCK_IDX)}; 
         end else begin 
-            assign br_wid = ((($clog2(4)) != 0) ? ($clog2(4)) : 1)'(BLOCK_IDX); 
+            assign br_wid = ((($clog2(2)) != 0) ? ($clog2(2)) : 1)'(BLOCK_IDX); 
         end 
     end else begin 
         assign br_wid = commit_if.data.wid; 
     end
     VX_pipe_register #(
-        .DATAW (1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + 1 + (32-1))
+        .DATAW (1 + ((($clog2(2)) != 0) ? ($clog2(2)) : 1) + 1 + (32-1))
     ) branch_reg (
         .clk      (clk),
         .reset    (reset),

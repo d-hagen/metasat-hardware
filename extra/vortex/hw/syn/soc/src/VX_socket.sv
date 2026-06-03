@@ -70,7 +70,7 @@ module VX_socket import VX_gpu_pkg::*; #(
         .TAG_SEL_IDX    (0),
         .CACHE_SIZE     (16384),
         .LINE_SIZE      (DCACHE_LINE_SIZE),
-        .NUM_BANKS      ((((4) < (4)) ? (4) : (4))),
+        .NUM_BANKS      ((((2) < (4)) ? (2) : (4))),
         .NUM_WAYS       (1),
         .WORD_SIZE      (DCACHE_WORD_SIZE),
         .NUM_REQS       (DCACHE_NUM_REQS),

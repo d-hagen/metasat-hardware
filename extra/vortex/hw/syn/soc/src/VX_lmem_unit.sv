@@ -6,11 +6,11 @@ module VX_lmem_unit import VX_gpu_pkg::*; #(
     VX_lsu_mem_if.slave     lsu_mem_in_if [1],
     VX_lsu_mem_if.master    lsu_mem_out_if [1]
 );
-    localparam REQ_DATAW = 4 + 1 + 4 * (LSU_WORD_SIZE + LSU_ADDR_WIDTH + (2 + 1) + LSU_WORD_SIZE * 8) + LSU_TAG_WIDTH;
-    localparam RSP_DATAW = 4 + 4 * (LSU_WORD_SIZE * 8) + LSU_TAG_WIDTH;
+    localparam REQ_DATAW = 2 + 1 + 2 * (LSU_WORD_SIZE + LSU_ADDR_WIDTH + (2 + 1) + LSU_WORD_SIZE * 8) + LSU_TAG_WIDTH;
+    localparam RSP_DATAW = 2 + 2 * (LSU_WORD_SIZE * 8) + LSU_TAG_WIDTH;
     localparam LMEM_ADDR_WIDTH = 14 - $clog2(LSU_WORD_SIZE);
      VX_lsu_mem_if #(
-        .NUM_LANES (4),
+        .NUM_LANES (2),
         .DATA_SIZE (LSU_WORD_SIZE),
         .TAG_WIDTH (LSU_TAG_WIDTH)
     ) lsu_switch_if[1]();
@@ -21,8 +21,8 @@ module VX_lmem_unit import VX_gpu_pkg::*; #(
         .reset_o (block_reset)                          
     );
     for (genvar i = 0; i < 1; ++i) begin
-        wire [4-1:0] is_addr_local_mask;
-        for (genvar j = 0; j < 4; ++j) begin
+        wire [2-1:0] is_addr_local_mask;
+        for (genvar j = 0; j < 2; ++j) begin
             assign is_addr_local_mask[j] = lsu_mem_in_if[i].req_data.atype[j][2];
         end
         wire is_addr_global = | (lsu_mem_in_if[i].req_data.mask & ~is_addr_local_mask);
@@ -125,9 +125,9 @@ module VX_lmem_unit import VX_gpu_pkg::*; #(
         VX_mem_bus_if #(
             .DATA_SIZE (LSU_WORD_SIZE),
             .TAG_WIDTH (LSU_TAG_WIDTH)
-        ) lmem_bus_tmp_if[4]();
+        ) lmem_bus_tmp_if[2]();
         VX_lsu_adapter #(
-            .NUM_LANES    (4),
+            .NUM_LANES    (2),
             .DATA_SIZE    (LSU_WORD_SIZE),
             .TAG_WIDTH    (LSU_TAG_WIDTH),
             .TAG_SEL_BITS (LSU_TAG_WIDTH - 1),
@@ -140,13 +140,13 @@ module VX_lmem_unit import VX_gpu_pkg::*; #(
             .lsu_mem_if (lsu_switch_if[i]),
             .mem_bus_if (lmem_bus_tmp_if)
         );
-        for (genvar j = 0; j < 4; ++j) begin
-    assign lmem_bus_if[i * 4 + j].req_valid  = lmem_bus_tmp_if[j].req_valid; 
-    assign lmem_bus_if[i * 4 + j].req_data   = lmem_bus_tmp_if[j].req_data; 
-    assign lmem_bus_tmp_if[j].req_ready  = lmem_bus_if[i * 4 + j].req_ready; 
-    assign lmem_bus_tmp_if[j].rsp_valid  = lmem_bus_if[i * 4 + j].rsp_valid; 
-    assign lmem_bus_tmp_if[j].rsp_data   = lmem_bus_if[i * 4 + j].rsp_data; 
-    assign lmem_bus_if[i * 4 + j].rsp_ready  = lmem_bus_tmp_if[j].rsp_ready;
+        for (genvar j = 0; j < 2; ++j) begin
+    assign lmem_bus_if[i * 2 + j].req_valid  = lmem_bus_tmp_if[j].req_valid; 
+    assign lmem_bus_if[i * 2 + j].req_data   = lmem_bus_tmp_if[j].req_data; 
+    assign lmem_bus_tmp_if[j].req_ready  = lmem_bus_if[i * 2 + j].req_ready; 
+    assign lmem_bus_tmp_if[j].rsp_valid  = lmem_bus_if[i * 2 + j].rsp_valid; 
+    assign lmem_bus_tmp_if[j].rsp_data   = lmem_bus_if[i * 2 + j].rsp_data; 
+    assign lmem_bus_if[i * 2 + j].rsp_ready  = lmem_bus_tmp_if[j].rsp_ready;
         end
     end
     wire [1-1:0] lmem_reset;                        
@@ -159,7 +159,7 @@ module VX_lmem_unit import VX_gpu_pkg::*; #(
         .INSTANCE_ID($sformatf("%s-lmem", INSTANCE_ID)),
         .SIZE       (1 << 14),
         .NUM_REQS   (LSU_NUM_REQS),
-        .NUM_BANKS  (4),
+        .NUM_BANKS  (2),
         .WORD_SIZE  (LSU_WORD_SIZE),
         .ADDR_WIDTH (LMEM_ADDR_WIDTH),
         .UUID_WIDTH (1),

@@ -6,15 +6,15 @@ module VX_dispatch import VX_gpu_pkg::*; #(
     VX_operands_if.slave    operands_if,
     VX_dispatch_if.master   dispatch_if [(3 + 0)]
 );
-    localparam DATAW = 1 + ISSUE_WIS_W + 4 + (32-1) + 4 + $bits(op_args_t) + 1 + $clog2(32) + (3 * 4 * 32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1);
-    wire [4-1:0][((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] tids;
-    for (genvar i = 0; i < 4; ++i) begin
-        assign tids[i] = ((($clog2(4)) != 0) ? ($clog2(4)) : 1)'(i);
+    localparam DATAW = 1 + ISSUE_WIS_W + 2 + (32-1) + 4 + $bits(op_args_t) + 1 + $clog2(32) + (3 * 2 * 32) + ((($clog2(2)) != 0) ? ($clog2(2)) : 1);
+    wire [2-1:0][((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] tids;
+    for (genvar i = 0; i < 2; ++i) begin
+        assign tids[i] = ((($clog2(2)) != 0) ? ($clog2(2)) : 1)'(i);
     end
-    wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] last_active_tid;
+    wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] last_active_tid;
     VX_find_first #(
-        .N (4),
-        .DATAW (((($clog2(4)) != 0) ? ($clog2(4)) : 1)),
+        .N (2),
+        .DATAW (((($clog2(2)) != 0) ? ($clog2(2)) : 1)),
         .REVERSE (1)
     ) last_tid_select (
         .valid_in (operands_if.data.tmask),

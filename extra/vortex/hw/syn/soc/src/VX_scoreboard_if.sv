@@ -2,7 +2,7 @@ interface VX_scoreboard_if import VX_gpu_pkg::*; ();
     typedef struct packed {
         logic [1-1:0]     uuid;
         logic [ISSUE_WIS_W-1:0]     wis;
-        logic [4-1:0]    tmask;
+        logic [2-1:0]    tmask;
         logic [(32-1)-1:0]        PC;
         logic [$clog2((3 + 0))-1:0]        ex_type;
         logic [4-1:0]   op_type;

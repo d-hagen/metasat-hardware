@@ -7,16 +7,16 @@ module VX_alu_muldiv #(
     VX_execute_if.slave execute_if,
     VX_commit_if.master commit_if
 );
-    localparam PID_BITS  = $clog2(4 / NUM_LANES);
+    localparam PID_BITS  = $clog2(2 / NUM_LANES);
     localparam PID_WIDTH = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam TAG_WIDTH = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + PID_WIDTH + 1 + 1;
+    localparam TAG_WIDTH = 1 + ((($clog2(2)) != 0) ? ($clog2(2)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + PID_WIDTH + 1 + 1;
     wire [3-1:0] muldiv_op = 3'(execute_if.data.op_type);
     wire is_mulx_op = (~muldiv_op[2]);
     wire is_signed_op = (~muldiv_op[0]);
     wire is_alu_w = 0;
     wire [NUM_LANES-1:0][32-1:0] mul_result_out;
     wire [1-1:0] mul_uuid_out;
-    wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] mul_wid_out;
+    wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] mul_wid_out;
     wire [NUM_LANES-1:0] mul_tmask_out;
     wire [(32-1)-1:0] mul_PC_out;
     wire [$clog2(32)-1:0] mul_rd_out;
@@ -67,7 +67,7 @@ module VX_alu_muldiv #(
     end
     wire [NUM_LANES-1:0][32-1:0] div_result_out;
     wire [1-1:0] div_uuid_out;
-    wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] div_wid_out;
+    wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] div_wid_out;
     wire [NUM_LANES-1:0] div_tmask_out;
     wire [(32-1)-1:0] div_PC_out;
     wire [$clog2(32)-1:0] div_rd_out;

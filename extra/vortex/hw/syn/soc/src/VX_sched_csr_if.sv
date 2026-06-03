@@ -1,11 +1,11 @@
 interface VX_sched_csr_if ();
     wire [44-1:0] cycles;
-    wire [4-1:0] active_warps;
-    wire [4-1:0][4-1:0] thread_masks;
+    wire [2-1:0] active_warps;
+    wire [2-1:0][2-1:0] thread_masks;
     wire alm_empty;
-    wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] alm_empty_wid;
+    wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] alm_empty_wid;
     wire unlock_warp;
-    wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] unlock_wid;
+    wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] unlock_wid;
     modport master (
         output cycles,
         output active_warps,

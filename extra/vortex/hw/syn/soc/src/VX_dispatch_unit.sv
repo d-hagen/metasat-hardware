@@ -6,25 +6,25 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
 ) (
     input  wire             clk,
     input  wire             reset,
-    VX_dispatch_if.slave    dispatch_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
+    VX_dispatch_if.slave    dispatch_if [(((2 / 8) != 0) ? (2 / 8) : 1)],
     VX_execute_if.master    execute_if [BLOCK_SIZE]
 );
     localparam BLOCK_SIZE_W = (((BLOCK_SIZE) > 1) ? $clog2(BLOCK_SIZE) : 1);
-    localparam NUM_PACKETS  = 4 / NUM_LANES;
+    localparam NUM_PACKETS  = 2 / NUM_LANES;
     localparam PID_BITS     = $clog2(NUM_PACKETS);
     localparam PID_WIDTH    = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam BATCH_COUNT  = (((4 / 8) != 0) ? (4 / 8) : 1) / BLOCK_SIZE;
+    localparam BATCH_COUNT  = (((2 / 8) != 0) ? (2 / 8) : 1) / BLOCK_SIZE;
     localparam BATCH_COUNT_W= (((BATCH_COUNT) > 1) ? $clog2(BATCH_COUNT) : 1);
-    localparam ISSUE_W      = ((((((4 / 8) != 0) ? (4 / 8) : 1)) > 1) ? $clog2((((4 / 8) != 0) ? (4 / 8) : 1)) : 1);
-    localparam IN_DATAW     = 1 + ISSUE_WIS_W + 4 + 4 + $bits(op_args_t) + 1 + (32-1) + $clog2(32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (3 * 4 * 32);
-    localparam OUT_DATAW    = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + 4 + $bits(op_args_t) + 1 + (32-1) + $clog2(32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (3 * NUM_LANES * 32) + PID_WIDTH + 1 + 1;
-    localparam FANOUT_ENABLE= (4 > (MAX_FANOUT + MAX_FANOUT /2));
-    localparam DATA_TMASK_OFF = IN_DATAW - (1 + ISSUE_WIS_W + 4);
+    localparam ISSUE_W      = ((((((2 / 8) != 0) ? (2 / 8) : 1)) > 1) ? $clog2((((2 / 8) != 0) ? (2 / 8) : 1)) : 1);
+    localparam IN_DATAW     = 1 + ISSUE_WIS_W + 2 + 4 + $bits(op_args_t) + 1 + (32-1) + $clog2(32) + ((($clog2(2)) != 0) ? ($clog2(2)) : 1) + (3 * 2 * 32);
+    localparam OUT_DATAW    = 1 + ((($clog2(2)) != 0) ? ($clog2(2)) : 1) + NUM_LANES + 4 + $bits(op_args_t) + 1 + (32-1) + $clog2(32) + ((($clog2(2)) != 0) ? ($clog2(2)) : 1) + (3 * NUM_LANES * 32) + PID_WIDTH + 1 + 1;
+    localparam FANOUT_ENABLE= (2 > (MAX_FANOUT + MAX_FANOUT /2));
+    localparam DATA_TMASK_OFF = IN_DATAW - (1 + ISSUE_WIS_W + 2);
     localparam DATA_REGS_OFF = 0;
-    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0] dispatch_valid;
-    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0][IN_DATAW-1:0] dispatch_data;
-    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0] dispatch_ready;
-    for (genvar i = 0; i < (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
+    wire [(((2 / 8) != 0) ? (2 / 8) : 1)-1:0] dispatch_valid;
+    wire [(((2 / 8) != 0) ? (2 / 8) : 1)-1:0][IN_DATAW-1:0] dispatch_data;
+    wire [(((2 / 8) != 0) ? (2 / 8) : 1)-1:0] dispatch_ready;
+    for (genvar i = 0; i < (((2 / 8) != 0) ? (2 / 8) : 1); ++i) begin
         assign dispatch_valid[i] = dispatch_if[i].valid;
         assign dispatch_data[i] = dispatch_if[i].data;
         assign dispatch_if[i].ready = dispatch_ready[i];
@@ -60,7 +60,7 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
         .reset_o (block_reset)                          
     );
         wire valid_p, ready_p;
-        if (4 != NUM_LANES) begin
+        if (2 != NUM_LANES) begin
             reg [NUM_PACKETS-1:0] sent_mask_p;
             wire [PID_WIDTH-1:0] start_p_n, start_p, end_p;
             wire dispatch_valid_r;
@@ -84,10 +84,10 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
             end
             wire [NUM_PACKETS-1:0][NUM_LANES-1:0] per_packet_tmask;
             wire [NUM_PACKETS-1:0][2:0][NUM_LANES-1:0][32-1:0] per_packet_regs;
-            wire [4-1:0] dispatch_tmask = dispatch_data[issue_idx][DATA_TMASK_OFF +: 4];
-            wire [4-1:0][32-1:0] dispatch_rs1_data = dispatch_data[issue_idx][DATA_REGS_OFF + 2 * 4 * 32 +: 4 * 32];
-            wire [4-1:0][32-1:0] dispatch_rs2_data = dispatch_data[issue_idx][DATA_REGS_OFF + 1 * 4 * 32 +: 4 * 32];
-            wire [4-1:0][32-1:0] dispatch_rs3_data = dispatch_data[issue_idx][DATA_REGS_OFF + 0 * 4 * 32 +: 4 * 32];
+            wire [2-1:0] dispatch_tmask = dispatch_data[issue_idx][DATA_TMASK_OFF +: 2];
+            wire [2-1:0][32-1:0] dispatch_rs1_data = dispatch_data[issue_idx][DATA_REGS_OFF + 2 * 2 * 32 +: 2 * 32];
+            wire [2-1:0][32-1:0] dispatch_rs2_data = dispatch_data[issue_idx][DATA_REGS_OFF + 1 * 2 * 32 +: 2 * 32];
+            wire [2-1:0][32-1:0] dispatch_rs3_data = dispatch_data[issue_idx][DATA_REGS_OFF + 0 * 2 * 32 +: 2 * 32];
             for (genvar i = 0; i < NUM_PACKETS; ++i) begin
                 for (genvar j = 0; j < NUM_LANES; ++j) begin
                     localparam k = i * NUM_LANES + j;
@@ -151,10 +151,10 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
             assign block_done[block_idx] = ~dispatch_valid[issue_idx] || fire_eop;
         end else begin
             assign valid_p = dispatch_valid[issue_idx];
-            assign block_tmask[block_idx] = dispatch_data[issue_idx][DATA_TMASK_OFF +: 4];
-            assign block_regs[block_idx][0] = dispatch_data[issue_idx][DATA_REGS_OFF + 2 * 4 * 32 +: 4 * 32];
-            assign block_regs[block_idx][1] = dispatch_data[issue_idx][DATA_REGS_OFF + 1 * 4 * 32 +: 4 * 32];
-            assign block_regs[block_idx][2] = dispatch_data[issue_idx][DATA_REGS_OFF + 0 * 4 * 32 +: 4 * 32];
+            assign block_tmask[block_idx] = dispatch_data[issue_idx][DATA_TMASK_OFF +: 2];
+            assign block_regs[block_idx][0] = dispatch_data[issue_idx][DATA_REGS_OFF + 2 * 2 * 32 +: 2 * 32];
+            assign block_regs[block_idx][1] = dispatch_data[issue_idx][DATA_REGS_OFF + 1 * 2 * 32 +: 2 * 32];
+            assign block_regs[block_idx][2] = dispatch_data[issue_idx][DATA_REGS_OFF + 0 * 2 * 32 +: 2 * 32];
             assign block_pid[block_idx]   = '0;
             assign block_sop[block_idx]   = 1'b1;
             assign block_eop[block_idx]   = 1'b1;
@@ -171,7 +171,7 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
         end else begin
             assign isw = block_idx;
         end
-        wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] block_wid = wis_to_wid(dispatch_data[issue_idx][DATA_TMASK_OFF+4 +: ISSUE_WIS_W], isw);
+        wire [((($clog2(2)) != 0) ? ($clog2(2)) : 1)-1:0] block_wid = wis_to_wid(dispatch_data[issue_idx][DATA_TMASK_OFF+2 +: ISSUE_WIS_W], isw);
         VX_elastic_buffer #(
             .DATAW   (OUT_DATAW),
             .SIZE    ((((OUT_BUF) < (2)) ? (OUT_BUF) : (2))),
@@ -182,10 +182,10 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
             .valid_in  (valid_p),
             .ready_in  (ready_p),
             .data_in   ({
-                dispatch_data[issue_idx][IN_DATAW-1 : DATA_TMASK_OFF+4+ISSUE_WIS_W],
+                dispatch_data[issue_idx][IN_DATAW-1 : DATA_TMASK_OFF+2+ISSUE_WIS_W],
                 block_wid,
                 block_tmask[block_idx],
-                dispatch_data[issue_idx][DATA_TMASK_OFF-1 : DATA_REGS_OFF + 3 * 4 * 32],
+                dispatch_data[issue_idx][DATA_TMASK_OFF-1 : DATA_REGS_OFF + 3 * 2 * 32],
                 block_regs[block_idx][0],
                 block_regs[block_idx][1],
                 block_regs[block_idx][2],
@@ -197,7 +197,7 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
             .ready_out (execute_if[block_idx].ready)
         );
     end
-    reg [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0] ready_in;
+    reg [(((2 / 8) != 0) ? (2 / 8) : 1)-1:0] ready_in;
     always @(*) begin
         ready_in = 0;
         for (integer i = 0; i < BLOCK_SIZE; ++i) begin

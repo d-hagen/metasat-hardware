@@ -3,8 +3,8 @@
 +define+XLEN_32
 +define+NUM_CLUSTERS=1
 +define+NUM_CORES=1
-+define+NUM_WARPS=4
-+define+NUM_THREADS=4
++define+NUM_WARPS=2
++define+NUM_THREADS=2
 +define+NUM_BARRIERS=4
 +define+STARTUP_ADDR=1610612736
 +define+STACK_BASE_ADDR=2130706432

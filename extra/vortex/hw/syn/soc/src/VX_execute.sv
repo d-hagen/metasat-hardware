@@ -6,10 +6,10 @@ module VX_execute import VX_gpu_pkg::*; #(
     input wire              reset,
     input base_dcrs_t       base_dcrs,
     VX_lsu_mem_if.master    lsu_mem_if [1],
-    VX_dispatch_if.slave    dispatch_if [(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    VX_commit_if.master     commit_if [(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    VX_dispatch_if.slave    dispatch_if [(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
+    VX_commit_if.master     commit_if [(3 + 0) * (((2 / 8) != 0) ? (2 / 8) : 1)],
     VX_sched_csr_if.slave   sched_csr_if,
-    VX_branch_ctl_if.master branch_ctl_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
+    VX_branch_ctl_if.master branch_ctl_if [(((2 / 8) != 0) ? (2 / 8) : 1)],
     VX_warp_ctl_if.master   warp_ctl_if,
     VX_commit_csr_if.slave  commit_csr_if
 );
@@ -36,8 +36,8 @@ module VX_execute import VX_gpu_pkg::*; #(
     ) alu_unit (
         .clk            (clk),
         .reset          (alu_reset),
-        .dispatch_if    (dispatch_if[0 * (((4 / 8) != 0) ? (4 / 8) : 1) +: (((4 / 8) != 0) ? (4 / 8) : 1)]),
-        .commit_if      (commit_if[0 * (((4 / 8) != 0) ? (4 / 8) : 1) +: (((4 / 8) != 0) ? (4 / 8) : 1)]),
+        .dispatch_if    (dispatch_if[0 * (((2 / 8) != 0) ? (2 / 8) : 1) +: (((2 / 8) != 0) ? (2 / 8) : 1)]),
+        .commit_if      (commit_if[0 * (((2 / 8) != 0) ? (2 / 8) : 1) +: (((2 / 8) != 0) ? (2 / 8) : 1)]),
         .branch_ctl_if  (branch_ctl_if)
     );
     VX_lsu_unit #(
@@ -45,8 +45,8 @@ module VX_execute import VX_gpu_pkg::*; #(
     ) lsu_unit (
         .clk            (clk),
         .reset          (lsu_reset),
-        .dispatch_if    (dispatch_if[1 * (((4 / 8) != 0) ? (4 / 8) : 1) +: (((4 / 8) != 0) ? (4 / 8) : 1)]),
-        .commit_if      (commit_if[1 * (((4 / 8) != 0) ? (4 / 8) : 1) +: (((4 / 8) != 0) ? (4 / 8) : 1)]),
+        .dispatch_if    (dispatch_if[1 * (((2 / 8) != 0) ? (2 / 8) : 1) +: (((2 / 8) != 0) ? (2 / 8) : 1)]),
+        .commit_if      (commit_if[1 * (((2 / 8) != 0) ? (2 / 8) : 1) +: (((2 / 8) != 0) ? (2 / 8) : 1)]),
         .lsu_mem_if     (lsu_mem_if)
     );
     VX_sfu_unit #(
@@ -56,8 +56,8 @@ module VX_execute import VX_gpu_pkg::*; #(
         .clk            (clk),
         .reset          (sfu_reset),
         .base_dcrs      (base_dcrs),
-        .dispatch_if    (dispatch_if[2 * (((4 / 8) != 0) ? (4 / 8) : 1) +: (((4 / 8) != 0) ? (4 / 8) : 1)]),
-        .commit_if      (commit_if[2 * (((4 / 8) != 0) ? (4 / 8) : 1) +: (((4 / 8) != 0) ? (4 / 8) : 1)]),
+        .dispatch_if    (dispatch_if[2 * (((2 / 8) != 0) ? (2 / 8) : 1) +: (((2 / 8) != 0) ? (2 / 8) : 1)]),
+        .commit_if      (commit_if[2 * (((2 / 8) != 0) ? (2 / 8) : 1) +: (((2 / 8) != 0) ? (2 / 8) : 1)]),
         .commit_csr_if  (commit_csr_if),
         .sched_csr_if   (sched_csr_if),
         .warp_ctl_if    (warp_ctl_if)

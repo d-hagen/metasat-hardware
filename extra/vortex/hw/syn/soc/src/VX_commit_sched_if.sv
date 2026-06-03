@@ -1,5 +1,5 @@
 interface VX_commit_sched_if ();
-    wire [4-1:0] committed_warps;
+    wire [2-1:0] committed_warps;
     modport master (
         output committed_warps
     );
