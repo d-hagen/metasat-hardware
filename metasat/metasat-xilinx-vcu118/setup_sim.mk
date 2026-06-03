@@ -11,9 +11,6 @@
 #   make -f setup_sim.mk TEST=memory run-sim            # full memory test
 #   make -f setup_sim.mk TEST=evaluation-light run-sim  # fast evaluation (with kernel)
 #   make -f setup_sim.mk TEST=evaluation run-sim        # full evaluation
-#
-# If sim fails with AXI ID width mismatch on aximem/axirep/axixmem,
-# uncomment patch-aximem in the `all:` chain below and re-run.
 
 # ---- Environment setup ----
 export PATH := /opt/siemens/questasim/bin:$(PATH)
@@ -36,14 +33,9 @@ REPO_ROOT_DIR := $(abspath $(SIM_DIR)/../..)
 LOG_FILE       = $(REPO_ROOT_DIR)/sim-$(TEST)-$(shell date +%Y%m%d-%H%M%S).log
 
 .PHONY: all check-paths compile-unisim scripts-gen map-unisim \
-        stub-libs patch-aximem select-test compile-rtl run-sim \
+        stub-libs select-test compile-rtl run-sim \
         wipe nuke rebuild check-config check-all clean-unisim help
 
-# NOTE: patch-aximem is intentionally NOT in the `all` chain.
-# It's pre-existing project state (the SoC has 32-bit AXI IDs since main),
-# but GRLIB sim models may or may not need it depending on the testbench
-# configuration. Try sim without it first. If you get a width-mismatch error
-# on aximem/axirep/axixmem, add `patch-aximem` after `stub-libs` here:
 all: check-paths compile-unisim scripts-gen map-unisim stub-libs select-test compile-rtl
 	@echo ""
 	@echo "=== Setup complete ==="
@@ -93,17 +85,6 @@ stub-libs:
 	-cd $(SIM_DIR) && vlib secureip 2>/dev/null
 	-cd $(SIM_DIR) && vlib unisims_ver 2>/dev/null
 	@echo "=== Stub libraries created ==="
-
-# ---- Step 6 (OPTIONAL): Patch AXI sim models ID width (4 -> 32) ----
-# Only enable if RTL elaboration fails with port-width mismatch on these models.
-# This sed-patches files in $(AXI_SIM_DIR) in place — re-runnable but invasive.
-patch-aximem:
-	@echo "=== Patching AXI sim model ID widths to 32 ==="
-	for f in $(AXI_SIM_DIR)/aximem.vhd $(AXI_SIM_DIR)/axirep.vhd $(AXI_SIM_DIR)/axixmem.vhd; do \
-		sed -i 's/id: std_logic_vector(3 downto 0)/id: std_logic_vector(31 downto 0)/g' $$f; \
-		sed -i "s/id => \"0000\"/id => (others => '0')/g" $$f; \
-	done
-	@echo "=== Patched ==="
 
 # ---- Step 7: Select test program ----
 select-test:
@@ -232,7 +213,6 @@ help:
 	@echo "  nuke            - Drop everything including UNISIM (~15min to rebuild)"
 	@echo "  check-config    - Report CPU + GPU config"
 	@echo "  check-all       - Config + library timestamps + corruption probes"
-	@echo "  patch-aximem    - Apply AXI ID-width sim-model patch (only if needed)"
 	@echo ""
 	@echo "Variables:"
 	@echo "  UNISIM_SRC      - Path to unisims/ folder  (default: /dades/dan.joshua.hagen/unisims)"

@@ -89,26 +89,6 @@ Verilator, which isn't installed on the sim machine. Do them on the VM:
 
 ## Troubleshooting
 
-### Sim fails at elaboration with AXI ID width mismatch on `aximem`, `axirep`, or `axixmem`
-
-GRLIB's stock sim models declare a 4-bit AXI ID port; the metasat SoC uses
-32-bit AXI IDs. The fix exists as a `patch-aximem` target in `setup_sim.mk`
-but is intentionally NOT in the `all` chain (we want to confirm the patch is
-strictly needed before applying it).
-
-To enable it:
-
-```bash
-# Edit setup_sim.mk: add patch-aximem after stub-libs in the `all:` line, OR
-# just run it once standalone:
-make -f setup_sim.mk patch-aximem
-make -f setup_sim.mk TEST=memory-light run-sim
-```
-
-Note: `patch-aximem` modifies files in your GRLIB tree in place (`sed -i`).
-Re-running is safe (idempotent), but the patched GRLIB files will show as
-modified in `git status` if your GRLIB is a git checkout.
-
 ### `compile-unisim` fails — QuestaSim not on PATH
 
 `setup_sim.mk` exports `PATH := /opt/siemens/questasim/bin:$PATH` at the top.
