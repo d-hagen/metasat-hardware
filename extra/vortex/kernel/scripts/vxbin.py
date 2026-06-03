@@ -61,6 +61,11 @@ def create_vxbin_binary(input_elf, output_bin, objcopy_path):
     with open(temp_bin_path, 'rb') as temp_file:
         binary_data = temp_file.read()
 
+    # Pad binary to cover BSS (MemSiz > FileSiz in ELF segments)
+    expected_size = max_vma - min_vma
+    if len(binary_data) < expected_size:
+        binary_data += b'\x00' * (expected_size - len(binary_data))
+
     # Pack addresses into 64-bit unsigned integer
     min_vma_bytes = struct.pack('<Q', min_vma)
     max_vma_bytes = struct.pack('<Q', max_vma)
