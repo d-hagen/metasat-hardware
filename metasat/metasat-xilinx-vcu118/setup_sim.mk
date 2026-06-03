@@ -144,11 +144,28 @@ compile-rtl:
 # essentially empty anyway, so disk I/O is negligible.
 VSIMOPT_FAST = -voptargs="-O5 -nowarn 1" -do "run -all; quit -f" -quiet testbench
 
+# Diagnostic VSIMOPT: keeps signal visibility (+acc) and runs gpu_diag.do which
+# uses `when` commands to print on every Vortex AFU AXI handshake.
+# Slower than VSIMOPT_FAST (~2-5x) — only use with run-sim-diag.
+VSIMOPT_DIAG = -voptargs="+acc -nowarn 1" -do gpu_diag.do -quiet testbench
+
 run-sim: select-test
-	@echo "=== Launching simulation ==="
+	@echo "=== Launching simulation (fast mode) ==="
 	@echo "=== Log file: $(LOG_FILE) ==="
 	@date '+=== Start: %F %T ===' | tee $(LOG_FILE)
 	@cd $(SIM_DIR) && $(MAKE) sim-run VSIMOPT='$(VSIMOPT_FAST)' 2>&1 \
+		| perl -ne 'BEGIN{$$|=1} use POSIX; print strftime("%H:%M:%S ", localtime), $$_' \
+		| tee -a $(LOG_FILE)
+	@date '+=== End:   %F %T ===' | tee -a $(LOG_FILE)
+	@echo "=== Sim finished. Full log: $(LOG_FILE) ==="
+
+# Diagnostic run: slower but captures Vortex AFU memory bus activity.
+# Same log filename pattern as run-sim (per-test timestamped).
+run-sim-diag: select-test
+	@echo "=== Launching simulation (DIAG mode — slower, prints AFU memory bus) ==="
+	@echo "=== Log file: $(LOG_FILE) ==="
+	@date '+=== Start: %F %T (DIAG) ===' | tee $(LOG_FILE)
+	@cd $(SIM_DIR) && $(MAKE) sim-run VSIMOPT='$(VSIMOPT_DIAG)' 2>&1 \
 		| perl -ne 'BEGIN{$$|=1} use POSIX; print strftime("%H:%M:%S ", localtime), $$_' \
 		| tee -a $(LOG_FILE)
 	@date '+=== End:   %F %T ===' | tee -a $(LOG_FILE)
