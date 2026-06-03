@@ -584,19 +584,42 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
 
     // to milliseconds
     uint64_t sleep_time_ms = (sleep_time.tv_sec * 1000) + (sleep_time.tv_nsec / 1000000);
-    
+
+    // sim/uni-machine ONLY: heartbeat diagnostic so we can see whether the
+    // host is stuck in this polling loop while the GPU isn't signaling done.
+    // Prints raw status (before the state-bits mask) every N polls and on any
+    // status change. Tells us:
+    //   - host is alive (heartbeats appearing)
+    //   - what AFU's status register currently reads
+    //   - whether the value is changing or stuck
+    uint64_t poll_count = 0;
+    uint64_t last_raw = (uint64_t)-1;
+    const uint64_t HB_EVERY = 1000;
+
     for (;;) {
-        uint64_t status = 0;
-        CHECK_ERR(device->read_register(MMIO_STATUS, &status), {
+        uint64_t raw_status = 0;
+        CHECK_ERR(device->read_register(MMIO_STATUS, &raw_status), {
             return -1;
         });
-        status &= (0x01 << STATE_BITS)-1;
+        uint64_t status = raw_status & ((0x01 << STATE_BITS)-1);
         bool is_done = status == STATE_IDLE;
-        if (is_done || 0 == timeout) {            
+
+        ++poll_count;
+        if (poll_count == 1 || poll_count % HB_EVERY == 0 || raw_status != last_raw) {
+            printf("[hb] poll=%lu raw_status=0x%lx state=0x%lx done=%d\n",
+                   (unsigned long)poll_count, (unsigned long)raw_status,
+                   (unsigned long)status, is_done ? 1 : 0);
+            last_raw = raw_status;
+        }
+
+        if (is_done || 0 == timeout) {
+            printf("[hb] vx_ready_wait exit after %lu polls, final raw_status=0x%lx state=0x%lx done=%d\n",
+                   (unsigned long)poll_count, (unsigned long)raw_status,
+                   (unsigned long)status, is_done ? 1 : 0);
             break;
         }
         nanosleep(&sleep_time, nullptr);
-    
+
         timeout -= sleep_time_ms;
     };
 
