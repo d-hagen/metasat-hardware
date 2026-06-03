@@ -1,13 +1,7 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
-#define KERNEL_ARG_DEV_MEM_ADDR 0x5ffff000
-
-//#define FP_ENABLE 
-
-#ifdef FP_ENABLE
-#define TYPE float
-#else
+#ifndef TYPE
 #define TYPE int
 #endif
 
