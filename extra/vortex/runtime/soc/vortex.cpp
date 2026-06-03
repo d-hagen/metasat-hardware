@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <vortex.h>
-#include <utils.h>
+#include <common.h>
 #include <malloc.h>
 #include "axictrl.h"
 #include <iostream>
@@ -74,11 +74,7 @@
 #define MEM_TRANSF_WIDTH    (32/8)
 #endif
 
-#ifndef NDEBUG
-#define DBGPRINT(format, ...) do { printf("[VXDRV] " format "", ##__VA_ARGS__); } while (0)
-#else
-#define DBGPRINT(format, ...) ((void)0)
-#endif
+// DBGPRINT and CHECK_ERR provided by common.h
 
 #define CHECK_HANDLE(handle, _expr, _cleanup)   \
     auto handle = _expr;                        \
@@ -87,16 +83,15 @@
         _cleanup                                \
     }
 
-#define CHECK_ERR(_expr, _cleanup)              \
-    do {                                        \
-        auto err = _expr;                       \
-        if (err == 0)                           \
-            break;                              \
-        printf("[VXDRV] Error: '%s' returned %d!\n", #_expr, (int)err); \
-        _cleanup                                \
-    } while (false)
-
 ///////////////////////////////////////////////////////////////////////////////
+
+class vx_device;
+
+struct vx_buffer {
+  vx_device* device;
+  uint64_t addr;
+  uint64_t size;
+};
 
 class vx_device {
     public:
@@ -109,17 +104,48 @@ class vx_device {
         {
         }
 
+        //// MEM SECTION ////
+
+        int mem_alloc(uint64_t size, int flags, uint64_t* dev_addr) {
+            uint64_t addr;
+            CHECK_ERR(global_mem->allocate(size, &addr), { //allocation sucessfull ? 
+                return err;
+            });
+            *dev_addr = addr;
+            return 0;
+        }
+
+        int mem_reserve(uint64_t dev_addr, uint64_t size, int flags){
+            CHECK_ERR(global_mem->reserve(dev_addr, size),{
+                return err;
+            });
+            return 0;
+        }
+
+        int mem_free(uint64_t dev_addr) {           
+            return global_mem->release(dev_addr);                                   
+            // DO I still check for local mem  for safty -- memory managment local gloabl now internal (hardware managed)             
+            //  if (dev_addr >= LMEM_BASE_ADDR) {                                       
+            //      return local_mem->release(dev_addr);                                
+            //  } else {                                                                
+            //      return global_mem->release(dev_addr);                               
+            //  }                                                                       
+          }                              
+
+
+        ////// 
+
         int write_register(uint64_t addr, uint64_t value)
         {
             CHECK_ERR(axi_.write32(addr, (uint32_t) value), { return -1; });
-            DBGPRINT("*** write_register: addr=0x%x, value=0x%x\n", addr, value);
+            DBGPRINT("*** write_register: addr=0x%lx, value=0x%lx\n", addr, value);
             return 0;
         }
 
         int read_register(uint64_t addr, uint64_t* value)
         {
             CHECK_ERR(axi_.read32(addr, (uint32_t*)value), { return -1; });
-            DBGPRINT("*** read_register: addr=0x%x, value=0x%x\n", addr, *value);
+            DBGPRINT("*** read_register: addr=0x%lx, value=0x%lx\n", addr, *value);
             return 0;
 
         }
@@ -127,14 +153,14 @@ class vx_device {
         int write_register64(uint64_t addr, uint64_t value)
         {
             CHECK_ERR(axi_.write64(addr, value), { return -1; });
-            DBGPRINT("*** write_register: addr=0x%x, value=0x%lx\n", addr, value);
+            DBGPRINT("*** write_register: addr=0x%lx, value=0x%lx\n", addr, value);
             return 0;
         }
 
         int read_register64(uint64_t addr, uint64_t* value)
         {
             CHECK_ERR(axi_.read64(addr, value), { return -1; });
-            DBGPRINT("*** read_register: addr=0x%x, value=0x%lx\n", addr, *value);
+            DBGPRINT("*** read_register: addr=0x%lx, value=0x%lx\n", addr, *value);
             return 0;
 
         }
@@ -218,10 +244,6 @@ extern int vx_dev_caps(vx_device_h hdevice, uint32_t caps_id, uint64_t *value) {
     case VX_CAPS_LOCAL_MEM_SIZE:
         *value = 1ull << ((device->dev_caps >> 40) & 0xff);
         break;
-    case VX_CAPS_KERNEL_BASE_ADDR:
-        *value = (uint64_t(device->dcrs.read(VX_DCR_BASE_STARTUP_ADDR1)) << 32) |
-                           device->dcrs.read(VX_DCR_BASE_STARTUP_ADDR0);
-        break;
     case VX_CAPS_ISA_FLAGS:
         *value = device->isa_caps;
         break;
@@ -230,6 +252,28 @@ extern int vx_dev_caps(vx_device_h hdevice, uint32_t caps_id, uint64_t *value) {
         std::abort();
         return -1;
     }
+
+    return 0;
+}
+
+static int dcr_initialize(vx_device_h hdevice) {
+    const uint64_t startup_addr(STARTUP_ADDR);
+
+    CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ADDR0, startup_addr & 0xffffffff), {
+        return err;
+    });
+    CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ADDR1, startup_addr >> 32), {
+        return err;
+    });
+    CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ARG0, 0), {
+        return err;
+    });
+    CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ARG1, 0), {
+        return err;
+    });
+    CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_MPM_CLASS, 0), {
+        return err;
+    });
 
     return 0;
 }
@@ -259,13 +303,13 @@ extern int vx_dev_open(vx_device_h* hdevice) {
     }
 
     device->global_mem = std::make_shared<vortex::MemoryAllocator>(
-        ALLOC_BASE_ADDR, ALLOC_MAX_ADDR - ALLOC_BASE_ADDR, RAM_PAGE_SIZE, CACHE_BLOCK_SIZE);
+        ALLOC_BASE_ADDR, GLOBAL_MEM_SIZE - ALLOC_BASE_ADDR, RAM_PAGE_SIZE, CACHE_BLOCK_SIZE);
 
     uint64_t local_mem_size = 0;
     vx_dev_caps(device, VX_CAPS_LOCAL_MEM_SIZE, &local_mem_size);
     if (local_mem_size <= 1) {        
         device->local_mem = std::make_shared<vortex::MemoryAllocator>(
-            SMEM_BASE_ADDR, local_mem_size, RAM_PAGE_SIZE, 1);
+            LMEM_BASE_ADDR, local_mem_size, RAM_PAGE_SIZE, 1);
     }
 
     int err = dcr_initialize(device);
@@ -305,7 +349,7 @@ extern int vx_dev_open(vx_device_h* hdevice) {
 
     *hdevice = device;    
 
-    DBGPRINT("device creation complete!\n",NULL);
+    DBGPRINT("device creation complete!\n");
     return 0;
 }
 
@@ -325,126 +369,202 @@ extern int vx_dev_close(vx_device_h hdevice) {
 
     delete device;
 
-    DBGPRINT("device destroyed!\n",NULL);
+    DBGPRINT("device destroyed!\n");
 
     return 0;
 }
 
-extern int vx_mem_alloc(vx_device_h hdevice, uint64_t size, int type, uint64_t* dev_addr) {
-    if (nullptr == hdevice 
-     || nullptr == dev_addr
-     || 0 == size)
+
+///MEM SECTION ////////
+
+extern int vx_mem_alloc(vx_device_h hdevice, uint64_t size, int flags, vx_buffer_h* hbuffer) {
+    if  (nullptr == hdevice || nullptr == hbuffer || 0 == size)
         return -1;
 
     auto device = ((vx_device*)hdevice);
-    if (type == VX_MEM_TYPE_GLOBAL) {
-        return device->global_mem->allocate(size, dev_addr);
-    } else if (type == VX_MEM_TYPE_LOCAL) {        
-        return device->local_mem->allocate(size, dev_addr);
-    }
-    return -1;
-}
 
-extern int vx_mem_free(vx_device_h hdevice, uint64_t dev_addr) {
-    if (nullptr == hdevice)
-        return -1;
+    uint64_t dev_addr;
 
-    if (0 == dev_addr)
-        return 0;
+    CHECK_ERR(device->mem_alloc(size, flags, &dev_addr), {
+          return err;
+      });
 
-    auto device = ((vx_device*)hdevice);
-    if (dev_addr >= SMEM_BASE_ADDR) {
-        return device->local_mem->release(dev_addr);
-    } else {    
-        return device->global_mem->release(dev_addr);
-    }
-}
-
-extern int vx_mem_info(vx_device_h hdevice, int type, uint64_t* mem_free, uint64_t* mem_used) {
-    if (nullptr == hdevice)
-        return -1;
-
-    auto device = ((vx_device*)hdevice);    
-    if (type == VX_MEM_TYPE_GLOBAL) {
-        if (mem_free)
-            *mem_free = device->global_mem->free();
-        if (mem_used)
-            *mem_used = device->global_mem->allocated();
-    } else if (type == VX_MEM_TYPE_LOCAL) {
-        if (mem_free)
-            *mem_free = device->local_mem->free();
-        if (mem_used)
-            *mem_free = device->local_mem->allocated();
-    } else {
-        return -1;
-    }
+    auto buffer = new vx_buffer{device, dev_addr, size}; //bundle ass new buffer
+    if (nullptr == buffer) {  //if creating a new buffer fails free mem
+          device->mem_free(dev_addr);
+          return -1;
+      }
+    
+    *hbuffer = buffer; //CHANGE return buffer instead of addr 
     return 0;
 }
 
-extern int vx_copy_to_dev(vx_device_h hdevice, uint64_t dev_addr, const void* host_ptr, uint64_t size) {
-    if (nullptr == hdevice)
-        return -1;
-    
-    auto device = (vx_device*)hdevice;
 
-    // check alignment
-    if (!is_aligned(dev_addr, CACHE_BLOCK_SIZE))
-        return -1;
+//same as alloc but u dotn get adress but rather know adress and set it 
+extern int vx_mem_reserve(vx_device_h hdevice, uint64_t address, uint64_t size, int flags, vx_buffer_h* hbuffer) {
+      if (nullptr == hdevice || nullptr == hbuffer || 0 == size)
+          return -1;
 
-    auto asize = aligned_size(size, CACHE_BLOCK_SIZE);
+      auto device = ((vx_device*)hdevice);
 
-    // bound checking
-    if (dev_addr + asize > device->global_mem_size)
-        return -1;
+      CHECK_ERR(device->mem_reserve(address, size, flags), {
+          return err;
+      });
 
-    CHECK_ERR(device->upload(dev_addr, (uint32_t*)host_ptr, asize), {
-        return -1;
-    });
+      auto buffer = new vx_buffer{device, address, size};
+      if (nullptr == buffer) {
+          device->mem_free(address);
+          return -1;
+      }
 
-    DBGPRINT("COPY_TO_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n", dev_addr, (uintptr_t)host_ptr, asize);
-    
-    return 0;
-}
+      *hbuffer = buffer;
+      return 0;
+  }
 
-extern int vx_copy_from_dev(vx_device_h hdevice, void* host_ptr, uint64_t dev_addr, uint64_t size) {
-    if (nullptr == hdevice)
-        return -1;
+extern int vx_mem_free(vx_buffer_h hbuffer) {
+      if (nullptr == hbuffer)                                                         
+          return 0;
+                                                                                      
+      auto buffer = ((vx_buffer*)hbuffer);                                            
+      auto device = buffer->device;      
+                                                                                      
+      int err = device->mem_free(buffer->addr);
+      delete buffer;                                                                  
+      return err;                                                                     
+  }  
 
-    auto device = (vx_device*)hdevice;
 
-    // check alignment
-    if (!is_aligned(dev_addr, CACHE_BLOCK_SIZE))
-        return -1;
+// to extract adress from the buffer wrapper
+extern int vx_mem_address(vx_buffer_h hbuffer, uint64_t* address) {                 
+      if (nullptr == hbuffer)                                                         
+          return -1;                                                                  
+                                                                                      
+      auto buffer = ((vx_buffer*)hbuffer);                                            
+      *address = buffer->addr;           
+      return 0;
+  }                                    
 
-    auto asize = aligned_size(size, CACHE_BLOCK_SIZE);
 
-    // bound checking
-    if (dev_addr + asize > device->global_mem_size)
-        return -1;
+extern int vx_mem_info(vx_device_h hdevice, uint64_t* mem_free, uint64_t* mem_used) 
+  {                                                                                   
+      if (nullptr == hdevice)
+          return -1;                                                                  
+                                                                                      
+      auto device = ((vx_device*)hdevice);
+      if (mem_free)
+          *mem_free = device->global_mem->free();                                     
+      if (mem_used)
+          *mem_used = device->global_mem->allocated();                                
+      return 0;                                                                       
+  }                
 
-    CHECK_ERR(device->download((uint32_t*)host_ptr, dev_addr, size), {
-        return -1;
-    });
 
-    DBGPRINT("COPY_FROM_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n", dev_addr, (uintptr_t)host_ptr, size);
-    
-    return 0;
-}
+extern int vx_copy_to_dev(vx_buffer_h hbuffer, const void* host_ptr, uint64_t dst_offset, uint64_t size) {                                                        
+      if (nullptr == hbuffer || nullptr == host_ptr)
+          return -1;                                                                  
+                                                                                      
+      auto buffer = ((vx_buffer*)hbuffer);                                            
+      auto device = buffer->device;
+                                                                                      
+      if ((dst_offset + size) > buffer->size)                                         
+          return -1;                     
 
-extern int vx_start(vx_device_h hdevice) {
-    if (nullptr == hdevice)
-        return -1;
+      uint64_t dev_addr = buffer->addr + dst_offset;                                  
+   
+      // check alignment                                                              
+      if (!is_aligned(dev_addr, CACHE_BLOCK_SIZE))                                    
+          return -1;                     
 
-    auto device = (vx_device*)hdevice;
+      auto asize = aligned_size(size, CACHE_BLOCK_SIZE);                              
+   
+      // bound checking                                                               
+      if (dev_addr + asize > device->global_mem_size)                                 
+          return -1;                     
 
-    CHECK_ERR(device->write_register(MMIO_CMD_TYPE, CMD_RUN), {
-        return -1;
-    });
-    
-    DBGPRINT("START\n",NULL);
+      CHECK_ERR(device->upload(dev_addr, (uint32_t*)host_ptr, asize), {
+          return -1;
+      });                                                                             
+   
+      DBGPRINT("COPY_TO_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n",      
+  dev_addr, (uintptr_t)host_ptr, asize);                                              
+                                                                                      
+      return 0;                                                                       
+  }  
 
-    return 0;
-}
+extern int vx_copy_from_dev(void* host_ptr, vx_buffer_h hbuffer, uint64_t 
+  src_offset, uint64_t size) {                                                        
+      if (nullptr == hbuffer || nullptr == host_ptr)
+          return -1;                                                                  
+                                                                                      
+      auto buffer = ((vx_buffer*)hbuffer);                                            
+      auto device = buffer->device;
+                                                                                      
+      if ((src_offset + size) > buffer->size) // offset where to start reading + how much to read can not go over area end point                                        
+          return -1;                     
+
+      uint64_t dev_addr = buffer->addr + src_offset;
+
+      // check alignment                                                              
+      if (!is_aligned(dev_addr, CACHE_BLOCK_SIZE))
+          return -1;                                                                  
+                                                                                      
+      auto asize = aligned_size(size, CACHE_BLOCK_SIZE);
+
+      // bound checking
+      if (dev_addr + asize > device->global_mem_size)
+          return -1;                                                                  
+   
+      CHECK_ERR(device->download((uint32_t*)host_ptr, dev_addr, size), {              
+          return -1;                                                                  
+      });                                
+
+      DBGPRINT("COPY_FROM_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n",    
+  dev_addr, (uintptr_t)host_ptr, size);
+                                                                                      
+      return 0;                                                                       
+  } 
+
+/// END OF MEM /////////
+
+
+// Kernal now not always at same adress so need to actually write the adress 
+
+extern int vx_start(vx_device_h hdevice, vx_buffer_h hkernel, vx_buffer_h harguments) {                                                                       
+      if (nullptr == hdevice || nullptr == hkernel || nullptr == harguments)          
+          return -1;                                                                  
+                                                                                      
+      auto device = (vx_device*)hdevice;                                              
+      auto kernel = ((vx_buffer*)hkernel);
+      auto arguments = ((vx_buffer*)harguments);                                      
+   
+      uint64_t krnl_addr = kernel->addr;                                              
+      uint64_t args_addr = arguments->addr;                                           
+                                                                                      
+      // write kernel address to DCRs                                                  
+      CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ADDR0, krnl_addr ), {   // interface only 32  adress can be 64                                                         
+          return -1;                                                                          // -> split into two sends   
+      });                                                                             
+      CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ADDR1, krnl_addr >> 32), {   // >> 32 to get upper half
+          return -1;                                                                  
+      });
+                                                                                      
+      // write arguments address to DCRs
+      CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ARG0, args_addr), {                                                                      
+          return -1;                                                                  
+      });                                                                             
+      CHECK_ERR(vx_dcr_write(hdevice, VX_DCR_BASE_STARTUP_ARG1, args_addr >> 32), {    
+          return -1;                                                                  
+      });
+
+      // issue run command                                                            
+      CHECK_ERR(device->write_register(MMIO_CMD_TYPE, CMD_RUN), {
+          return -1;                                                                  
+      });                                                                             
+                                                                                      
+      DBGPRINT("START: krnl_addr=0x%lx, args_addr=0x%lx\n", krnl_addr, args_addr);    
+   
+      return 0;                                                                       
+  }        
 
 extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
     if (nullptr == hdevice)
@@ -483,7 +603,7 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
     return 0;
 }
 
-extern int vx_dcr_write(vx_device_h hdevice, uint32_t addr, uint64_t value) {
+extern int vx_dcr_write(vx_device_h hdevice, uint32_t addr, uint32_t value) { //switch to 32 as the writes are 32 anyway
     if (nullptr == hdevice)
         return -1;
 
@@ -494,8 +614,32 @@ extern int vx_dcr_write(vx_device_h hdevice, uint32_t addr, uint64_t value) {
     CHECK_ERR(device->write_register(MMIO_CMD_TYPE, CMD_DCR_WRITE), { return -1; });
 
     // save the value
-    DBGPRINT("DCR_WRITE: addr=0x%x, value=0x%lx\n", addr, value);
+    DBGPRINT("DCR_WRITE: addr=0x%x, value=0x%x\n", addr, value);
     device->dcrs.write(addr, value);
     
     return 0;
 }
+
+  extern int vx_dcr_read(vx_device_h hdevice, uint32_t addr, uint32_t* value) {
+      if (nullptr == hdevice || nullptr == value)                                     
+          return -1;
+                                                                                      
+      auto device = (vx_device*)hdevice;                                              
+                                                                                      
+      return device->dcrs.read(addr, value);                                          
+  }                                                                                   
+
+
+//needed for vx_upload_kernel_bytes but as i understand there is no permissions
+extern int vx_mem_access(vx_buffer_h hbuffer, uint64_t offset, uint64_t size, int  flags) {
+      return 0;
+  }
+
+// stub — MetaSat AFU does not expose performance counters via MMIO
+extern int vx_mpm_query(vx_device_h hdevice, uint32_t addr, uint32_t core_id, uint64_t* value) {
+    if (nullptr == hdevice || nullptr == value)
+        return -1;
+    *value = 0;
+    return 0;
+}   
+
