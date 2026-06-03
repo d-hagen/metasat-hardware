@@ -33,10 +33,12 @@ REPO_ROOT_DIR := $(abspath $(SIM_DIR)/../..)
 LOG_FILE       = $(REPO_ROOT_DIR)/sim-$(TEST)-$(shell date +%Y%m%d-%H%M%S).log
 
 .PHONY: all check-paths compile-unisim scripts-gen map-unisim \
-        stub-libs select-test compile-rtl run-sim \
+        stub-libs patch-aximem select-test compile-rtl run-sim \
         wipe nuke rebuild check-config check-all clean-unisim help
 
-all: check-paths compile-unisim scripts-gen map-unisim stub-libs select-test compile-rtl
+# patch-aximem required because L2 is disabled — without L2's ID-narrowing the
+# cluster's wider AXI IDs hit GRLIB's sim memory model (declared 4-bit) directly.
+all: check-paths compile-unisim scripts-gen map-unisim stub-libs patch-aximem select-test compile-rtl
 	@echo ""
 	@echo "=== Setup complete ==="
 	@echo "Run:  make -f setup_sim.mk run-sim"
@@ -85,6 +87,18 @@ stub-libs:
 	-cd $(SIM_DIR) && vlib secureip 2>/dev/null
 	-cd $(SIM_DIR) && vlib unisims_ver 2>/dev/null
 	@echo "=== Stub libraries created ==="
+
+# ---- Step 6: Patch GRLIB AXI sim models (4-bit -> 32-bit ID width) ----
+# Required because CFG_L2_EN=0 removed L2's implicit ID narrowing; the cluster's
+# wider AXI IDs now reach aximem/axirep/axixmem directly. Sed is idempotent
+# (regex matches the 4-bit form, won't re-match after first run).
+patch-aximem:
+	@echo "=== Patching GRLIB AXI sim model ID widths to 32 ==="
+	@for f in $(AXI_SIM_DIR)/aximem.vhd $(AXI_SIM_DIR)/axirep.vhd $(AXI_SIM_DIR)/axixmem.vhd; do \
+		sed -i 's/id: std_logic_vector(3 downto 0)/id: std_logic_vector(31 downto 0)/g' $$f; \
+		sed -i "s/id => \"0000\"/id => (others => '0')/g" $$f; \
+	done
+	@echo "=== Patched ==="
 
 # ---- Step 7: Select test program ----
 select-test:
@@ -163,7 +177,7 @@ nuke:
 	@echo "=== NUKE complete. Run: make -f setup_sim.mk all ==="
 
 # rebuild: bundle the incremental build pipeline (skips UNISIM compile)
-rebuild: scripts-gen map-unisim stub-libs select-test compile-rtl
+rebuild: scripts-gen map-unisim stub-libs patch-aximem select-test compile-rtl
 	@echo "=== rebuild complete; run: make -f setup_sim.mk TEST=<name> run-sim ==="
 
 # check-config: report CPU + GPU config from source vs build artifacts
