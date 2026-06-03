@@ -1,6 +1,7 @@
-METASAT_DIR = /mnt/caos_hw/metasat/
-CXX = $(METASAT_DIR)/software/tools/compiler/riscv-sparrow-toolchain/bin/riscv-gaisler-elf-g++
-AR = $(METASAT_DIR)/software/tools/compiler/riscv-sparrow-toolchain/bin/riscv-gaisler-elf-ar
+# RISC-V Gaisler/Sparrow toolchain prefix (expected on PATH; override if not)
+TOOLCHAIN_PREFIX ?= riscv-gaisler-elf-
+CXX = $(TOOLCHAIN_PREFIX)g++
+AR  = $(TOOLCHAIN_PREFIX)ar
 
 XLEN ?= 32
 DESTDIR ?= .
@@ -17,7 +18,9 @@ H_FILES := VX_config.h VX_types.h vortex_afu.h
 # Position independent code
 #CXXFLAGS += -fPIC
 
-VX_CONFIG = $(METASAT_DIR)/hardware/metasat/metasat-xilinx-vcu118/vx_config.inc
+# Resolve repo root from this Makefile's location (extra/vortex/runtime/soc → ../../../..)
+REPO_ROOT ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../../../..)
+VX_CONFIG ?= $(REPO_ROOT)/metasat/metasat-xilinx-vcu118/vx_config.inc
 
 # Add external configuration
 ifneq ("$(wildcard $(VX_CONFIG))","")
@@ -92,8 +95,8 @@ $(BUILDIR)/vortex.o: $(BUILDIR)/ $(H_FILES) vortex.cpp
 	$(CXX) $(CXXFLAGS) vortex.cpp -c -o $@
 $(BUILDIR)/axictrl.o: $(BUILDIR)/ $(H_FILES) axictrl.cpp
 	$(CXX) $(CXXFLAGS) axictrl.cpp -c -o $@
-$(BUILDIR)/utils.o: $(BUILDIR)/ $(H_FILES) ../common/utils.cpp
-	$(CXX) $(CXXFLAGS) ../common/utils.cpp -c -o $@
+$(BUILDIR)/utils.o: $(BUILDIR)/ $(H_FILES) ../stub/utils.cpp
+	$(CXX) $(CXXFLAGS) ../stub/utils.cpp -c -o $@
 
 $(DESTDIR)/$(PROJECT): $(DESTDIR)/ $(BUILDIR)/vortex.o $(BUILDIR)/axictrl.o $(BUILDIR)/utils.o 
 	$(AR) rcs $(DESTDIR)/$(PROJECT) $(BUILDIR)/*.o

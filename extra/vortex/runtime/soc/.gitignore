@@ -1,4 +1,5 @@
-libvortex.a
-*/
-VX_*.h
+build/
+*.a
+VX_config.h
+VX_types.h
 vortex_afu.h
