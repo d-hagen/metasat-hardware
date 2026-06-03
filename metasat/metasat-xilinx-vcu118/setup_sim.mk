@@ -131,7 +131,9 @@ VSIMOPT_FAST = -voptargs="-O5 -nowarn 1" -do "run -all; quit -f" -nowlf -quiet t
 run-sim: select-test
 	@echo "=== Launching simulation ==="
 	@echo "=== Log file: $(LOG_FILE) ==="
-	@cd $(SIM_DIR) && $(MAKE) sim-run VSIMOPT='$(VSIMOPT_FAST)' 2>&1 | tee $(LOG_FILE)
+	@date '+=== Start: %F %T ===' | tee $(LOG_FILE)
+	@cd $(SIM_DIR) && $(MAKE) sim-run VSIMOPT='$(VSIMOPT_FAST)' 2>&1 | tee -a $(LOG_FILE)
+	@date '+=== End:   %F %T ===' | tee -a $(LOG_FILE)
 	@echo "=== Sim finished. Full log: $(LOG_FILE) ==="
 
 # ---- Utilities ----
