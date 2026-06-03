@@ -1,0 +1,19 @@
+# Generated Vortex config headers
+extra/vortex/hw/VX_config.h
+extra/vortex/hw/VX_types.h
+extra/vortex/runtime/soc/VX_config.h
+extra/vortex/runtime/soc/VX_types.h
+extra/vortex/runtime/soc/vortex_afu.h
+
+# Inner vortex repo files not tracked by metasat-hardware
+extra/vortex/.github/
+extra/vortex/.gitignore
+
+# Perf logs
+extra/vortex/perf/
+
+# Hand-written/configure-generated Vortex config (use upstream ./configure)
+extra/vortex/config.mk
+
+# macOS Finder cruft
+.DS_Store
