@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/yaml-cpp-subbuild/CMakeFiles/yaml-cpp-populate"
+		},
+		{
+			"file" : "/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/yaml-cpp-subbuild/CMakeFiles/yaml-cpp-populate.rule"
+		},
+		{
+			"file" : "/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/yaml-cpp-subbuild/CMakeFiles/yaml-cpp-populate-complete.rule"
+		},
+		{
+			"file" : "/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/src/yaml-cpp-populate-stamp/yaml-cpp-populate-build.rule"
+		},
+		{
+			"file" : "/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/src/yaml-cpp-populate-stamp/yaml-cpp-populate-configure.rule"
+		},
+		{
+			"file" : "/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/src/yaml-cpp-populate-stamp/yaml-cpp-populate-download.rule"
+		},
+		{
+			"file" : "/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/src/yaml-cpp-populate-stamp/yaml-cpp-populate-install.rule"
+		},
+		{
+			"file" : "/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/src/yaml-cpp-populate-stamp/yaml-cpp-populate-mkdir.rule"
+		},
+		{
+			"file" : "/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/src/yaml-cpp-populate-stamp/yaml-cpp-populate-patch.rule"
+		},
+		{
+			"file" : "/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/src/yaml-cpp-populate-stamp/yaml-cpp-populate-test.rule"
+		},
+		{
+			"file" : "/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/src/yaml-cpp-populate-stamp/yaml-cpp-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"yaml-cpp-populate"
+		],
+		"name" : "yaml-cpp-populate"
+	}
+}

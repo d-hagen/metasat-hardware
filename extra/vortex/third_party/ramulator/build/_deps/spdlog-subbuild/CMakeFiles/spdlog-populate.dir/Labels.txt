@@ -1,0 +1,14 @@
+# Target labels
+ spdlog-populate
+# Source files and their labels
+/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/spdlog-subbuild/CMakeFiles/spdlog-populate
+/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/spdlog-subbuild/CMakeFiles/spdlog-populate.rule
+/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/spdlog-subbuild/CMakeFiles/spdlog-populate-complete.rule
+/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-build.rule
+/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-configure.rule
+/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-download.rule
+/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-install.rule
+/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-mkdir.rule
+/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-patch.rule
+/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-test.rule
+/home/dan/metasat-hardware/extra/vortex/third_party/ramulator/build/_deps/spdlog-subbuild/spdlog-populate-prefix/src/spdlog-populate-stamp/spdlog-populate-update.rule
