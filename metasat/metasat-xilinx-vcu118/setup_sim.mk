@@ -123,10 +123,12 @@ compile-rtl:
 #                              ability for ~2-5x faster sim.
 #   -do "run -all; quit -f"    Same as GRLIB's runvsim.do but inline (replacing
 #                              GRLIB's stdin redirect, since VSIMOPT can't carry "<").
-#   -nowlf                     Don't emit vsim.wlf waveform file (saves disk I/O).
 #   -quiet                     Suppress vsim's own status chatter.
 #   testbench                  GRLIB's SIMTOP for this design.
-VSIMOPT_FAST = -voptargs="-O5 -nowarn 1" -do "run -all; quit -f" -nowlf -quiet testbench
+# Note: -nowlf was dropped — not recognized by this QuestaSim version.
+# Since our -do doesn't issue any `log`/`wave` commands, the .wlf file stays
+# essentially empty anyway, so disk I/O is negligible.
+VSIMOPT_FAST = -voptargs="-O5 -nowarn 1" -do "run -all; quit -f" -quiet testbench
 
 run-sim: select-test
 	@echo "=== Launching simulation ==="
