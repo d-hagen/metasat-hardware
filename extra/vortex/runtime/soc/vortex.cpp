@@ -587,14 +587,18 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
 
     // sim/uni-machine ONLY: heartbeat diagnostic so we can see whether the
     // host is stuck in this polling loop while the GPU isn't signaling done.
-    // Prints raw status (before the state-bits mask) every N polls and on any
-    // status change. Tells us:
-    //   - host is alive (heartbeats appearing)
-    //   - what AFU's status register currently reads
-    //   - whether the value is changing or stuck
+    // IMPORTANT: vx_ready_wait is called from EVERY MMIO transaction (including
+    // every word of the kernel upload). For typical short calls (a few polls
+    // until the AFU returns to IDLE), we DO NOT want to print — that would
+    // flood the UART during the upload phase. Only the LONG post-vx_start wait
+    // should produce heartbeats. So we suppress all output until poll_count
+    // crosses HB_THRESHOLD, after which we emit at HB_EVERY cadence + on
+    // status changes.
     uint64_t poll_count = 0;
     uint64_t last_raw = (uint64_t)-1;
-    const uint64_t HB_EVERY = 1000;
+    bool hb_active = false;
+    const uint64_t HB_THRESHOLD = 200;   // skip print for short calls
+    const uint64_t HB_EVERY     = 1000;  // once heartbeat active, print every N polls
 
     for (;;) {
         uint64_t raw_status = 0;
@@ -605,7 +609,14 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
         bool is_done = status == STATE_IDLE;
 
         ++poll_count;
-        if (poll_count == 1 || poll_count % HB_EVERY == 0 || raw_status != last_raw) {
+        // Activate heartbeat only after THRESHOLD polls of waiting. Short
+        // calls (typical MMIO completions) never trigger it.
+        if (!hb_active && poll_count >= HB_THRESHOLD) {
+            hb_active = true;
+            printf("[hb] entered long wait: poll=%lu raw_status=0x%lx state=0x%lx\n",
+                   (unsigned long)poll_count, (unsigned long)raw_status, (unsigned long)status);
+            last_raw = raw_status;
+        } else if (hb_active && (poll_count % HB_EVERY == 0 || raw_status != last_raw)) {
             printf("[hb] poll=%lu raw_status=0x%lx state=0x%lx done=%d\n",
                    (unsigned long)poll_count, (unsigned long)raw_status,
                    (unsigned long)status, is_done ? 1 : 0);
@@ -613,9 +624,11 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
         }
 
         if (is_done || 0 == timeout) {
-            printf("[hb] vx_ready_wait exit after %lu polls, final raw_status=0x%lx state=0x%lx done=%d\n",
-                   (unsigned long)poll_count, (unsigned long)raw_status,
-                   (unsigned long)status, is_done ? 1 : 0);
+            if (hb_active) {
+                printf("[hb] vx_ready_wait exit after %lu polls, final raw_status=0x%lx state=0x%lx done=%d\n",
+                       (unsigned long)poll_count, (unsigned long)raw_status,
+                       (unsigned long)status, is_done ? 1 : 0);
+            }
             break;
         }
         nanosleep(&sleep_time, nullptr);
