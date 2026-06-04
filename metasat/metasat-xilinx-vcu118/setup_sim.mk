@@ -36,10 +36,11 @@ LOG_FILE       = $(REPO_ROOT_DIR)/sim-$(TEST)-$(shell date +%Y%m%d-%H%M%S).log
         stub-libs patch-aximem select-test compile-rtl run-sim \
         wipe nuke rebuild check-config check-all clean-unisim help
 
-# NOTE: patch-aximem is NOT in this chain — only required when CFG_L2_EN=0
-# (without L2, cluster's wider AXI IDs reach GRLIB's sim model directly).
-# With L2 enabled the patch is unnecessary; run it manually if you flip L2 off.
-all: check-paths compile-unisim scripts-gen map-unisim stub-libs select-test compile-rtl
+# patch-aximem required because Vortex's gpu_mem_aximo bypasses NOEL-V's L2
+# and goes directly to GRLIB sim memory (which is declared 4-bit ID). The
+# cluster outputs wider IDs; patch widens the sim model port to accept them.
+# Idempotent: the sed regex only matches the unpatched 4-bit form.
+all: check-paths compile-unisim scripts-gen map-unisim stub-libs patch-aximem select-test compile-rtl
 	@echo ""
 	@echo "=== Setup complete ==="
 	@echo "Run:  make -f setup_sim.mk run-sim"
@@ -195,7 +196,7 @@ nuke:
 	@echo "=== NUKE complete. Run: make -f setup_sim.mk all ==="
 
 # rebuild: bundle the incremental build pipeline (skips UNISIM compile)
-rebuild: scripts-gen map-unisim stub-libs select-test compile-rtl
+rebuild: scripts-gen map-unisim stub-libs patch-aximem select-test compile-rtl
 	@echo "=== rebuild complete; run: make -f setup_sim.mk TEST=<name> run-sim ==="
 
 # check-config: report CPU + GPU config from source vs build artifacts
