@@ -36,7 +36,7 @@ package config is
   constant CFG_APLIC_NDOM : integer := (4);
   constant CFG_NEIID : integer := (63);
 -- L2 Cache
-  constant CFG_L2_EN : integer := 0;
+  constant CFG_L2_EN : integer := 1;
   constant CFG_L2_SIZE : integer := 128;
   constant CFG_L2_WAYS : integer := 1;
   constant CFG_L2_REPL : integer := 0;
