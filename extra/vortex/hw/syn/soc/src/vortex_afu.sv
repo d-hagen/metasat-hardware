@@ -256,4 +256,55 @@ module vortex_afu #(
 	assign m_axi_mem_arid    = vx_reset ? m_axi_ctrl_arid : m_axi_vx_arid   [0];
 	assign m_axi_mem_arlen   = vx_reset ? m_axi_ctrl_arlen : m_axi_vx_arlen  [0];
 	assign m_axi_mem_rready  = vx_reset ? m_axi_ctrl_rready : m_axi_vx_rready [0];
+	reg [31:0] vx_ar_fires, vx_aw_fires, vx_w_fires;
+	reg [31:0] vx_r_fires, vx_b_fires;
+	reg signed [31:0] vx_outstanding_reads, vx_outstanding_writes;
+	reg [31:0] vx_periodic_ctr;
+	reg vx_reset_prev;
+	always @(posedge clk) begin
+		if (reset) begin
+			vx_ar_fires <= 0; vx_aw_fires <= 0; vx_w_fires <= 0;
+			vx_r_fires <= 0; vx_b_fires <= 0;
+			vx_outstanding_reads <= 0; vx_outstanding_writes <= 0;
+			vx_periodic_ctr <= 0;
+			vx_reset_prev <= 1'b1;
+		end else begin
+			vx_reset_prev <= vx_reset;
+			if (vx_reset_prev && !vx_reset)
+				$display("[%0t] VX: reset deasserted, Vortex active", $time);
+			if (!vx_reset_prev && vx_reset)
+				$display("[%0t] VX: reset asserted; counters AR=%0d AW=%0d W=%0d R=%0d B=%0d outst rd=%0d wr=%0d",
+				          $time, vx_ar_fires, vx_aw_fires, vx_w_fires, vx_r_fires, vx_b_fires,
+				          vx_outstanding_reads, vx_outstanding_writes);
+			if (!vx_reset) begin
+				if (m_axi_vx_arvalid[0] & m_axi_vx_arready[0]) begin
+					vx_ar_fires <= vx_ar_fires + 1;
+					vx_outstanding_reads <= vx_outstanding_reads + 1;
+				end
+				if (m_axi_vx_rvalid[0] & m_axi_vx_rready[0] & m_axi_vx_rlast[0]) begin
+					vx_r_fires <= vx_r_fires + 1;
+					vx_outstanding_reads <= vx_outstanding_reads - 1;
+				end
+				if (m_axi_vx_awvalid[0] & m_axi_vx_awready[0]) begin
+					vx_aw_fires <= vx_aw_fires + 1;
+					vx_outstanding_writes <= vx_outstanding_writes + 1;
+				end
+				if (m_axi_vx_wvalid[0] & m_axi_vx_wready[0])
+					vx_w_fires <= vx_w_fires + 1;
+				if (m_axi_vx_bvalid[0] & m_axi_vx_bready[0]) begin
+					vx_b_fires <= vx_b_fires + 1;
+					vx_outstanding_writes <= vx_outstanding_writes - 1;
+				end
+				vx_periodic_ctr <= vx_periodic_ctr + 1;
+				if (vx_periodic_ctr == 32'd50_000) begin
+					vx_periodic_ctr <= 0;
+					$display("[%0t] VX AXI: AR=%0d AW=%0d W=%0d R=%0d B=%0d outst rd=%0d wr=%0d",
+					          $time, vx_ar_fires, vx_aw_fires, vx_w_fires, vx_r_fires, vx_b_fires,
+					          vx_outstanding_reads, vx_outstanding_writes);
+				end
+			end else begin
+				vx_periodic_ctr <= 0;
+			end
+		end
+	end
 endmodule

@@ -404,4 +404,66 @@ module VX_afu_ctrl #(
 			endcase
 		end
 	end
+	reg [STATE_BITS-1:0] wdog_last_state;
+	reg [63:0]           wdog_cycles_in_state;
+	reg                  wdog_armed;
+	reg                  wdog_busy_ever;
+	reg                  wdog_last_running, wdog_last_busy, wdog_last_busy_wait;
+	localparam [63:0] WATCHDOG_THRESHOLD = 64'd100_000;
+	always @(posedge clk) begin
+		if (reset) begin
+			wdog_last_state      <= '0;
+			wdog_cycles_in_state <= '0;
+			wdog_armed           <= 1'b1;
+			wdog_busy_ever       <= 1'b0;
+			wdog_last_running    <= 1'b0;
+			wdog_last_busy       <= 1'b0;
+			wdog_last_busy_wait  <= 1'b0;
+		end else begin
+			if (state != wdog_last_state) begin
+				if (state == STATE_RUN || wdog_last_state == STATE_RUN)
+					$display("[%0t] AFU: state %0d -> %0d (running=%b busy_wait=%b busy=%b)",
+					          $time, wdog_last_state, state, vx_running, vx_busy_wait, vx_busy);
+				wdog_last_state      <= state;
+				wdog_cycles_in_state <= '0;
+				wdog_armed           <= 1'b1;
+			end else begin
+				wdog_cycles_in_state <= wdog_cycles_in_state + 1;
+			end
+			if (vx_busy) wdog_busy_ever <= 1'b1;
+			if (state == STATE_RUN) begin
+				if (vx_running != wdog_last_running)
+					$display("[%0t] AFU: vx_running %b -> %b @cyc_in_state=%0d",
+					          $time, wdog_last_running, vx_running, wdog_cycles_in_state);
+				if (vx_busy != wdog_last_busy)
+					$display("[%0t] AFU: vx_busy %b -> %b @cyc_in_state=%0d",
+					          $time, wdog_last_busy, vx_busy, wdog_cycles_in_state);
+				if (vx_busy_wait != wdog_last_busy_wait)
+					$display("[%0t] AFU: vx_busy_wait %b -> %b @cyc_in_state=%0d",
+					          $time, wdog_last_busy_wait, vx_busy_wait, wdog_cycles_in_state);
+			end
+			wdog_last_running   <= vx_running;
+			wdog_last_busy      <= vx_busy;
+			wdog_last_busy_wait <= vx_busy_wait;
+			if (wdog_armed && wdog_cycles_in_state >= WATCHDOG_THRESHOLD && state == STATE_RUN) begin
+				wdog_armed <= 1'b0;
+				$display("[%0t] AFU WDOG: STUCK in STATE_RUN for %0d cycles", $time, wdog_cycles_in_state);
+				$display("[%0t] AFU WDOG:   running=%b reset=%b busy_wait=%b busy=%b busy_ever=%b",
+				          $time, vx_running, vx_reset, vx_busy_wait, vx_busy, wdog_busy_ever);
+				if (!vx_running)
+					$display("[%0t] AFU WDOG: -> reset-delay counter not done", $time);
+				else if (vx_busy_wait && !vx_busy)
+					$display("[%0t] AFU WDOG: -> waiting for vx_busy to RISE (Vortex never started)", $time);
+				else if (!vx_busy_wait && vx_busy)
+					$display("[%0t] AFU WDOG: -> waiting for vx_busy to FALL (kernel runs forever)", $time);
+				else
+					$display("[%0t] AFU WDOG: -> unexpected STATE_RUN sub-phase", $time);
+			end
+		end
+	end
+	always @(posedge clk) begin
+		if (vx_dcr_wr_valid)
+			$display("[%0t] AFU DCR write: addr=0x%h data=0x%h",
+			          $time, vx_dcr_wr_addr, vx_dcr_wr_data);
+	end
 endmodule
