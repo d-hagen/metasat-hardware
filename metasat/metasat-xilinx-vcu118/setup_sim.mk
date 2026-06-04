@@ -33,10 +33,10 @@ REPO_ROOT_DIR := $(abspath $(SIM_DIR)/../..)
 LOG_FILE       = $(REPO_ROOT_DIR)/sim-$(TEST)-$(shell date +%Y%m%d-%H%M%S).log
 
 .PHONY: all check-paths compile-unisim scripts-gen map-unisim \
-        stub-libs widen-aximem-id select-test compile-rtl run-sim \
+        stub-libs widen-grlib-axi-id select-test compile-rtl run-sim \
         wipe nuke rebuild check-config check-all clean-unisim help
 
-all: check-paths compile-unisim scripts-gen map-unisim stub-libs widen-aximem-id select-test compile-rtl
+all: check-paths compile-unisim scripts-gen map-unisim stub-libs widen-grlib-axi-id select-test compile-rtl
 	@echo ""
 	@echo "=== Setup complete ==="
 	@echo "Run:  make -f setup_sim.mk run-sim"
@@ -86,56 +86,56 @@ stub-libs:
 	-cd $(SIM_DIR) && vlib unisims_ver 2>/dev/null
 	@echo "=== Stub libraries created ==="
 
-# ---- Step 6: Widen aximem internal AXI ID storage ----
+# ---- Step 6: Widen GRLIB sim-model AXI ID storage ----
 #
 # Why this exists:
-#   grlib/lib/gaisler/sim/aximem.vhd hard-codes its internal write/read queue
-#   ID storage as std_logic_vector(3 downto 0). The metasat SoC sets
-#   AXI_ID_WIDTH = 32 (grlib/lib/grlib/amba/amba.vhd:54, also enforced by the
-#   parent Makefile's patch-id-width rule). When CFG_VX_EN=1, Vortex's
-#   gpu_mem_aximo bus reaches aximem directly with full 32-bit AXI IDs, so
-#   the unpatched 4-bit field causes:
-#     (1) elaboration-time "length mismatch" errors on assignments such as
-#         rq(i).id := axisi.ar.id  (aximem.vhd:132,180,190), and
-#     (2) once silently truncated, IDs from outstanding cluster mem xacts
-#         collide on their bottom 4 bits — aximem matches W data to AW
-#         entries by ID equality (aximem.vhd:197), so collisions misroute
-#         write data, one outstanding write never sees its matching W beat,
-#         no bvalid is issued, Vortex's fence (vx_start.S) stalls forever
-#         and the AFU sits in STATE_RUN with vx_busy=1.
-#   The memory-only test passes without this patch because the AFU's DMA
-#   path uses a constant ID — only Vortex's cluster path generates the
-#   varying IDs that trigger the deadlock.
+#   grlib/lib/gaisler/sim/{aximem,axirep,axixmem}.vhd hard-code their
+#   internal write/read queue id fields as std_logic_vector(3 downto 0).
+#   The metasat SoC sets AXI_ID_WIDTH = 32 (grlib/lib/grlib/amba/amba.vhd:54,
+#   also enforced by the parent Makefile's patch-id-width rule). With the
+#   wider AXI types, all three files emit "length mismatch" errors during
+#   vcom on the idle-constant aggregates and the
+#     rq(i).id := axisi.ar.id
+#   style assignments. aximem is the one actually on the Vortex memory
+#   path; axirep and axixmem live in the same gaisler sim library and
+#   compile alongside it, so all three must be patched for the build to
+#   succeed at all under AXI_ID_WIDTH=32.
+#
+#   Beyond elaboration: once silently truncated to 4 bits, IDs from
+#   outstanding cluster mem xacts collide on their bottom 4 bits — aximem
+#   matches W data to AW entries by ID equality (aximem.vhd:197), so
+#   collisions misroute write data, one outstanding write never sees its
+#   matching W beat, no bvalid is issued, Vortex's fence (vx_start.S)
+#   stalls forever and the AFU sits in STATE_RUN with vx_busy=1.
 #
 # What it does:
-#   Replaces the two `id: std_logic_vector(3 downto 0)` field declarations
-#   with std_logic_vector(AXI_ID_WIDTH-1 downto 0) (symbolic — tracks any
-#   future GRLIB AXI_ID_WIDTH change), and rewrites the two idle-constant
-#   aggregates `id => "0000"` to `id => (others => '0')`. AXI_ID_WIDTH is
-#   already in scope via `use grlib.amba.all` at the top of aximem.vhd.
+#   In each of the three files, replaces the two
+#     id: std_logic_vector(3 downto 0)
+#   field declarations with
+#     id: std_logic_vector(AXI_ID_WIDTH-1 downto 0)
+#   (symbolic — tracks any future GRLIB AXI_ID_WIDTH change), and rewrites
+#   the two idle-constant aggregates
+#     id => "0000"   ==>   id => (others => '0')
+#   AXI_ID_WIDTH is already in scope in all three via `use grlib.amba.all`.
 #
 # Idempotency:
 #   Both sed regexes match only the unpatched 4-bit form, so re-running
 #   is a no-op. Safe to call from `all`, `rebuild`, or standalone.
-#
-# Scope:
-#   Only aximem.vhd is touched. axirep.vhd / axixmem.vhd have similar
-#   4-bit id fields but are not on the Vortex memory path in this SoC; if
-#   QuestaSim ever flags them during compile-rtl, extend this rule.
-widen-aximem-id:
-	@echo "=== Widening aximem internal AXI ID storage to AXI_ID_WIDTH ==="
-	@f=$(AXI_SIM_DIR)/aximem.vhd; \
-	if [ ! -f "$$f" ]; then \
-	  echo "ERROR: $$f not found"; exit 1; \
-	fi; \
-	sed -i \
-	    -e 's/id: std_logic_vector(3 downto 0)/id: std_logic_vector(AXI_ID_WIDTH-1 downto 0)/g' \
-	    -e 's/id => "0000"/id => (others => '\''0'\'')/g' \
-	    "$$f"; \
-	if grep -q 'id: std_logic_vector(3 downto 0)\|id => "0000"' "$$f"; then \
-	  echo "ERROR: $$f still has unpatched 4-bit id forms"; exit 1; \
-	fi; \
-	echo "OK: $$f patched (or already in widened form)"
+widen-grlib-axi-id:
+	@echo "=== Widening GRLIB sim-model AXI ID storage to AXI_ID_WIDTH ==="
+	@for f in $(AXI_SIM_DIR)/aximem.vhd $(AXI_SIM_DIR)/axirep.vhd $(AXI_SIM_DIR)/axixmem.vhd; do \
+	  if [ ! -f "$$f" ]; then \
+	    echo "ERROR: $$f not found"; exit 1; \
+	  fi; \
+	  sed -i \
+	      -e 's/id: std_logic_vector(3 downto 0)/id: std_logic_vector(AXI_ID_WIDTH-1 downto 0)/g' \
+	      -e 's/id => "0000"/id => (others => '\''0'\'')/g' \
+	      "$$f"; \
+	  if grep -q 'id: std_logic_vector(3 downto 0)\|id => "0000"' "$$f"; then \
+	    echo "ERROR: $$f still has unpatched 4-bit id forms"; exit 1; \
+	  fi; \
+	  echo "OK: $$f patched (or already in widened form)"; \
+	done
 
 # ---- Step 7: Select test program ----
 select-test:
@@ -212,7 +212,7 @@ nuke:
 	@echo "=== NUKE complete. Run: make -f setup_sim.mk all ==="
 
 # rebuild: bundle the incremental build pipeline (skips UNISIM compile)
-rebuild: scripts-gen map-unisim stub-libs widen-aximem-id select-test compile-rtl
+rebuild: scripts-gen map-unisim stub-libs widen-grlib-axi-id select-test compile-rtl
 	@echo "=== rebuild complete; run: make -f setup_sim.mk TEST=<name> run-sim ==="
 
 # check-config: report CPU + GPU config from source vs build artifacts
