@@ -622,8 +622,11 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
 
     for (;;) {
         // Liveness probe BEFORE the read — proves we got this far in the loop
-        // and the read hasn't blocked yet. Only fires on long waits (>= 50 polls).
-        if (poll_count > 0 && poll_count % HB_LIVENESS == 0) {
+        // and the read hasn't blocked yet. Fires on the FIRST iteration too
+        // (poll_count == 0) so we catch the case where the very first
+        // MMIO_STATUS read blocks indefinitely.
+        bool fire_liveness = (poll_count == 0) || (poll_count % HB_LIVENESS == 0);
+        if (fire_liveness) {
             printf("[hb] before-read poll=%lu\n", (unsigned long)poll_count);
             fflush(stdout);
         }
@@ -634,6 +637,17 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
         });
         uint64_t status = raw_status & ((0x01 << STATE_BITS)-1);
         bool is_done = status == STATE_IDLE;
+
+        // Liveness probe AFTER the read — proves the read returned.
+        // Combined with before-read, the gap tells us if the read hung.
+        // Also prints raw_status so we know what state the AFU is in even
+        // before threshold logic fires.
+        if (fire_liveness) {
+            printf("[hb] after-read  poll=%lu raw_status=0x%lx state=0x%lx done=%d\n",
+                   (unsigned long)poll_count, (unsigned long)raw_status,
+                   (unsigned long)status, is_done ? 1 : 0);
+            fflush(stdout);
+        }
 
         ++poll_count;
         // Activate heartbeat only after THRESHOLD polls of waiting. Short
