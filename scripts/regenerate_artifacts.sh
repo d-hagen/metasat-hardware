@@ -28,12 +28,16 @@ export RISCV_TOOLCHAIN_PATH="${RISCV_TOOLCHAIN_PATH:-/home/dan/tools/riscv32-gnu
 export TOOLCHAIN_PREFIX="${TOOLCHAIN_PREFIX:-/home/dan/tools/ncc-1.0.4-gcc/bin/riscv-gaisler-elf-}"
 export LLVM_VORTEX="${LLVM_VORTEX:-/home/dan/tools/llvm-vortex}"
 
-# Sanity: must be on sim/uni-machine
+# Sanity: must be on a sim-running branch (script commits + pushes to current branch)
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [ "$CURRENT_BRANCH" != "sim/uni-machine" ]; then
-    echo "ERROR: expected branch 'sim/uni-machine', currently on '$CURRENT_BRANCH'"
-    exit 1
-fi
+case "$CURRENT_BRANCH" in
+    sim/uni-machine|eval-debug)
+        ;;
+    *)
+        echo "ERROR: expected sim/uni-machine or eval-debug, currently on '$CURRENT_BRANCH'"
+        exit 1
+        ;;
+esac
 
 echo "=== [1/5] Configure Vortex (writes extra/vortex/config.mk) ==="
 (cd extra/vortex && ./configure)
