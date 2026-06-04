@@ -49,8 +49,10 @@ _start:
   call  memset
 
   # initialize trap vector
-  # la t0, trap_entry
-  # csrw mtvec, t0
+  # sim/uni-machine: without this, mtvec=0 and any trap loops at PC=0 forever
+  # (re-running _start). With trap_entry set, a trap cleanly halts the warp.
+  la    t0, trap_entry
+  csrw  mtvec, t0
 
 #ifdef HAVE_INITFINI_ARRAY
   # run global initialization functions
@@ -76,6 +78,17 @@ _Exit:
   # vx_busy never goes low and the host's vx_ready_wait hangs forever.
   # Stub: just fence + tmc x0. No perf dump, no exit code write.
   fence
+  .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0  # tmc x0
+
+.section .text
+.type trap_entry, @function
+.global trap_entry
+trap_entry:
+  # sim/uni-machine: minimal trap handler. mtvec is set to this address in
+  # _start, so any unhandled exception (illegal insn, misaligned load, ECALL)
+  # lands here. We do nothing but tmc x0 — no MMIO write, no fence — to
+  # cleanly halt the trapping warp. Host detects the trap by reading
+  # MMIO_VX_PC and seeing it equal to trap_entry's address.
   .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0  # tmc x0
 
 .section .text

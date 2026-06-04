@@ -61,6 +61,8 @@
 #define MMIO_ISA_CAPS_H     AFU_IMAGE_MMIO_ISA_CAPS_S
 #define MMIO_SCOPE_READ     AFU_IMAGE_MMIO_SCOPE_READ
 #define MMIO_SCOPE_WRITE    AFU_IMAGE_MMIO_SCOPE_WRITE
+#define MMIO_VX_PC          AFU_IMAGE_MMIO_VX_PC
+#define MMIO_VX_INST        AFU_IMAGE_MMIO_VX_INST
 
 #define STATE_IDLE         AFU_IMAGE_STATE_IDLE
 #define STATE_MEM          AFU_IMAGE_STATE_MEM 
@@ -572,7 +574,24 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
 
     auto device = (vx_device*)hdevice;
 
-    struct timespec sleep_time; 
+    // sim/uni-machine ONLY: kill stdio buffering on first entry so prints
+    // appear immediately. If buffering was eating the HB output, this fixes it.
+    static bool stdio_unbuffered = false;
+    if (!stdio_unbuffered) {
+        setvbuf(stdout, NULL, _IONBF, 0);
+        stdio_unbuffered = true;
+    }
+
+    // Entry print: every 100th call to confirm function reached. Doesn't
+    // flood during upload (would be ~23 prints across the 2300 upload calls).
+    static uint64_t entry_count = 0;
+    ++entry_count;
+    if (entry_count == 1 || entry_count % 100 == 0) {
+        printf("[hb] enter vx_ready_wait call=%lu\n", (unsigned long)entry_count);
+        fflush(stdout);
+    }
+
+    struct timespec sleep_time;
 
 #ifndef NDEBUG
     sleep_time.tv_sec = 1;
@@ -599,8 +618,16 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
     bool hb_active = false;
     const uint64_t HB_THRESHOLD = 200;   // skip print for short calls
     const uint64_t HB_EVERY     = 1000;  // once heartbeat active, print every N polls
+    const uint64_t HB_LIVENESS  = 50;    // also print every 50 polls (won't fire on short calls)
 
     for (;;) {
+        // Liveness probe BEFORE the read — proves we got this far in the loop
+        // and the read hasn't blocked yet. Only fires on long waits (>= 50 polls).
+        if (poll_count > 0 && poll_count % HB_LIVENESS == 0) {
+            printf("[hb] before-read poll=%lu\n", (unsigned long)poll_count);
+            fflush(stdout);
+        }
+
         uint64_t raw_status = 0;
         CHECK_ERR(device->read_register(MMIO_STATUS, &raw_status), {
             return -1;
@@ -615,11 +642,18 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
             hb_active = true;
             printf("[hb] entered long wait: poll=%lu raw_status=0x%lx state=0x%lx\n",
                    (unsigned long)poll_count, (unsigned long)raw_status, (unsigned long)status);
+            fflush(stdout);
             last_raw = raw_status;
         } else if (hb_active && (poll_count % HB_EVERY == 0 || raw_status != last_raw)) {
-            printf("[hb] poll=%lu raw_status=0x%lx state=0x%lx done=%d\n",
+            // Also sample Vortex PC + INST to localize where Vortex is stuck.
+            uint64_t vx_pc = 0, vx_inst = 0;
+            device->read_register(MMIO_VX_PC, &vx_pc);
+            device->read_register(MMIO_VX_INST, &vx_inst);
+            printf("[hb] poll=%lu raw_status=0x%lx state=0x%lx done=%d pc=0x%lx inst=0x%lx\n",
                    (unsigned long)poll_count, (unsigned long)raw_status,
-                   (unsigned long)status, is_done ? 1 : 0);
+                   (unsigned long)status, is_done ? 1 : 0,
+                   (unsigned long)vx_pc, (unsigned long)vx_inst);
+            fflush(stdout);
             last_raw = raw_status;
         }
 
@@ -628,6 +662,7 @@ extern int vx_ready_wait(vx_device_h hdevice, uint64_t timeout) {
                 printf("[hb] vx_ready_wait exit after %lu polls, final raw_status=0x%lx state=0x%lx done=%d\n",
                        (unsigned long)poll_count, (unsigned long)raw_status,
                        (unsigned long)status, is_done ? 1 : 0);
+                fflush(stdout);
             }
             break;
         }
