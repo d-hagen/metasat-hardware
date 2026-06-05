@@ -12,9 +12,7 @@ void kernel(void *arg)
     uint8_t *dest = (uint8_t *)karg[2];
 
     uint32_t tid = blockIdx.x;
-    vx_printf("[GPU kernel] tid=%d start\n", tid);
     dest[tid] = (uint8_t)(src[tid] * 2);
-    vx_printf("[GPU kernel] tid=%d done\n", tid);
 }
 
 int main()
