@@ -144,10 +144,11 @@ class vx_device {
 
         int read_register(uint64_t addr, uint64_t* value)
         {
-            CHECK_ERR(axi_.read32(addr, (uint32_t*)value), { return -1; });
+            uint32_t tmp = 0;
+            CHECK_ERR(axi_.read32(addr, &tmp), { return -1; });
+            *value = (uint64_t)tmp;
             DBGPRINT("*** read_register: addr=0x%lx, value=0x%lx\n", addr, *value);
             return 0;
-
         }
 
         int write_register64(uint64_t addr, uint64_t value)
@@ -307,7 +308,7 @@ extern int vx_dev_open(vx_device_h* hdevice) {
 
     uint64_t local_mem_size = 0;
     vx_dev_caps(device, VX_CAPS_LOCAL_MEM_SIZE, &local_mem_size);
-    if (local_mem_size <= 1) {        
+    if (local_mem_size > 1) {
         device->local_mem = std::make_shared<vortex::MemoryAllocator>(
             LMEM_BASE_ADDR, local_mem_size, RAM_PAGE_SIZE, 1);
     }
@@ -514,12 +515,12 @@ extern int vx_copy_from_dev(void* host_ptr, vx_buffer_h hbuffer, uint64_t
       if (dev_addr + asize > device->global_mem_size)
           return -1;                                                                  
    
-      CHECK_ERR(device->download((uint32_t*)host_ptr, dev_addr, size), {              
-          return -1;                                                                  
-      });                                
+      CHECK_ERR(device->download((uint32_t*)host_ptr, dev_addr, asize), {
+          return -1;
+      });
 
-      DBGPRINT("COPY_FROM_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n",    
-  dev_addr, (uintptr_t)host_ptr, size);
+      DBGPRINT("COPY_FROM_DEV: dev_addr=0x%lx, host_addr=0x%lx, size=%ld bytes\n",
+  dev_addr, (uintptr_t)host_ptr, asize);
                                                                                       
       return 0;                                                                       
   } 

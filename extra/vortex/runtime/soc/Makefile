@@ -7,7 +7,8 @@ XLEN ?= 32
 DESTDIR ?= .
 BUILDIR = build
 HW_DIR = ../../hw
-SYN_DIR = $(HW_DIR)/syn/soc/src
+RTL_DIR = $(HW_DIR)/rtl
+AFU_SOC_DIR = $(HW_DIR)/rtl/afu/soc/axi
 
 CXXFLAGS += -std=c++11 -Wall -Wextra -pedantic -Wfatal-errors
 CXXFLAGS += -I../include -I../common -I.
@@ -88,7 +89,10 @@ all: $(DESTDIR)/$(PROJECT)
 %/:
 	mkdir -p $@
 
-%.h: $(SYN_DIR)/%.vh
+VX_config.h VX_types.h: %.h: $(RTL_DIR)/%.vh
+	$(HW_DIR)/scripts/gen_config.py -i $< -o $@
+
+vortex_afu.h: $(AFU_SOC_DIR)/vortex_afu.vh
 	$(HW_DIR)/scripts/gen_config.py -i $< -o $@
 
 $(BUILDIR)/vortex.o: $(BUILDIR)/ $(H_FILES) vortex.cpp
