@@ -31,20 +31,31 @@ srec: gpu-evaluation-vortex
 srec-light: vortex-light
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-light.srec
 
-# Minimal test case SRECs — each isolates one level of complexity
+# Minimal test case SRECs — each isolates one level of complexity.
+# We copy the variant to kernel.c before building so the linker symbol
+# names remain vx_kernel_start/end (what main.c expects).
 srec-bare:
+	cp src/kernel.c src/kernel.c.bak
+	cp src/kernel_bare.c src/kernel.c
 	$(MAKE) clean-all
-	$(MAKE) vortex VX_SRC=src/kernel_bare.c SIZE=1
+	$(MAKE) vortex SIZE=1
+	cp src/kernel.c.bak src/kernel.c
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-bare.srec
 
 srec-nospawn:
+	cp src/kernel.c src/kernel.c.bak
+	cp src/kernel_nospawn.c src/kernel.c
 	$(MAKE) clean-all
-	$(MAKE) vortex VX_SRC=src/kernel_nospawn.c SIZE=1
+	$(MAKE) vortex SIZE=1
+	cp src/kernel.c.bak src/kernel.c
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-nospawn.srec
 
 srec-spawn1:
+	cp src/kernel.c src/kernel.c.bak
+	cp src/kernel_spawn1.c src/kernel.c
 	$(MAKE) clean-all
-	$(MAKE) vortex VX_SRC=src/kernel_spawn1.c SIZE=1
+	$(MAKE) vortex SIZE=1
+	cp src/kernel.c.bak src/kernel.c
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-spawn1.srec
 
 srec-all: srec-bare srec-nospawn srec-spawn1 srec-light
