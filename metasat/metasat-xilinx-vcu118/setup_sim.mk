@@ -179,7 +179,7 @@ compile-rtl:
 # Note: -nowlf was dropped — not recognized by this QuestaSim version.
 # Since our -do doesn't issue any `log`/`wave` commands, the .wlf file stays
 # essentially empty anyway, so disk I/O is negligible.
-VSIMOPT_FAST = -voptargs="-O5 -nowarn 1" -do "run -all; quit -f" -quiet testbench
+VSIMOPT_FAST = -voptargs="+acc -nowarn 1" -do "run -all; quit -f" -quiet testbench
 
 run-sim: select-test
 	@echo "=== Launching simulation ==="
