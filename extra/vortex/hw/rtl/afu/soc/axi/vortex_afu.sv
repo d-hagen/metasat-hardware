@@ -309,4 +309,71 @@ module vortex_afu #(
 	assign m_axi_mem_arid    = vx_reset ? m_axi_ctrl_arid : m_axi_vx_arid   [0];
 	assign m_axi_mem_arlen   = vx_reset ? m_axi_ctrl_arlen : m_axi_vx_arlen  [0];
 	assign m_axi_mem_rready  = vx_reset ? m_axi_ctrl_rready : m_axi_vx_rready [0];
+
+`ifndef SYNTHESIS
+	// ===== Vortex AXI Monitor (simulation only) =====
+	// Monitors GPU-side AXI transactions (post-reset only).
+	// Logs first 32 AR and AW addresses, then periodic counts every 500k cycles.
+
+	localparam VXM_ADDR_LOG = 32;
+
+	reg [31:0]        vxm_ar_cnt, vxm_aw_cnt, vxm_w_cnt, vxm_r_cnt, vxm_b_cnt;
+	reg signed [31:0] vxm_outst_rd, vxm_outst_wr;
+	reg [31:0]        vxm_period;
+	reg               vxm_active;
+	reg [31:0]        vxm_ar_logged, vxm_aw_logged;
+
+	always @(posedge clk) begin
+		if (vx_reset) begin
+			vxm_ar_cnt    <= 0; vxm_aw_cnt    <= 0;
+			vxm_w_cnt     <= 0; vxm_r_cnt     <= 0; vxm_b_cnt <= 0;
+			vxm_outst_rd  <= 0; vxm_outst_wr  <= 0;
+			vxm_period    <= 0; vxm_active     <= 0;
+			vxm_ar_logged <= 0; vxm_aw_logged  <= 0;
+		end else begin
+			// AR (read address)
+			if (m_axi_mem_arvalid && m_axi_mem_arready) begin
+				if (vxm_ar_logged < VXM_ADDR_LOG) begin
+					$display("[%0t] VX AR[%0d]: addr=0x%08h len=%0d",
+					         $time, vxm_ar_cnt, m_axi_mem_araddr[31:0], m_axi_mem_arlen);
+					vxm_ar_logged <= vxm_ar_logged + 1;
+				end
+				vxm_ar_cnt   <= vxm_ar_cnt + 1;
+				vxm_outst_rd <= vxm_outst_rd + 1;
+				vxm_active   <= 1;
+			end
+			// AW (write address)
+			if (m_axi_mem_awvalid && m_axi_mem_awready) begin
+				if (vxm_aw_logged < VXM_ADDR_LOG) begin
+					$display("[%0t] VX AW[%0d]: addr=0x%08h len=%0d",
+					         $time, vxm_aw_cnt, m_axi_mem_awaddr[31:0], m_axi_mem_awlen);
+					vxm_aw_logged <= vxm_aw_logged + 1;
+				end
+				vxm_aw_cnt   <= vxm_aw_cnt + 1;
+				vxm_outst_wr <= vxm_outst_wr + 1;
+			end
+			// W / R / B
+			if (m_axi_mem_wvalid  && m_axi_mem_wready)  vxm_w_cnt    <= vxm_w_cnt + 1;
+			if (m_axi_mem_rvalid  && m_axi_mem_rready) begin
+				vxm_r_cnt    <= vxm_r_cnt + 1;
+				vxm_outst_rd <= vxm_outst_rd - 1;
+			end
+			if (m_axi_mem_bvalid  && m_axi_mem_bready) begin
+				vxm_b_cnt    <= vxm_b_cnt + 1;
+				vxm_outst_wr <= vxm_outst_wr - 1;
+			end
+			// Periodic summary
+			if (vxm_active) begin
+				vxm_period <= vxm_period + 1;
+				if (vxm_period == 32'd500_000) begin
+					vxm_period <= 0;
+					$display("[%0t] VX AXI: AR=%0d AW=%0d W=%0d R=%0d B=%0d outst rd=%0d wr=%0d",
+					         $time, vxm_ar_cnt, vxm_aw_cnt, vxm_w_cnt,
+					         vxm_r_cnt, vxm_b_cnt, vxm_outst_rd, vxm_outst_wr);
+				end
+			end
+		end
+	end
+`endif
+
 endmodule

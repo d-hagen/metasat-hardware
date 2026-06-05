@@ -545,4 +545,87 @@ module VX_afu_ctrl #(
 			endcase
 		end
 	end
+
+`ifndef SYNTHESIS
+	// ===== AFU / VX Diagnostics (simulation only) =====
+
+	// DCR write trace
+	always @(posedge clk) begin
+		if (vx_dcr_wr_valid)
+			$display("[%0t] AFU DCR write: addr=0x%03h data=0x%08h", $time, vx_dcr_wr_addr, vx_dcr_wr_data);
+	end
+
+	// vx_reset edge
+	always @(posedge clk) begin
+		if ($fell(vx_reset)) $display("[%0t] VX: reset deasserted, Vortex active", $time);
+		if ($rose(vx_reset)) $display("[%0t] VX: reset asserted",                  $time);
+	end
+
+	// State transition + sub-phase + watchdog
+	reg [STATE_BITS-1:0] diag_last_state;
+	reg [63:0]           diag_cyc_in_state;
+	reg                  diag_busy_ever;
+	reg                  diag_last_running, diag_last_busy_wait, diag_last_busy;
+	localparam [63:0]    WDOG_THRESH = 64'd100_000;
+
+	always @(posedge clk) begin
+		if (reset) begin
+			diag_last_state    <= STATE_IDLE;
+			diag_cyc_in_state  <= 0;
+			diag_busy_ever     <= 0;
+			diag_last_running  <= 0;
+			diag_last_busy_wait <= 0;
+			diag_last_busy     <= 0;
+		end else begin
+			// State transitions
+			if (state != diag_last_state) begin
+				$display("[%0t] AFU: state %0d -> %0d (running=%0b busy_wait=%0b busy=%0b)",
+				         $time, diag_last_state, state, vx_running, vx_busy_wait, vx_busy);
+				diag_last_state   <= state;
+				diag_cyc_in_state <= 0;
+			end else begin
+				diag_cyc_in_state <= diag_cyc_in_state + 1;
+			end
+
+			// Sub-phase transitions in STATE_RUN
+			if (state == STATE_RUN) begin
+				diag_busy_ever <= diag_busy_ever | vx_busy;
+				if (vx_running != diag_last_running) begin
+					$display("[%0t] AFU: vx_running %0b -> %0b @cyc_in_state=%0d",
+					         $time, diag_last_running, vx_running, diag_cyc_in_state);
+					diag_last_running <= vx_running;
+				end
+				if (vx_busy_wait != diag_last_busy_wait) begin
+					$display("[%0t] AFU: vx_busy_wait %0b -> %0b @cyc_in_state=%0d",
+					         $time, diag_last_busy_wait, vx_busy_wait, diag_cyc_in_state);
+					diag_last_busy_wait <= vx_busy_wait;
+				end
+				if (vx_busy != diag_last_busy) begin
+					$display("[%0t] AFU: vx_busy %0b -> %0b @cyc_in_state=%0d",
+					         $time, diag_last_busy, vx_busy, diag_cyc_in_state);
+					diag_last_busy <= vx_busy;
+				end
+			end else begin
+				diag_last_running   <= 0;
+				diag_last_busy_wait <= 0;
+				diag_last_busy      <= 0;
+				diag_busy_ever      <= 0;
+			end
+
+			// Watchdog
+			if (state == STATE_RUN && diag_cyc_in_state == WDOG_THRESH) begin
+				$display("[%0t] AFU WDOG: STUCK in STATE_RUN for %0d cycles", $time, WDOG_THRESH);
+				$display("[%0t] AFU WDOG:   running=%0b reset=%0b busy_wait=%0b busy=%0b busy_ever=%0b",
+				         $time, vx_running, vx_reset, vx_busy_wait, vx_busy, diag_busy_ever);
+				if (vx_busy && diag_busy_ever)
+					$display("[%0t] AFU WDOG: -> waiting for vx_busy to FALL (kernel runs forever)", $time);
+				else if (!diag_busy_ever)
+					$display("[%0t] AFU WDOG: -> vx_busy never went HIGH (kernel never started)", $time);
+				else
+					$display("[%0t] AFU WDOG: -> unknown stall", $time);
+			end
+		end
+	end
+`endif
+
 endmodule
