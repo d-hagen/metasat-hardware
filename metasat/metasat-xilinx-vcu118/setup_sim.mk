@@ -181,6 +181,15 @@ compile-rtl:
 # essentially empty anyway, so disk I/O is negligible.
 VSIMOPT_FAST = -voptargs="+acc -nowarn 1" -do "run -all; quit -f" testbench
 
+# Waveform capture: +acc keeps all signals accessible; log -r captures hierarchy;
+# 2M cycles covers GPU startup (~1M cycles) + hang evidence.
+# WLF written to repo root as sim-wave-<TEST>-<timestamp>.wlf
+WAVE_FILE     = $(REPO_ROOT_DIR)/sim-wave-$(TEST)-$(shell date +%Y%m%d-%H%M%S).wlf
+VSIMOPT_WAVE  = -voptargs="+acc -nowarn 1" \
+                -wlf $(WAVE_FILE) \
+                -do "log -r /testbench/*; run 2000000; quit -f" \
+                testbench
+
 run-sim: select-test
 	@echo "=== Launching simulation ==="
 	@echo "=== Log file: $(LOG_FILE) ==="
@@ -188,6 +197,15 @@ run-sim: select-test
 	@cd $(SIM_DIR) && $(MAKE) sim-run VSIMOPT='$(VSIMOPT_FAST)' 2>&1 | tee -a $(LOG_FILE)
 	@date '+=== End:   %F %T ===' | tee -a $(LOG_FILE)
 	@echo "=== Sim finished. Full log: $(LOG_FILE) ==="
+
+run-wave: select-test
+	@echo "=== Launching waveform simulation (2M cycles, +acc) ==="
+	@echo "=== WLF: $(WAVE_FILE) ==="
+	@echo "=== Log file: $(LOG_FILE) ==="
+	@date '+=== Start: %F %T ===' | tee $(LOG_FILE)
+	@cd $(SIM_DIR) && $(MAKE) sim-run VSIMOPT='$(VSIMOPT_WAVE)' 2>&1 | tee -a $(LOG_FILE)
+	@date '+=== End:   %F %T ===' | tee -a $(LOG_FILE)
+	@echo "=== Done. Open waveform: vsim -view $(WAVE_FILE) ==="
 
 # ---- Utilities ----
 clean-unisim:
