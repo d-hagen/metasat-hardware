@@ -33,7 +33,7 @@ REPO_ROOT_DIR := $(abspath $(SIM_DIR)/../..)
 LOG_FILE       = $(REPO_ROOT_DIR)/sim-$(TEST)-$(shell date +%Y%m%d-%H%M%S).log
 
 .PHONY: all check-paths compile-unisim scripts-gen map-unisim \
-        stub-libs widen-grlib-axi-id select-test compile-rtl run-sim \
+        stub-libs widen-grlib-axi-id select-test compile-rtl run-sim run-wave \
         wipe nuke rebuild check-config check-all clean-unisim help
 
 all: check-paths compile-unisim scripts-gen map-unisim stub-libs widen-grlib-axi-id select-test compile-rtl
@@ -151,8 +151,19 @@ else ifeq ($(TEST),evaluation)
 else ifeq ($(TEST),evaluation-light)
 	@echo "=== Selecting evaluation-light test (SIZE=16) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-light.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),bare)
+	@echo "=== Selecting bare test (GPU start/stop only) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-bare.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),nospawn)
+	@echo "=== Selecting nospawn test (single-thread, no spawn) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-nospawn.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),spawn1)
+	@echo "=== Selecting spawn1 test (spawn 1 task) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-spawn1.srec $(SIM_DIR)/ram.srec
 else
-	@echo "ERROR: Unknown TEST=$(TEST). Use TEST=memory|memory-light|evaluation|evaluation-light"
+	@echo "ERROR: Unknown TEST=$(TEST)."
+	@echo "  memory | memory-light | evaluation | evaluation-light"
+	@echo "  bare | nospawn | spawn1"
 	@exit 1
 endif
 

@@ -30,3 +30,21 @@ srec: gpu-evaluation-vortex
 
 srec-light: vortex-light
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-light.srec
+
+# Minimal test case SRECs — each isolates one level of complexity
+srec-bare:
+	$(MAKE) clean-all
+	$(MAKE) vortex VX_SRC=src/kernel_bare.c SIZE=1
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-bare.srec
+
+srec-nospawn:
+	$(MAKE) clean-all
+	$(MAKE) vortex VX_SRC=src/kernel_nospawn.c SIZE=1
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-nospawn.srec
+
+srec-spawn1:
+	$(MAKE) clean-all
+	$(MAKE) vortex VX_SRC=src/kernel_spawn1.c SIZE=1
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-spawn1.srec
+
+srec-all: srec-bare srec-nospawn srec-spawn1 srec-light
