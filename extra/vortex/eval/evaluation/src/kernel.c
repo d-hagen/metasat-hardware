@@ -27,5 +27,7 @@ int main()
     vx_printf("[GPU main] calling vx_spawn_threads\n");
     int ret = vx_spawn_threads(1, &num_tasks, 0, (vx_kernel_func_cb)kernel, arg);
     vx_printf("[GPU main] vx_spawn_threads returned %d\n", ret);
-    return ret;
+    // Bypass _Exit (hangs at fence/perf_dump) — directly deactivate warp 0
+    vx_tmc_zero();
+    __builtin_unreachable();
 }
