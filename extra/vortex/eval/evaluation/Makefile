@@ -37,7 +37,7 @@ srec-light: vortex-light
 srec-bare:
 	cp src/kernel.c src/kernel.c.bak
 	cp src/kernel_bare.c src/kernel.c
-	$(MAKE) clean-all
+	rm -rf build
 	$(MAKE) vortex SIZE=1
 	cp src/kernel.c.bak src/kernel.c
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-bare.srec
@@ -45,7 +45,7 @@ srec-bare:
 srec-nospawn:
 	cp src/kernel.c src/kernel.c.bak
 	cp src/kernel_nospawn.c src/kernel.c
-	$(MAKE) clean-all
+	rm -rf build
 	$(MAKE) vortex SIZE=1
 	cp src/kernel.c.bak src/kernel.c
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-nospawn.srec
@@ -53,7 +53,7 @@ srec-nospawn:
 srec-spawn1:
 	cp src/kernel.c src/kernel.c.bak
 	cp src/kernel_spawn1.c src/kernel.c
-	$(MAKE) clean-all
+	rm -rf build
 	$(MAKE) vortex SIZE=1
 	cp src/kernel.c.bak src/kernel.c
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-spawn1.srec
