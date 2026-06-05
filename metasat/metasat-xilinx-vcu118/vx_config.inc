@@ -3,7 +3,7 @@
     NUM_CORES = 1
 
     # Extensions enabled
-    EXT_F_EN = 1
+    EXT_F_EN = 0
     EXT_M_EN = 1
 
     # GPU configuration
