@@ -18,8 +18,8 @@ module VX_core import VX_gpu_pkg::*; #(
     VX_commit_csr_if    commit_csr_if();
     VX_branch_ctl_if    branch_ctl_if[(((4 / 8) != 0) ? (4 / 8) : 1)]();
     VX_warp_ctl_if      warp_ctl_if();
-    VX_dispatch_if      dispatch_if[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)]();
-    VX_commit_if        commit_if[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)]();
+    VX_dispatch_if      dispatch_if[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)]();
+    VX_commit_if        commit_if[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)]();
     VX_writeback_if     writeback_if[(((4 / 8) != 0) ? (4 / 8) : 1)]();
     VX_lsu_mem_if #(
         .NUM_LANES (4),

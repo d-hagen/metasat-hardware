@@ -6,7 +6,6 @@ module VX_sfu_unit import VX_gpu_pkg::*; #(
     input wire              reset,
     input base_dcrs_t       base_dcrs,
     VX_dispatch_if.slave    dispatch_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
-    VX_fpu_csr_if.slave     fpu_csr_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
     VX_commit_csr_if.slave  commit_csr_if,
     VX_sched_csr_if.slave   sched_csr_if,
     VX_commit_if.master     commit_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
@@ -16,7 +15,7 @@ module VX_sfu_unit import VX_gpu_pkg::*; #(
     localparam NUM_LANES  = 4;
     localparam PID_BITS   = $clog2(4 / NUM_LANES);
     localparam PID_WIDTH  = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam RSP_ARB_DATAW = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (NUM_LANES * 32) + $clog2((2 * 32)) + 1 + (32-1) + PID_WIDTH + 1 + 1;
+    localparam RSP_ARB_DATAW = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (NUM_LANES * 32) + $clog2(32) + 1 + (32-1) + PID_WIDTH + 1 + 1;
     localparam RSP_ARB_SIZE = 1 + 1;
     localparam RSP_ARB_IDX_WCTL = 0;
     localparam RSP_ARB_IDX_CSRS = 1;
@@ -86,7 +85,6 @@ module VX_sfu_unit import VX_gpu_pkg::*; #(
         .reset          (csr_reset),
         .base_dcrs      (base_dcrs),
         .execute_if     (csr_execute_if),
-        .fpu_csr_if     (fpu_csr_if),
         .sched_csr_if   (sched_csr_if),
         .commit_csr_if  (commit_csr_if),
         .commit_if      (csr_commit_if)

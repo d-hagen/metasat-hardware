@@ -5,7 +5,7 @@ module VX_issue import VX_gpu_pkg::*; #(
     input wire              reset,
     VX_decode_if.slave      decode_if,
     VX_writeback_if.slave   writeback_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
-    VX_dispatch_if.master   dispatch_if [(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)]
+    VX_dispatch_if.master   dispatch_if [(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)]
 );
     wire [ISSUE_ISW_W-1:0] decode_isw = wid_to_isw(decode_if.data.wid);
     wire [ISSUE_WIS_W-1:0] decode_wis = wid_to_wis(decode_if.data.wid);
@@ -15,7 +15,7 @@ module VX_issue import VX_gpu_pkg::*; #(
         VX_decode_if #(
             .NUM_WARPS (PER_ISSUE_WARPS)
         ) per_issue_decode_if();
-        VX_dispatch_if per_issue_dispatch_if[(3 + 1)]();
+        VX_dispatch_if per_issue_dispatch_if[(3 + 0)]();
         assign per_issue_decode_if.valid = decode_if.valid && (decode_isw == ISSUE_ISW_W'(issue_id));
         assign per_issue_decode_if.data.uuid = decode_if.data.uuid;
         assign per_issue_decode_if.data.wid = decode_wis;
@@ -46,7 +46,7 @@ module VX_issue import VX_gpu_pkg::*; #(
             .writeback_if (writeback_if[issue_id]),
             .dispatch_if  (per_issue_dispatch_if)
         );
-        for (genvar ex_id = 0; ex_id < (3 + 1); ++ex_id) begin
+        for (genvar ex_id = 0; ex_id < (3 + 0); ++ex_id) begin
     assign dispatch_if[ex_id * (((4 / 8) != 0) ? (4 / 8) : 1) + issue_id].valid = per_issue_dispatch_if[ex_id].valid; 
     assign dispatch_if[ex_id * (((4 / 8) != 0) ? (4 / 8) : 1) + issue_id].data  = per_issue_dispatch_if[ex_id].data; 
     assign per_issue_dispatch_if[ex_id].ready = dispatch_if[ex_id * (((4 / 8) != 0) ? (4 / 8) : 1) + issue_id].ready;

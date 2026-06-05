@@ -3,12 +3,12 @@ module VX_commit import VX_gpu_pkg::*, VX_trace_pkg::*; #(
 ) (
     input wire              clk,
     input wire              reset,
-    VX_commit_if.slave      commit_if [(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    VX_commit_if.slave      commit_if [(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
     VX_writeback_if.master  writeback_if  [(((4 / 8) != 0) ? (4 / 8) : 1)],
     VX_commit_csr_if.master commit_csr_if,
     VX_commit_sched_if.master commit_sched_if
 );
-    localparam DATAW = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + 4 + (32-1) + 1 + $clog2((2 * 32)) + 4 * 32 + 1 + 1 + 1;
+    localparam DATAW = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + 4 + (32-1) + 1 + $clog2(32) + 4 * 32 + 1 + 1 + 1;
     localparam COMMIT_SIZEW = $clog2(4 + 1);
     localparam COMMIT_ALL_SIZEW = COMMIT_SIZEW + (((4 / 8) != 0) ? (4 / 8) : 1) - 1;
     VX_commit_if commit_arb_if[(((4 / 8) != 0) ? (4 / 8) : 1)]();
@@ -17,10 +17,10 @@ module VX_commit import VX_gpu_pkg::*, VX_trace_pkg::*; #(
     wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0][4-1:0] per_issue_commit_tmask;
     wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0] per_issue_commit_eop;
     for (genvar i = 0; i < (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
-        wire [(3 + 1)-1:0]            valid_in;
-        wire [(3 + 1)-1:0][DATAW-1:0] data_in;
-        wire [(3 + 1)-1:0]            ready_in;
-        for (genvar j = 0; j < (3 + 1); ++j) begin
+        wire [(3 + 0)-1:0]            valid_in;
+        wire [(3 + 0)-1:0][DATAW-1:0] data_in;
+        wire [(3 + 0)-1:0]            ready_in;
+        for (genvar j = 0; j < (3 + 0); ++j) begin
             assign valid_in[j] = commit_if[j * (((4 / 8) != 0) ? (4 / 8) : 1) + i].valid;
             assign data_in[j]  = commit_if[j * (((4 / 8) != 0) ? (4 / 8) : 1) + i].data;
             assign commit_if[j * (((4 / 8) != 0) ? (4 / 8) : 1) + i].ready = ready_in[j];
@@ -32,7 +32,7 @@ module VX_commit import VX_gpu_pkg::*, VX_trace_pkg::*; #(
         .reset_o (arb_reset)                          
     );
         VX_stream_arb #(
-            .NUM_INPUTS ((3 + 1)),
+            .NUM_INPUTS ((3 + 0)),
             .DATAW      (DATAW),
             .ARBITER    ("R"),
             .OUT_BUF    (1)

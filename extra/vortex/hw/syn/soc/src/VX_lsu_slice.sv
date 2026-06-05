@@ -10,12 +10,12 @@ module VX_lsu_slice import VX_gpu_pkg::*, VX_trace_pkg::*; #(
     localparam NUM_LANES    = 4;
     localparam PID_BITS     = $clog2(4 / NUM_LANES);
     localparam PID_WIDTH    = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam RSP_ARB_DATAW= 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2((2 * 32)) + 1 + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
+    localparam RSP_ARB_DATAW= 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
     localparam LSUQ_SIZEW   = ((((2 * (4 / 4))) > 1) ? $clog2((2 * (4 / 4))) : 1);
     localparam REQ_ASHIFT   = $clog2(LSU_WORD_SIZE);
     localparam MEM_ASHIFT   = $clog2(16);
     localparam MEM_ADDRW    = 32 - MEM_ASHIFT;
-    localparam TAG_ID_WIDTH = ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (32-1) + 1 + $clog2((2 * 32)) + 4 + (NUM_LANES * REQ_ASHIFT) + PID_WIDTH + LSUQ_SIZEW + 1;
+    localparam TAG_ID_WIDTH = ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (32-1) + 1 + $clog2(32) + 4 + (NUM_LANES * REQ_ASHIFT) + PID_WIDTH + LSUQ_SIZEW + 1;
     localparam TAG_WIDTH = 1 + TAG_ID_WIDTH;
     VX_commit_if #(
         .NUM_LANES (NUM_LANES)
@@ -282,7 +282,7 @@ module VX_lsu_slice import VX_gpu_pkg::*, VX_trace_pkg::*; #(
     wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] rsp_wid;
     wire [(32-1)-1:0] rsp_pc;
     wire rsp_wb;
-    wire [$clog2((2 * 32))-1:0] rsp_rd;
+    wire [$clog2(32)-1:0] rsp_rd;
     wire [4-1:0] rsp_op_type;
     wire [NUM_LANES-1:0][REQ_ASHIFT-1:0] rsp_align;
     wire [PID_WIDTH-1:0] rsp_pid;
@@ -315,7 +315,7 @@ module VX_lsu_slice import VX_gpu_pkg::*, VX_trace_pkg::*; #(
         end
     end
     VX_elastic_buffer #(
-        .DATAW (1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + 1 + $clog2((2 * 32)) + (NUM_LANES * 32) + PID_WIDTH + 1 + 1),
+        .DATAW (1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + 1 + $clog2(32) + (NUM_LANES * 32) + PID_WIDTH + 1 + 1),
         .SIZE  (2)
     ) rsp_buf (
         .clk       (clk),

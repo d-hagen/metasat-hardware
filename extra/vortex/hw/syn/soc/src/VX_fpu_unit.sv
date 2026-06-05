@@ -45,7 +45,7 @@ module VX_fpu_unit import VX_fpu_pkg::*; #(
         wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]    fpu_rsp_wid;
         wire [NUM_LANES-1:0]    fpu_rsp_tmask;
         wire [(32-1)-1:0]     fpu_rsp_PC;
-        wire [$clog2((2 * 32))-1:0]     fpu_rsp_rd;
+        wire [$clog2(32)-1:0]     fpu_rsp_rd;
         wire [PID_WIDTH-1:0]    fpu_rsp_pid;
         wire                    fpu_rsp_sop;
         wire                    fpu_rsp_eop;
@@ -56,7 +56,7 @@ module VX_fpu_unit import VX_fpu_pkg::*; #(
         wire execute_fire = per_block_execute_if[block_idx].valid && per_block_execute_if[block_idx].ready;
         wire fpu_rsp_fire = fpu_rsp_valid && fpu_rsp_ready;
         VX_index_buffer #(
-            .DATAW  (1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2((2 * 32)) + PID_WIDTH + 1 + 1),
+            .DATAW  (1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + PID_WIDTH + 1 + 1),
             .SIZE   ((2 * (4 / 4)))
         ) tag_store (
             .clk          (clk),
@@ -134,7 +134,7 @@ module VX_fpu_unit import VX_fpu_pkg::*; #(
     end
         assign fpu_csr_if[block_idx].write_fflags = fpu_rsp_fflags_q;
         VX_elastic_buffer #(
-            .DATAW (1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2((2 * 32)) + (NUM_LANES * 32) + PID_WIDTH + 1 + 1),
+            .DATAW (1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + (NUM_LANES * 32) + PID_WIDTH + 1 + 1),
             .SIZE  (0)
         ) rsp_buf (
             .clk       (clk),

@@ -8,41 +8,41 @@ module VX_issue_top import VX_gpu_pkg::*; #(
     input wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]              decode_wid,
     input wire [4-1:0]           decode_tmask,
     input wire [(32-1)-1:0]               decode_PC,
-    input wire [$clog2((3 + 1))-1:0]               decode_ex_type,
+    input wire [$clog2((3 + 0))-1:0]               decode_ex_type,
     input wire [4-1:0]          decode_op_type,
     input op_args_t                         decode_op_args,
     input wire                              decode_wb,
-    input wire [$clog2((2 * 32))-1:0]               decode_rd,
-    input wire [$clog2((2 * 32))-1:0]               decode_rs1,
-    input wire [$clog2((2 * 32))-1:0]               decode_rs2,
-    input wire [$clog2((2 * 32))-1:0]               decode_rs3,
+    input wire [$clog2(32)-1:0]               decode_rd,
+    input wire [$clog2(32)-1:0]               decode_rs1,
+    input wire [$clog2(32)-1:0]               decode_rs2,
+    input wire [$clog2(32)-1:0]               decode_rs3,
     output wire                             decode_ready,
     input wire                              writeback_valid[(((4 / 8) != 0) ? (4 / 8) : 1)],
     input wire [1-1:0]            writeback_uuid[(((4 / 8) != 0) ? (4 / 8) : 1)],
     input wire [ISSUE_WIS_W-1:0]            writeback_wis[(((4 / 8) != 0) ? (4 / 8) : 1)],
     input wire [4-1:0]           writeback_tmask[(((4 / 8) != 0) ? (4 / 8) : 1)],
     input wire [(32-1)-1:0]               writeback_PC[(((4 / 8) != 0) ? (4 / 8) : 1)],
-    input wire [$clog2((2 * 32))-1:0]               writeback_rd[(((4 / 8) != 0) ? (4 / 8) : 1)],
+    input wire [$clog2(32)-1:0]               writeback_rd[(((4 / 8) != 0) ? (4 / 8) : 1)],
     input wire [4-1:0][32-1:0] writeback_data[(((4 / 8) != 0) ? (4 / 8) : 1)],
     input wire                              writeback_sop[(((4 / 8) != 0) ? (4 / 8) : 1)],
     input wire                              writeback_eop[(((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire                             dispatch_valid[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [1-1:0]           dispatch_uuid[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [ISSUE_WIS_W-1:0]           dispatch_wis[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [4-1:0]          dispatch_tmask[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [(32-1)-1:0]              dispatch_PC[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [4-1:0]        dispatch_op_type[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output op_args_t                        dispatch_op_args[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire                             dispatch_wb[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [$clog2((2 * 32))-1:0]              dispatch_rd[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]             dispatch_tid[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [4-1:0][32-1:0] dispatch_rs1_data[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [4-1:0][32-1:0] dispatch_rs2_data[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    output wire [4-1:0][32-1:0] dispatch_rs3_data[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)],
-    input wire                             dispatch_ready[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)]
+    output wire                             dispatch_valid[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output wire [1-1:0]           dispatch_uuid[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output wire [ISSUE_WIS_W-1:0]           dispatch_wis[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output wire [4-1:0]          dispatch_tmask[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output wire [(32-1)-1:0]              dispatch_PC[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output wire [4-1:0]        dispatch_op_type[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output op_args_t                        dispatch_op_args[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output wire                             dispatch_wb[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output wire [$clog2(32)-1:0]              dispatch_rd[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]             dispatch_tid[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output wire [4-1:0][32-1:0] dispatch_rs1_data[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output wire [4-1:0][32-1:0] dispatch_rs2_data[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    output wire [4-1:0][32-1:0] dispatch_rs3_data[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)],
+    input wire                             dispatch_ready[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)]
 );
     VX_decode_if    decode_if();
-    VX_dispatch_if  dispatch_if[(3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1)]();
+    VX_dispatch_if  dispatch_if[(3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1)]();
     VX_writeback_if writeback_if[(((4 / 8) != 0) ? (4 / 8) : 1)]();
     assign decode_if.valid = decode_valid;
     assign decode_if.data.uuid = decode_uuid;
@@ -69,7 +69,7 @@ module VX_issue_top import VX_gpu_pkg::*; #(
         assign writeback_if[i].data.sop = writeback_sop[i];
         assign writeback_if[i].data.eop = writeback_eop[i];
     end
-    for (genvar i = 0; i < (3 + 1) * (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
+    for (genvar i = 0; i < (3 + 0) * (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
         assign dispatch_valid[i] = dispatch_if[i].valid;
         assign dispatch_uuid[i] = dispatch_if[i].data.uuid;
         assign dispatch_wis[i] = dispatch_if[i].data.wis;

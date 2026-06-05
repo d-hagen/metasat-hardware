@@ -6,7 +6,7 @@ module VX_issue_slice import VX_gpu_pkg::*, VX_trace_pkg::*; #(
     input wire              reset,
     VX_decode_if.slave      decode_if,
     VX_writeback_if.slave   writeback_if,
-    VX_dispatch_if.master   dispatch_if [(3 + 1)]
+    VX_dispatch_if.master   dispatch_if [(3 + 0)]
 );
     VX_ibuffer_if ibuffer_if [PER_ISSUE_WARPS]();
     VX_scoreboard_if scoreboard_if();

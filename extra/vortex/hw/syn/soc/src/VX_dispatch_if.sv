@@ -7,7 +7,7 @@ interface VX_dispatch_if import VX_gpu_pkg::*; ();
         logic [4-1:0]          op_type;
         op_args_t                           op_args;
         logic                               wb;
-        logic [$clog2((2 * 32))-1:0]                rd;
+        logic [$clog2(32)-1:0]                rd;
         logic [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]               tid;
         logic [4-1:0][32-1:0] rs1_data;
         logic [4-1:0][32-1:0] rs2_data;

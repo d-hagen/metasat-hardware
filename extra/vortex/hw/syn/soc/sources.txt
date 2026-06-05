@@ -9,6 +9,7 @@
 +define+STARTUP_ADDR=1610612736
 +define+STACK_BASE_ADDR=2130706432
 +define+MEM_BLOCK_SIZE=16
++define+EXT_F_DISABLE=1
 +define+NDEBUG
 +incdir+/home/dan/metasat-hardware/extra/vortex/hw/syn/soc/src
 /home/dan/metasat-hardware/extra/vortex/hw/syn/soc/src/VX_gpu_pkg.sv

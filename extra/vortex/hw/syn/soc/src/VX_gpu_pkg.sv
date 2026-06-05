@@ -54,7 +54,7 @@ package VX_gpu_pkg;
         logic [44-1:0] ibf_stalls;
         logic [44-1:0] scb_stalls;
         logic [44-1:0] opd_stalls;
-        logic [(3 + 1)-1:0][44-1:0] units_uses;
+        logic [(3 + 0)-1:0][44-1:0] units_uses;
         logic [(2)-1:0][44-1:0] sfu_uses;
     } issue_perf_t;
     typedef struct packed {

@@ -7,11 +7,11 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
     VX_decode_if.master     decode_if,
     VX_decode_sched_if.master decode_sched_if
 );
-    localparam DATAW = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + 4 + (32-1) + $clog2((3 + 1)) + 4 + $bits(op_args_t) + 1 + ($clog2((2 * 32)) * 4);
-    reg [$clog2((3 + 1))-1:0] ex_type;
+    localparam DATAW = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + 4 + (32-1) + $clog2((3 + 0)) + 4 + $bits(op_args_t) + 1 + ($clog2(32) * 4);
+    reg [$clog2((3 + 0))-1:0] ex_type;
     reg [4-1:0] op_type;
     op_args_t op_args;
-    reg [$clog2((2 * 32))-1:0] rd_r, rs1_r, rs2_r, rs3_r;
+    reg [$clog2(32)-1:0] rd_r, rs1_r, rs2_r, rs3_r;
     reg use_rd, use_rs1, use_rs2, use_rs3;
     reg is_wstall;
     wire [31:0] instr = fetch_if.data.instr;
@@ -109,9 +109,9 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
                 op_args.alu.use_imm = 1;
                 op_args.alu.imm = {{(32-$bits(i_imm)+1){i_imm[$bits(i_imm)-1]}}, i_imm[$bits(i_imm)-2:0]};
                 use_rd = 1;
-        rd_r = {1'b0, rd}; 
+        rd_r = rd; 
         use_rd = 1;
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
             end
             7'b0110011: begin
@@ -120,11 +120,11 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
                 op_args.alu.use_PC = 0;
                 op_args.alu.use_imm = 0;
                 use_rd = 1;
-        rd_r = {1'b0, rd}; 
+        rd_r = rd; 
         use_rd = 1;
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
-        rs2_r = {1'b0, rs2}; 
+        rs2_r = rs2; 
         use_rs2 = 1;
                 case (func7)
                     7'b0000001: begin
@@ -150,7 +150,7 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
                 op_args.alu.use_imm = 1;
                 op_args.alu.imm = {{32-31{ui_imm[19]}}, ui_imm[18:0], 12'(0)};
                 use_rd  = 1;
-        rd_r = {1'b0, rd}; 
+        rd_r = rd; 
         use_rd = 1;
             end
             7'b0010111: begin
@@ -162,7 +162,7 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
                 op_args.alu.use_imm = 1;
                 op_args.alu.imm = {{32-31{ui_imm[19]}}, ui_imm[18:0], 12'(0)};
                 use_rd = 1;
-        rd_r = {1'b0, rd}; 
+        rd_r = rd; 
         use_rd = 1;
             end
             7'b1101111: begin
@@ -175,7 +175,7 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
                 op_args.alu.imm = {{(32-$bits(jal_imm)+1){jal_imm[$bits(jal_imm)-1]}}, jal_imm[$bits(jal_imm)-2:0]};
                 use_rd  = 1;
                 is_wstall = 1;
-        rd_r = {1'b0, rd}; 
+        rd_r = rd; 
         use_rd = 1;
             end
             7'b1100111: begin
@@ -188,9 +188,9 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
                 op_args.alu.imm = {{(32-$bits(u_12)+1){u_12[$bits(u_12)-1]}}, u_12[$bits(u_12)-2:0]};
                 use_rd  = 1;
                 is_wstall = 1;
-        rd_r = {1'b0, rd}; 
+        rd_r = rd; 
         use_rd = 1;
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
             end
             7'b1100011: begin
@@ -202,9 +202,9 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
                 op_args.alu.use_imm = 1;
                 op_args.alu.imm = {{(32-$bits(b_imm)+1){b_imm[$bits(b_imm)-1]}}, b_imm[$bits(b_imm)-2:0]};
                 is_wstall = 1;
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
-        rs2_r = {1'b0, rs2}; 
+        rs2_r = rs2; 
         use_rs2 = 1;
             end
             7'b0001111: begin
@@ -222,12 +222,12 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
                     op_args.csr.use_imm = func3[2];
                     use_rd  = 1;
                     is_wstall = is_fpu_csr;  
-        rd_r = {1'b0, rd}; 
+        rd_r = rd; 
         use_rd = 1;
                     if (func3[2]) begin
                         op_args.csr.imm = rs1;
                     end else begin
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
                     end
                 end else begin
@@ -240,11 +240,10 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
                     op_args.alu.imm = 32'd4;
                     use_rd  = 1;
                     is_wstall = 1;
-        rd_r = {1'b0, rd}; 
+        rd_r = rd; 
         use_rd = 1;
                 end
             end
-            7'b0000111,
             7'b0000011: begin
                 ex_type = 1;
                 op_type = 4'({1'b0, func3});
@@ -252,141 +251,21 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
                 op_args.lsu.is_float = opcode[2];
                 op_args.lsu.offset = u_12;
                 use_rd  = 1;
-                if (opcode[2]) begin
-        rd_r = {1'b1, rd}; 
+        rd_r = rd; 
         use_rd = 1;
-                end else
-        rd_r = {1'b0, rd}; 
-        use_rd = 1;
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
             end
-            7'b0100111,
             7'b0100011: begin
                 ex_type = 1;
                 op_type = 4'({1'b1, func3});
                 op_args.lsu.is_store = 1;
                 op_args.lsu.is_float = opcode[2];
                 op_args.lsu.offset = s_imm;
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
-                if (opcode[2]) begin
-        rs2_r = {1'b1, rs2}; 
+        rs2_r = rs2; 
         use_rs2 = 1;
-                end else
-        rs2_r = {1'b0, rs2}; 
-        use_rs2 = 1;
-            end
-            7'b1000011,
-            7'b1000111,
-            7'b1001011,
-            7'b1001111: begin
-                ex_type = (2 + 1);
-                op_type = 4'({2'b11, opcode[3:2]});
-                op_args.fpu.frm = func3;
-                op_args.fpu.fmt[0] = func2[0];  
-                use_rd  = 1;
-        rd_r = {1'b1, rd}; 
-        use_rd = 1;
-        rs1_r = {1'b1, rs1}; 
-        use_rs1 = 1;
-        rs2_r = {1'b1, rs2}; 
-        use_rs2 = 1;
-        rs3_r = {1'b1, rs3}; 
-        use_rs3 = 1;
-            end
-            7'b1010011: begin
-                ex_type = (2 + 1);
-                op_args.fpu.frm = func3;
-                op_args.fpu.fmt[0] = func2[0];  
-                op_args.fpu.fmt[1] = rs2[1];    
-                use_rd  = 1;
-                case (func5)
-                    5'b00000,  
-                    5'b00001,  
-                    5'b00010,  
-                    5'b00011: begin  
-                        op_type = 4'(func5[1:0]);
-        rd_r = {1'b1, rd}; 
-        use_rd = 1;
-        rs1_r = {1'b1, rs1}; 
-        use_rs1 = 1;
-        rs2_r = {1'b1, rs2}; 
-        use_rs2 = 1;
-                    end
-                    5'b00100: begin
-                        op_type = 4'(4'b0111);
-                        op_args.fpu.frm = 3'(func3[1:0]);
-        rd_r = {1'b1, rd}; 
-        use_rd = 1;
-        rs1_r = {1'b1, rs1}; 
-        use_rs1 = 1;
-        rs2_r = {1'b1, rs2}; 
-        use_rs2 = 1;
-                    end
-                    5'b00101: begin
-                        op_type = 4'(4'b0111);
-                        op_args.fpu.frm = 3'(func3[0] ? 7 : 6);
-        rd_r = {1'b1, rd}; 
-        use_rd = 1;
-        rs1_r = {1'b1, rs1}; 
-        use_rs1 = 1;
-        rs2_r = {1'b1, rs2}; 
-        use_rs2 = 1;
-                    end
-                    5'b01011: begin
-                        op_type = 4'(4'b0100);
-        rd_r = {1'b1, rd}; 
-        use_rd = 1;
-        rs1_r = {1'b1, rs1}; 
-        use_rs1 = 1;
-                    end
-                    5'b10100: begin
-                        op_type = 4'(4'b0101);
-        rd_r = {1'b0, rd}; 
-        use_rd = 1;
-        rs1_r = {1'b1, rs1}; 
-        use_rs1 = 1;
-        rs2_r = {1'b1, rs2}; 
-        use_rs2 = 1;
-                    end
-                    5'b11000: begin
-                        op_type = (rs2[0]) ? 4'(4'b1001) : 4'(4'b1000);
-        rd_r = {1'b0, rd}; 
-        use_rd = 1;
-        rs1_r = {1'b1, rs1}; 
-        use_rs1 = 1;
-                    end
-                    5'b11010: begin
-                        op_type = (rs2[0]) ? 4'(4'b1011) : 4'(4'b1010);
-        rd_r = {1'b1, rd}; 
-        use_rd = 1;
-        rs1_r = {1'b0, rs1}; 
-        use_rs1 = 1;
-                    end
-                    5'b11100: begin
-                        if (func3[0]) begin
-                            op_type = 4'(4'b0111);
-                            op_args.fpu.frm = 3'(3);
-                        end else begin
-                            op_type = 4'(4'b0111);
-                            op_args.fpu.frm = 3'(4);
-                        end
-        rd_r = {1'b0, rd}; 
-        use_rd = 1;
-        rs1_r = {1'b1, rs1}; 
-        use_rs1 = 1;
-                    end
-                    5'b11110: begin
-                        op_type = 4'(4'b0111);
-                        op_args.fpu.frm = 3'(5);
-        rd_r = {1'b1, rd}; 
-        use_rd = 1;
-        rs1_r = {1'b0, rs1}; 
-        use_rs1 = 1;
-                    end
-                default:;
-                endcase
             end
             7'b0001011: begin
                 case (func7)
@@ -396,43 +275,43 @@ module VX_decode import VX_gpu_pkg::*, VX_trace_pkg::*; #(
                         case (func3)
                             3'h0: begin  
                                 op_type = 4'(4'h0);
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
                             end
                             3'h1: begin  
                                 op_type = 4'(4'h1);
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
-        rs2_r = {1'b0, rs2}; 
+        rs2_r = rs2; 
         use_rs2 = 1;
                             end
                             3'h2: begin  
                                 op_type = 4'(4'h2);
                                 use_rd    = 1;
                                 op_args.wctl.is_neg = rs2[0];
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
-        rd_r = {1'b0, rd}; 
+        rd_r = rd; 
         use_rd = 1;
                             end
                             3'h3: begin  
                                 op_type = 4'(4'h3);
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
                             end
                             3'h4: begin  
                                 op_type = 4'(4'h4);
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
-        rs2_r = {1'b0, rs2}; 
+        rs2_r = rs2; 
         use_rs2 = 1;
                             end
                             3'h5: begin  
                                 op_type = 4'(4'h5);
                                 op_args.wctl.is_neg = rd[0];
-        rs1_r = {1'b0, rs1}; 
+        rs1_r = rs1; 
         use_rs1 = 1;
-        rs2_r = {1'b0, rs2}; 
+        rs2_r = rs2; 
         use_rs2 = 1;
                             end
                             default:;

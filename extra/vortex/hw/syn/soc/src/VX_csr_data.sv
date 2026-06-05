@@ -1,6 +1,5 @@
 module VX_csr_data
 import VX_gpu_pkg::*;
-import VX_fpu_pkg::*;
 #(
     parameter  INSTANCE_ID = "",
     parameter CORE_ID = 0
@@ -9,7 +8,6 @@ import VX_fpu_pkg::*;
     input wire                          reset,
     input base_dcrs_t                   base_dcrs,
     VX_commit_csr_if.slave              commit_csr_if,
-    VX_fpu_csr_if.slave                 fpu_csr_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
     input wire [44-1:0]     cycles,
     input wire [4-1:0]         active_warps,
     input wire [4-1:0][4-1:0] thread_masks,
@@ -26,51 +24,12 @@ import VX_fpu_pkg::*;
     input wire [32-1:0]              write_data
 );
     reg [32-1:0] mscratch;
-    reg [4-1:0][3+$bits(VX_fpu_pkg::fflags_t)-1:0] fcsr, fcsr_n;
-    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0]              fpu_write_enable;
-    wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0][((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] fpu_write_wid;
-    fflags_t [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0]          fpu_write_fflags;
-    for (genvar i = 0; i < (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
-        assign fpu_write_enable[i] = fpu_csr_if[i].write_enable;
-        assign fpu_write_wid[i]    = fpu_csr_if[i].write_wid;
-        assign fpu_write_fflags[i] = fpu_csr_if[i].write_fflags;
-    end
-    always @(*) begin
-        fcsr_n = fcsr;
-        for (integer i = 0; i < (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
-            if (fpu_write_enable[i]) begin
-                fcsr_n[fpu_write_wid[i]][$bits(VX_fpu_pkg::fflags_t)-1:0] = fcsr[fpu_write_wid[i]][$bits(VX_fpu_pkg::fflags_t)-1:0]
-                                                             | fpu_write_fflags[i];
-            end
-        end
-        if (write_enable) begin
-            case (write_addr)
-                12'h001: fcsr_n[write_wid][$bits(VX_fpu_pkg::fflags_t)-1:0] = write_data[$bits(VX_fpu_pkg::fflags_t)-1:0];
-                12'h002:    fcsr_n[write_wid][3+$bits(VX_fpu_pkg::fflags_t)-1:$bits(VX_fpu_pkg::fflags_t)] = write_data[3-1:0];
-                12'h003:   fcsr_n[write_wid] = write_data[$bits(VX_fpu_pkg::fflags_t)+3-1:0];
-            default:;
-            endcase
-        end
-    end
-    for (genvar i = 0; i < (((4 / 8) != 0) ? (4 / 8) : 1); ++i) begin
-        assign fpu_csr_if[i].read_frm = fcsr[fpu_csr_if[i].read_wid][3+$bits(VX_fpu_pkg::fflags_t)-1:$bits(VX_fpu_pkg::fflags_t)];
-    end
-    always @(posedge clk) begin
-        if (reset) begin
-            fcsr <= '0;
-        end else begin
-            fcsr <= fcsr_n;
-        end
-    end
     always @(posedge clk) begin
         if (reset) begin
             mscratch <= base_dcrs.startup_arg;
         end
         if (write_enable) begin
             case (write_addr)
-                12'h001,
-                12'h002,
-                12'h003,
                 12'h180,
                 12'h300,
                 12'h744,
@@ -107,7 +66,7 @@ import VX_fpu_pkg::*;
                 | (0 <<  2)   
                 | (0 <<  3)   
                 | (0 <<  4)   
-                | (1 << 5)   
+                | (0 << 5)   
                 | (0 <<  6)   
                 | (0 <<  7)   
                 | (1 <<  8)   
@@ -128,9 +87,6 @@ import VX_fpu_pkg::*;
                 | (1 << 23)   
                 | (0 << 24)   
                 | (0 << 25)  )});
-            12'h001     : read_data_rw_r = 32'(fcsr[read_wid][$bits(VX_fpu_pkg::fflags_t)-1:0]);
-            12'h002        : read_data_rw_r = 32'(fcsr[read_wid][3+$bits(VX_fpu_pkg::fflags_t)-1:$bits(VX_fpu_pkg::fflags_t)]);
-            12'h003       : read_data_rw_r = 32'(fcsr[read_wid]);
             12'h340   : read_data_rw_r = mscratch;
             12'hCC1    : read_data_ro_r = 32'(read_wid);
             12'hCC2    : read_data_ro_r = 32'(CORE_ID);

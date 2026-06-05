@@ -7,7 +7,7 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
     VX_ibuffer_if.slave     ibuffer_if [PER_ISSUE_WARPS],
     VX_scoreboard_if.master scoreboard_if
 );
-    localparam DATAW = 1 + 4 + (32-1) + $clog2((3 + 1)) + 4 + $bits(op_args_t) + ($clog2((2 * 32)) * 4) + 1;
+    localparam DATAW = 1 + 4 + (32-1) + $clog2((3 + 0)) + 4 + $bits(op_args_t) + ($clog2(32) * 4) + 1;
     VX_ibuffer_if staging_if [PER_ISSUE_WARPS]();
     reg [PER_ISSUE_WARPS-1:0] operands_ready;
     for (genvar w = 0; w < PER_ISSUE_WARPS; ++w) begin
@@ -26,7 +26,7 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
         );
     end
     for (genvar w = 0; w < PER_ISSUE_WARPS; ++w) begin
-        reg [(2 * 32)-1:0] inuse_regs;
+        reg [32-1:0] inuse_regs;
         reg [3:0] operands_busy, operands_busy_n;
         wire ibuffer_fire = ibuffer_if[w].valid && ibuffer_if[w].ready;
         wire staging_fire = staging_if[w].valid && staging_if[w].ready;

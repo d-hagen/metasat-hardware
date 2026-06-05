@@ -14,11 +14,11 @@ module VX_operands import VX_gpu_pkg::*; #(
     localparam REQ_SEL_WIDTH = (((REQ_SEL_BITS) != 0) ? (REQ_SEL_BITS) : 1);
     localparam BANK_SEL_BITS = $clog2(NUM_BANKS);
     localparam BANK_SEL_WIDTH = (((BANK_SEL_BITS) != 0) ? (BANK_SEL_BITS) : 1);
-    localparam PER_BANK_REGS = (2 * 32) / NUM_BANKS;
-    localparam META_DATAW = ISSUE_WIS_W + 4 + (32-1) + 1 + $clog2((3 + 1)) + 4 + $bits(op_args_t) + $clog2((2 * 32)) + 1;
+    localparam PER_BANK_REGS = 32 / NUM_BANKS;
+    localparam META_DATAW = ISSUE_WIS_W + 4 + (32-1) + 1 + $clog2((3 + 0)) + 4 + $bits(op_args_t) + $clog2(32) + 1;
     localparam REGS_DATAW = 32 * 4;
     localparam DATAW = META_DATAW + NUM_SRC_REGS * REGS_DATAW;
-    localparam RAM_ADDRW = ((((2 * 32) * PER_ISSUE_WARPS) > 1) ? $clog2((2 * 32) * PER_ISSUE_WARPS) : 1);
+    localparam RAM_ADDRW = (((32 * PER_ISSUE_WARPS) > 1) ? $clog2(32 * PER_ISSUE_WARPS) : 1);
     localparam PER_BANK_ADDRW = RAM_ADDRW - BANK_SEL_BITS;
     localparam XLEN_SIZE = 32 / 8;
     localparam BYTEENW = 4 * XLEN_SIZE;
@@ -40,14 +40,14 @@ module VX_operands import VX_gpu_pkg::*; #(
     wire [NUM_SRC_REGS-1:0] data_fetched_st1;
     reg has_collision_n;
     wire has_collision_st1;
-    wire [NUM_SRC_REGS-1:0][$clog2((2 * 32))-1:0] src_regs = {scoreboard_if.data.rs3,
+    wire [NUM_SRC_REGS-1:0][$clog2(32)-1:0] src_regs = {scoreboard_if.data.rs3,
                                                       scoreboard_if.data.rs2,
                                                       scoreboard_if.data.rs1};
     for (genvar i = 0; i < NUM_SRC_REGS; ++i) begin
         if (ISSUE_WIS != 0) begin
-            assign req_in_data[i] = {src_regs[i][$clog2((2 * 32))-1:BANK_SEL_BITS], scoreboard_if.data.wis};
+            assign req_in_data[i] = {src_regs[i][$clog2(32)-1:BANK_SEL_BITS], scoreboard_if.data.wis};
         end else begin
-            assign req_in_data[i] = src_regs[i][$clog2((2 * 32))-1:BANK_SEL_BITS];
+            assign req_in_data[i] = src_regs[i][$clog2(32)-1:BANK_SEL_BITS];
         end
         if (NUM_BANKS != 1) begin
             assign req_bank_idx[i] = src_regs[i][BANK_SEL_BITS-1:0];
@@ -185,9 +185,9 @@ module VX_operands import VX_gpu_pkg::*; #(
     );
     wire [PER_BANK_ADDRW-1:0] gpr_wr_addr;
     if (ISSUE_WIS != 0) begin
-        assign gpr_wr_addr = {writeback_if.data.rd[$clog2((2 * 32))-1:BANK_SEL_BITS], writeback_if.data.wis};
+        assign gpr_wr_addr = {writeback_if.data.rd[$clog2(32)-1:BANK_SEL_BITS], writeback_if.data.wis};
     end else begin
-        assign gpr_wr_addr = writeback_if.data.rd[$clog2((2 * 32))-1:BANK_SEL_BITS];
+        assign gpr_wr_addr = writeback_if.data.rd[$clog2(32)-1:BANK_SEL_BITS];
     end
     wire [BANK_SEL_WIDTH-1:0] gpr_wr_bank_idx;
     if (NUM_BANKS != 1) begin

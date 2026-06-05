@@ -6,7 +6,6 @@ module VX_csr_unit import VX_gpu_pkg::*; #(
     input wire                  clk,
     input wire                  reset,
     input base_dcrs_t           base_dcrs,
-    VX_fpu_csr_if.slave         fpu_csr_if [(((4 / 8) != 0) ? (4 / 8) : 1)],
     VX_commit_csr_if.slave      commit_csr_if,
     VX_sched_csr_if.slave       sched_csr_if,
     VX_execute_if.slave         execute_if,
@@ -14,7 +13,7 @@ module VX_csr_unit import VX_gpu_pkg::*; #(
 );
     localparam PID_BITS   = $clog2(4 / NUM_LANES);
     localparam PID_WIDTH  = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam DATAW      = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2((2 * 32)) + 1 + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
+    localparam DATAW      = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
     reg [NUM_LANES-1:0][32-1:0]  csr_read_data;
     reg  [32-1:0]                csr_write_data;
     wire [32-1:0]                csr_read_data_ro, csr_read_data_rw;
@@ -45,7 +44,6 @@ module VX_csr_unit import VX_gpu_pkg::*; #(
         .cycles         (sched_csr_if.cycles),
         .active_warps   (sched_csr_if.active_warps),
         .thread_masks   (sched_csr_if.thread_masks),
-        .fpu_csr_if     (fpu_csr_if),
         .read_enable    (csr_req_valid && csr_rd_enable),
         .read_uuid      (execute_if.data.uuid),
         .read_wid       (execute_if.data.wid),
