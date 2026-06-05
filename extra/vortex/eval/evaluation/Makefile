@@ -58,4 +58,9 @@ srec-spawn1:
 	cp src/kernel.c.bak src/kernel.c
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-spawn1.srec
 
-srec-all: srec-bare srec-nospawn srec-spawn1 srec-light
+srec-light-safe:
+	rm -rf build
+	$(MAKE) vortex SIZE=16
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-light.srec
+
+srec-all: srec-bare srec-nospawn srec-spawn1 srec-light-safe
