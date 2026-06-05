@@ -15,7 +15,7 @@ CXXFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
 CFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
 
 # Vortex Compiler
-RISCV_TOOLCHAIN_PATH ?= /opt/riscv32-gnu-toolchain
+RISCV_TOOLCHAIN_PATH ?= /home/dan/tools/riscv32-gnu-toolchain
 RISCV_PREFIX = riscv32-unknown-elf
 
 VX_CC  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-gcc
