@@ -2,7 +2,15 @@
 // Pass: vx_busy falls within a few cycles of reset deassertion.
 // Fail: vx_busy stays high forever.
 // Diagnoses: can the GPU start and stop at all?
+#include <stdint.h>
 #include <vx_intrinsics.h>
+
+// SIMT-safe memset — overrides newlib's jump-table version
+void *memset(void *s, int c, __SIZE_TYPE__ n) {
+    unsigned char *p = (unsigned char *)s;
+    while (n--) *p++ = (unsigned char)c;
+    return s;
+}
 
 int main()
 {

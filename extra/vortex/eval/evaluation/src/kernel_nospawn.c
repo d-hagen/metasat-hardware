@@ -8,6 +8,12 @@
 
 #define KERNEL_ARG_DEV_MEM_ADDR 0x5ffff000
 
+void *memset(void *s, int c, __SIZE_TYPE__ n) {
+    unsigned char *p = (unsigned char *)s;
+    while (n--) *p++ = (unsigned char)c;
+    return s;
+}
+
 int main()
 {
     uint64_t *arg  = (uint64_t *)KERNEL_ARG_DEV_MEM_ADDR;

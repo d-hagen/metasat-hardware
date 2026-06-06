@@ -8,6 +8,12 @@
 #include <vx_spawn.h>
 #include <VX_types.h>
 
+void *memset(void *s, int c, __SIZE_TYPE__ n) {
+    unsigned char *p = (unsigned char *)s;
+    while (n--) *p++ = (unsigned char)c;
+    return s;
+}
+
 void kernel(void *arg)
 {
     uint64_t *karg = (uint64_t *)arg;

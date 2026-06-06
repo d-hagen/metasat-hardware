@@ -5,6 +5,15 @@
 
 #define KERNEL_ARG_DEV_MEM_ADDR 0x5ffff000
 
+// Override newlib memset: the optimized version uses jump tables (jalr with
+// per-thread targets) causing SIMT divergence that Vortex cannot handle.
+// This plain byte loop has no indirect jumps and is fully SIMT-safe.
+void *memset(void *s, int c, __SIZE_TYPE__ n) {
+    unsigned char *p = (unsigned char *)s;
+    while (n--) *p++ = (unsigned char)c;
+    return s;
+}
+
 void kernel(void *arg)
 {
     uint64_t *karg = (uint64_t *)arg;
