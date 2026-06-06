@@ -19,6 +19,8 @@ all:
 
 include ../common.mk
 
+VX_LDFLAGS += -Wl,--wrap=memset
+
 vortex: $(TEST)-vortex
 
 vortex-light:

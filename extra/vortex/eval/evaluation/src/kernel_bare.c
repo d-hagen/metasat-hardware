@@ -6,7 +6,7 @@
 #include <vx_intrinsics.h>
 
 // SIMT-safe memset — overrides newlib's jump-table version
-void *memset(void *s, int c, __SIZE_TYPE__ n) {
+void *__wrap_memset(void *s, int c, __SIZE_TYPE__ n) {
     unsigned char *p = (unsigned char *)s;
     while (n--) *p++ = (unsigned char)c;
     return s;
