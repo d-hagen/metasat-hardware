@@ -8,7 +8,7 @@
 #include <vx_spawn.h>
 #include <VX_types.h>
 
-void *__wrap_memset(void *s, int c, __SIZE_TYPE__ n) {
+extern "C" void *__wrap_memset(void *s, int c, __SIZE_TYPE__ n) {
     unsigned char *p = (unsigned char *)s;
     while (n--) *p++ = (unsigned char)c;
     return s;

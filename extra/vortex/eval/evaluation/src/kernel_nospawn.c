@@ -8,7 +8,7 @@
 
 #define KERNEL_ARG_DEV_MEM_ADDR 0x5ffff000
 
-void *__wrap_memset(void *s, int c, __SIZE_TYPE__ n) {
+extern "C" void *__wrap_memset(void *s, int c, __SIZE_TYPE__ n) {
     unsigned char *p = (unsigned char *)s;
     while (n--) *p++ = (unsigned char)c;
     return s;
