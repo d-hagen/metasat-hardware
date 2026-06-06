@@ -8,6 +8,10 @@
 // Override newlib memset: the optimized version uses jump tables (jalr with
 // per-thread targets) causing SIMT divergence that Vortex cannot handle.
 // This plain byte loop has no indirect jumps and is fully SIMT-safe.
+extern "C" void *__wrap_memcpy(void *d, const void *s, __SIZE_TYPE__ n) {
+    char *dp = (char *)d; const char *sp = (const char *)s;
+    while (n--) *dp++ = *sp++; return d;
+}
 extern "C" void *__wrap_memset(void *s, int c, __SIZE_TYPE__ n) {
     unsigned char *p = (unsigned char *)s;
     while (n--) *p++ = (unsigned char)c;
