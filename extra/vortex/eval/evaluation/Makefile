@@ -19,7 +19,7 @@ all:
 
 include ../common.mk
 
-VX_LDFLAGS += -Wl,--wrap=memset,--undefined=__wrap_memset
+VX_LDFLAGS += -Wl,--wrap=memset,--no-gc-sections
 
 vortex: $(TEST)-vortex
 
