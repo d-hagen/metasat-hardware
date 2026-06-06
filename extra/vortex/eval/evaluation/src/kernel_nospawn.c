@@ -5,11 +5,12 @@
 // Diagnoses: can warp 0 execute a memory read/write and complete?
 #include <stdint.h>
 #include <vx_intrinsics.h>
-#include <VX_types.h>
+
+#define KERNEL_ARG_DEV_MEM_ADDR 0x5ffff000
 
 int main()
 {
-    uint64_t *arg  = (uint64_t *)csr_read(VX_CSR_MSCRATCH);
+    uint64_t *arg  = (uint64_t *)KERNEL_ARG_DEV_MEM_ADDR;
     uint8_t  *src  = (uint8_t *)arg[1];
     uint8_t  *dest = (uint8_t *)arg[2];
     dest[0] = (uint8_t)(src[0] * 2);
