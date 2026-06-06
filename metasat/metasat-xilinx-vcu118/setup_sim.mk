@@ -198,7 +198,7 @@ VSIMOPT_FAST = -voptargs="+acc -nowarn 1" -do "run -all; quit -f" testbench
 WAVE_FILE     = $(REPO_ROOT_DIR)/sim-wave-$(TEST)-$(shell date +%Y%m%d-%H%M%S).wlf
 VSIMOPT_WAVE  = -voptargs="+acc -nowarn 1" \
                 -wlf $(WAVE_FILE) \
-                -do "log -r /testbench/*; run 2000000; quit -f" \
+                -do "$(SIM_DIR)/wave.do" \
                 testbench
 
 run-sim: select-test
