@@ -20,19 +20,15 @@ extern "C" __attribute__((used)) void *__wrap_memset(void *s, int c, __SIZE_TYPE
 
 int main()
 {
-    uint64_t *arg  = (uint64_t *)KERNEL_ARG_DEV_MEM_ADDR;
-    volatile uint8_t *src  = (volatile uint8_t *)arg[1];
-    volatile uint8_t *dest = (volatile uint8_t *)arg[2];
-    dest[0] = (uint8_t)(src[0] * 2);
-    // Force a real memory read from a different cache line than the prior
-    // store. Same-address volatile reload was forwarded from the store
-    // buffer and did not drain the write. Reading the arg block at
-    // KERNEL_ARG_DEV_MEM_ADDR (different page from dest) cannot be
-    // store-forwarded and forces an AXI round-trip, which back-pressures
-    // until the prior store leaves the LSU.
-    volatile uint8_t *flush = (volatile uint8_t *)KERNEL_ARG_DEV_MEM_ADDR;
-    uint8_t sink = flush[0];
-    (void)sink;
+    // Isolation test: load-only, NO store before vx_tmc_zero.
+    // Previous attempts (store+volatile-load-same-addr, store+load-diff-addr)
+    // both hung. This removes the store entirely to determine whether the
+    // store itself triggers the bug, or whether even a load is enough.
+    // Bare (no mem ops) passes; this sits between bare and nospawn-with-store.
+    volatile uint64_t *arg = (volatile uint64_t *)KERNEL_ARG_DEV_MEM_ADDR;
+    volatile uint8_t  *src = (volatile uint8_t  *)arg[1];
+    uint8_t result = (uint8_t)(src[0] * 2);
+    (void)result;
     vx_tmc_zero();
     __builtin_unreachable();
 }
