@@ -28,7 +28,9 @@ void kernel(void *arg)
 
 int main()
 {
-    uint64_t *arg       = (uint64_t *)0x5ffff000;
+    uint64_t arg_addr;
+    __asm__ volatile ("csrr %0, mscratch" : "=r"(arg_addr));
+    uint64_t *arg       = (uint64_t *)arg_addr;
     uint32_t  num_tasks = 1;
     vx_spawn_threads(1, &num_tasks, 0, (vx_kernel_func_cb)kernel, arg);
     vx_tmc_zero();

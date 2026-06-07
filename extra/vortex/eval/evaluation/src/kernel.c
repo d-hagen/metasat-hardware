@@ -1,13 +1,16 @@
+// Args are passed via the v2.2 mechanism: vx_start writes the args buffer
+// address to VX_DCR_BASE_STARTUP_ARG0/1, which the GPU latches into mscratch
+// at reset. The kernel reads mscratch to get the args pointer. Reading from
+// a hardcoded address would yield garbage because vx_upload_bytes allocates
+// the buffer dynamically, not at any fixed location.
 #include <stdint.h>
 #include <vx_intrinsics.h>
 #include <vx_spawn.h>
 #include <VX_types.h>
 
-#define KERNEL_ARG_DEV_MEM_ADDR 0x5ffff000
-
-// Override newlib memset: the optimized version uses jump tables (jalr with
-// per-thread targets) causing SIMT divergence that Vortex cannot handle.
-// This plain byte loop has no indirect jumps and is fully SIMT-safe.
+// Override newlib memset/memcpy: the optimized versions use jump tables
+// (jalr with per-thread targets) causing SIMT divergence that Vortex cannot
+// handle. These plain byte loops have no indirect jumps and are fully SIMT-safe.
 extern "C" __attribute__((used)) void *__wrap_memcpy(void *d, const void *s, __SIZE_TYPE__ n) {
     char *dp = (char *)d; const char *sp = (const char *)s;
     while (n--) *dp++ = *sp++; return d;
@@ -29,10 +32,9 @@ void kernel(void *arg)
 
 int main()
 {
-    // main.c writes args to KERNEL_ARG_DEV_MEM_ADDR via vx_copy_to_dev.
-    // vx_start(device) never sets MSCRATCH, so reading MSCRATCH gives 0.
-    // Use the fixed address directly instead.
-    uint64_t *arg = (uint64_t *)KERNEL_ARG_DEV_MEM_ADDR;
+    uint64_t arg_addr;
+    __asm__ volatile ("csrr %0, mscratch" : "=r"(arg_addr));
+    uint64_t *arg = (uint64_t *)arg_addr;
     uint32_t num_tasks = (uint32_t)arg[0];
     vx_spawn_threads(1, &num_tasks, 0, (vx_kernel_func_cb)kernel, arg);
     vx_tmc_zero();
