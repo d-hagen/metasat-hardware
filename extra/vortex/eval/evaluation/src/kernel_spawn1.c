@@ -31,7 +31,6 @@ int main()
     uint64_t *arg       = (uint64_t *)0x5ffff000;
     uint32_t  num_tasks = 1;
     vx_spawn_threads(1, &num_tasks, 0, (vx_kernel_func_cb)kernel, arg);
-    __asm__ volatile ("fence");
     vx_tmc_zero();
     __builtin_unreachable();
 }
