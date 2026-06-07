@@ -24,7 +24,6 @@ int main()
     uint8_t  *src  = (uint8_t *)arg[1];
     uint8_t  *dest = (uint8_t *)arg[2];
     dest[0] = (uint8_t)(src[0] * 2);
-    __asm__ volatile ("fence");
     vx_tmc_zero();
     __builtin_unreachable();
 }
