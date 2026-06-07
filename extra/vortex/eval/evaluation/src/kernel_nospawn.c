@@ -22,8 +22,16 @@ int main()
 {
     uint64_t *arg  = (uint64_t *)KERNEL_ARG_DEV_MEM_ADDR;
     uint8_t  *src  = (uint8_t *)arg[1];
-    uint8_t  *dest = (uint8_t *)arg[2];
+    volatile uint8_t *dest = (volatile uint8_t *)arg[2];
     dest[0] = (uint8_t)(src[0] * 2);
+    // Force load-after-store on the same address: drains in-flight write.
+    // dest is volatile so the compiler MUST re-read from memory rather
+    // than reuse the just-stored register. The load cannot retire until
+    // the prior store leaves the LSU, so by the time vx_tmc_zero issues
+    // the write pipe is clean. Tests whether tmc x0 fails to deactivate
+    // the warp when a store is still outstanding.
+    uint8_t sink = dest[0];
+    (void)sink;
     vx_tmc_zero();
     __builtin_unreachable();
 }
