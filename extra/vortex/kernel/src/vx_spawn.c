@@ -23,6 +23,19 @@ extern "C" {
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
+#define NUM_CORES_MAX 1024
+
+// Per-core spawn-arguments slot. Main warp writes its &wspawn_args here
+// (indexed by core_id) and worker warps read it back via vx_core_id().
+//
+// We can't use VX_CSR_MSCRATCH for this even though it would be simpler -
+// MSCRATCH is per-warp in the Vortex CSR file, so a write from warp 0 is
+// not visible to worker warps spawned via vx_wspawn. Workers would see
+// their reset-initialized MSCRATCH value (= startup_arg) and dereference
+// the user args struct as a wspawn_threads_args_t, producing garbage
+// callbacks/offsets and hanging the GPU.
+void* g_wspawn_args[NUM_CORES_MAX];
+
 __thread dim3_t blockIdx;
 __thread dim3_t threadIdx;
 dim3_t gridDim;
@@ -52,7 +65,7 @@ typedef struct {
 } wspawn_threads_args_t;
 
 static void __attribute__ ((noinline)) process_threads() {
-  wspawn_threads_args_t* targs = (wspawn_threads_args_t*)csr_read(VX_CSR_MSCRATCH);
+  wspawn_threads_args_t* targs = (wspawn_threads_args_t*)g_wspawn_args[vx_core_id()];
 
   uint32_t threads_per_warp = vx_num_threads();
   uint32_t warp_id = vx_warp_id();
@@ -81,7 +94,7 @@ static void __attribute__ ((noinline)) process_threads() {
 }
 
 static void __attribute__ ((noinline)) process_remaining_threads() {
-  wspawn_threads_args_t* targs = (wspawn_threads_args_t*)csr_read(VX_CSR_MSCRATCH);
+  wspawn_threads_args_t* targs = (wspawn_threads_args_t*)g_wspawn_args[vx_core_id()];
 
   uint32_t thread_id = vx_thread_id();
   uint32_t task_id = targs->remain_tasks_offset + thread_id;
@@ -101,7 +114,7 @@ static void __attribute__ ((noinline)) process_threads_stub() {
 }
 
 static void __attribute__ ((noinline)) process_thread_groups() {
-  wspawn_groups_args_t* targs = (wspawn_groups_args_t*)csr_read(VX_CSR_MSCRATCH);
+  wspawn_groups_args_t* targs = (wspawn_groups_args_t*)g_wspawn_args[vx_core_id()];
 
   uint32_t threads_per_warp = vx_num_threads();
   uint32_t warp_id = vx_warp_id();
@@ -137,7 +150,7 @@ static void __attribute__ ((noinline)) process_thread_groups() {
 }
 
 static void __attribute__ ((noinline)) process_thread_groups_stub() {
-  wspawn_groups_args_t* targs = (wspawn_groups_args_t*)csr_read(VX_CSR_MSCRATCH);
+  wspawn_groups_args_t* targs = (wspawn_groups_args_t*)g_wspawn_args[vx_core_id()];
   uint32_t warps_per_group = targs->warps_per_group;
   uint32_t remaining_mask = targs->remaining_mask;
   uint32_t warp_id = vx_warp_id();
@@ -234,7 +247,7 @@ int vx_spawn_threads(uint32_t dimension,
       groups_per_core,
       remaining_mask
     };
-    csr_write(VX_CSR_MSCRATCH, &wspawn_args);
+    g_wspawn_args[core_id] = &wspawn_args;
 
     // set global variables
     __warps_per_group = warps_per_group;
@@ -286,7 +299,7 @@ int vx_spawn_threads(uint32_t dimension,
       warp_batches,
       remaining_warps
     };
-    csr_write(VX_CSR_MSCRATCH, &wspawn_args);
+    g_wspawn_args[core_id] = &wspawn_args;
 
     if (active_warps >= 1) {
       // execute callback on other warps
