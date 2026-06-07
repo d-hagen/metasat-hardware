@@ -21,16 +21,17 @@ extern "C" __attribute__((used)) void *__wrap_memset(void *s, int c, __SIZE_TYPE
 int main()
 {
     uint64_t *arg  = (uint64_t *)KERNEL_ARG_DEV_MEM_ADDR;
-    uint8_t  *src  = (uint8_t *)arg[1];
+    volatile uint8_t *src  = (volatile uint8_t *)arg[1];
     volatile uint8_t *dest = (volatile uint8_t *)arg[2];
     dest[0] = (uint8_t)(src[0] * 2);
-    // Force load-after-store on the same address: drains in-flight write.
-    // dest is volatile so the compiler MUST re-read from memory rather
-    // than reuse the just-stored register. The load cannot retire until
-    // the prior store leaves the LSU, so by the time vx_tmc_zero issues
-    // the write pipe is clean. Tests whether tmc x0 fails to deactivate
-    // the warp when a store is still outstanding.
-    uint8_t sink = dest[0];
+    // Force a real memory read from a different cache line than the prior
+    // store. Same-address volatile reload was forwarded from the store
+    // buffer and did not drain the write. Reading the arg block at
+    // KERNEL_ARG_DEV_MEM_ADDR (different page from dest) cannot be
+    // store-forwarded and forces an AXI round-trip, which back-pressures
+    // until the prior store leaves the LSU.
+    volatile uint8_t *flush = (volatile uint8_t *)KERNEL_ARG_DEV_MEM_ADDR;
+    uint8_t sink = flush[0];
     (void)sink;
     vx_tmc_zero();
     __builtin_unreachable();
