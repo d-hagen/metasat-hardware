@@ -34,5 +34,7 @@ int main()
     // Use the fixed address directly instead.
     uint64_t *arg = (uint64_t *)KERNEL_ARG_DEV_MEM_ADDR;
     uint32_t num_tasks = (uint32_t)arg[0];
-    return vx_spawn_threads(1, &num_tasks, 0, (vx_kernel_func_cb)kernel, arg);
+    vx_spawn_threads(1, &num_tasks, 0, (vx_kernel_func_cb)kernel, arg);
+    vx_tmc_zero();
+    __builtin_unreachable();
 }
