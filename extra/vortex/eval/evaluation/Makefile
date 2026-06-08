@@ -19,7 +19,7 @@ all:
 
 include ../common.mk
 
-VX_LDFLAGS += -Wl,--wrap=memset,--wrap=memcpy
+VX_LDFLAGS += -Wl,--wrap=memset,--wrap=memcpy,--wrap=exit
 
 vortex: $(TEST)-vortex
 

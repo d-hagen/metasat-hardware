@@ -95,6 +95,20 @@ vx_wspawn_wait:
   bne   t0, t1, vx_wspawn_wait
   ret
 
+# Replacement for newlib's exit() reached via -Wl,--wrap=exit. Vortex cannot
+# deactivate warp 0 (active_warps cannot go below 1), but vx_busy is gated
+# on active threads. If warp 0's PC walks through any path containing a tmc
+# with non-zero mask (e.g. _start's tmc(1) at 0x20), the mask snaps back
+# from 0 and vx_busy stays high. This loop locks warp 0 onto two
+# instructions whose only tmc has mask=0, so the thread mask stays at 0
+# stably and vx_busy falls.
+.section .text
+.type __wrap_exit, @function
+.global __wrap_exit
+__wrap_exit:
+  .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0  # vx_tmc_zero
+  j __wrap_exit
+
 .section .text
 .type init_regs, @function
 .local init_regs
