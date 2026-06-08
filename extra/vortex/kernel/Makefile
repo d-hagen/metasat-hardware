@@ -39,6 +39,10 @@ endif
 CFLAGS += -O3 -mcmodel=medany -fno-exceptions -fdata-sections -ffunction-sections
 CFLAGS += -I$(INC_DIR) -I$(ROOT_DIR)/hw -I$(ROOT_DIR)/runtime/soc
 CFLAGS += -DXLEN_$(XLEN)
+# Match eval/common.mk: prevent the memset/memcpy loop-idiom recognition
+# that turns __wrap_memset/__wrap_memcpy bodies into self-recursive calls
+# under --wrap=memset/--wrap=memcpy.
+CFLAGS += -fno-builtin-memset -fno-builtin-memcpy
 
 PROJECT := libvortex
 

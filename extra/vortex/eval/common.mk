@@ -35,6 +35,12 @@ VX_CP  = $(LLVM_VORTEX)/bin/llvm-objcopy
 VX_CFLAGS += --sysroot=$(RISCV_SYSROOT) --gcc-toolchain=$(RISCV_TOOLCHAIN_PATH)
 VX_CFLAGS += -Xclang -target-feature -Xclang +vortex -mllvm -vortex-branch-divergence=1
 VX_CFLAGS += -march=rv32imaf -mabi=ilp32f
+# Prevent clang from recognising the byte-loop in __wrap_memset/__wrap_memcpy
+# as a memset/memcpy idiom and replacing the body with a call to those
+# symbols -- which, under -Wl,--wrap=memset/memcpy, resolves back to the
+# wrapper itself, producing an infinite self-recursion. Eval-light hung
+# inside this recursion (non-empty .tbss -> n=28 -> body taken).
+VX_CFLAGS += -fno-builtin-memset -fno-builtin-memcpy
 else
 VX_CC  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-gcc
 VX_CXX = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-g++
