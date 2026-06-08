@@ -23,24 +23,11 @@ extern "C" {
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
-#define NUM_CORES_MAX 1024
-
-// Per-core spawn-arguments slot. Main warp writes its &wspawn_args here
-// (indexed by core_id) and worker warps read it back via vx_core_id().
-//
-// We can't use VX_CSR_MSCRATCH for this even though it would be simpler -
-// MSCRATCH is per-warp in the Vortex CSR file, so a write from warp 0 is
-// not visible to worker warps spawned via vx_wspawn. Workers would see
-// their reset-initialized MSCRATCH value (= startup_arg) and dereference
-// the user args struct as a wspawn_threads_args_t, producing garbage
-// callbacks/offsets and hanging the GPU.
-void* g_wspawn_args[NUM_CORES_MAX];
-
-// Defined in vx_start.S. Polls VX_CSR_ACTIVE_WARPS until only warp 0 is
-// active. We can't use vx_wspawn(1, 0) here as the v2.0 → v2.2 migration
-// did - that's a fire-and-forget set, not a wait; main warp would return
-// from vx_spawn_threads before workers had deactivated themselves.
-extern void vx_wspawn_wait(void);
+// Spawn args struct pointer travels through VX_CSR_MSCRATCH. Per the Vortex
+// RTL (VX_csr_data.sv:78), mscratch is a single shared flop - not per-warp -
+// so main warp's write is immediately visible to workers when they begin
+// executing. Note: main's caller must read mscratch (the args-buffer ptr from
+// reset) BEFORE calling vx_spawn_threads, since we clobber it here.
 
 __thread dim3_t blockIdx;
 __thread dim3_t threadIdx;
@@ -71,7 +58,7 @@ typedef struct {
 } wspawn_threads_args_t;
 
 static void __attribute__ ((noinline)) process_threads() {
-  wspawn_threads_args_t* targs = (wspawn_threads_args_t*)g_wspawn_args[vx_core_id()];
+  wspawn_threads_args_t* targs = (wspawn_threads_args_t*)csr_read(VX_CSR_MSCRATCH);
 
   uint32_t threads_per_warp = vx_num_threads();
   uint32_t warp_id = vx_warp_id();
@@ -100,7 +87,7 @@ static void __attribute__ ((noinline)) process_threads() {
 }
 
 static void __attribute__ ((noinline)) process_remaining_threads() {
-  wspawn_threads_args_t* targs = (wspawn_threads_args_t*)g_wspawn_args[vx_core_id()];
+  wspawn_threads_args_t* targs = (wspawn_threads_args_t*)csr_read(VX_CSR_MSCRATCH);
 
   uint32_t thread_id = vx_thread_id();
   uint32_t task_id = targs->remain_tasks_offset + thread_id;
@@ -120,7 +107,7 @@ static void __attribute__ ((noinline)) process_threads_stub() {
 }
 
 static void __attribute__ ((noinline)) process_thread_groups() {
-  wspawn_groups_args_t* targs = (wspawn_groups_args_t*)g_wspawn_args[vx_core_id()];
+  wspawn_groups_args_t* targs = (wspawn_groups_args_t*)csr_read(VX_CSR_MSCRATCH);
 
   uint32_t threads_per_warp = vx_num_threads();
   uint32_t warp_id = vx_warp_id();
@@ -156,7 +143,7 @@ static void __attribute__ ((noinline)) process_thread_groups() {
 }
 
 static void __attribute__ ((noinline)) process_thread_groups_stub() {
-  wspawn_groups_args_t* targs = (wspawn_groups_args_t*)g_wspawn_args[vx_core_id()];
+  wspawn_groups_args_t* targs = (wspawn_groups_args_t*)csr_read(VX_CSR_MSCRATCH);
   uint32_t warps_per_group = targs->warps_per_group;
   uint32_t remaining_mask = targs->remaining_mask;
   uint32_t warp_id = vx_warp_id();
@@ -253,16 +240,10 @@ int vx_spawn_threads(uint32_t dimension,
       groups_per_core,
       remaining_mask
     };
-    g_wspawn_args[core_id] = &wspawn_args;
+    csr_write(VX_CSR_MSCRATCH, &wspawn_args);
 
     // set global variables
     __warps_per_group = warps_per_group;
-
-    // Drain store buffer so workers see g_wspawn_args before they read it.
-    // vx_wspawn is a custom insn — without this, workers can race past the
-    // store and dereference the BSS-initial zero, hanging in the kernel
-    // callback's first load.
-    vx_fence();
 
     // execute callback on other warps
     vx_wspawn(active_warps, process_thread_groups_stub);
@@ -311,12 +292,9 @@ int vx_spawn_threads(uint32_t dimension,
       warp_batches,
       remaining_warps
     };
-    g_wspawn_args[core_id] = &wspawn_args;
+    csr_write(VX_CSR_MSCRATCH, &wspawn_args);
 
     if (active_warps >= 1) {
-      // See comment in groups branch — drain store buffer before workers run.
-      vx_fence();
-
       // execute callback on other warps
       vx_wspawn(active_warps, process_threads_stub);
 
@@ -343,8 +321,11 @@ int vx_spawn_threads(uint32_t dimension,
     }
   }
 
-  // wait for spawned warps to complete
-  vx_wspawn_wait();
+  // wait for spawned warps to complete. vx_wspawn(1, 0) is the wait barrier:
+  // the RTL (VX_schedule.sv:117-126,243,246-254) only fires wspawn requests
+  // when is_single_warp is true, so warp 0 stalls here until workers have all
+  // deactivated via vx_tmc_zero. No need for a separate polling function.
+  vx_wspawn(1, 0);
 
   return 0;
 }
