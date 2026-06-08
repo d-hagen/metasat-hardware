@@ -36,6 +36,12 @@ extern "C" {
 // callbacks/offsets and hanging the GPU.
 void* g_wspawn_args[NUM_CORES_MAX];
 
+// Defined in vx_start.S. Polls VX_CSR_ACTIVE_WARPS until only warp 0 is
+// active. We can't use vx_wspawn(1, 0) here as the v2.0 → v2.2 migration
+// did - that's a fire-and-forget set, not a wait; main warp would return
+// from vx_spawn_threads before workers had deactivated themselves.
+extern void vx_wspawn_wait(void);
+
 __thread dim3_t blockIdx;
 __thread dim3_t threadIdx;
 dim3_t gridDim;
@@ -329,7 +335,7 @@ int vx_spawn_threads(uint32_t dimension,
   }
 
   // wait for spawned warps to complete
-  vx_wspawn(1, 0);
+  vx_wspawn_wait();
 
   return 0;
 }

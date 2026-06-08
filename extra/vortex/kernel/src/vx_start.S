@@ -74,6 +74,27 @@ _Exit:
   fence
   .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0  # tmc x0
 
+# newlib's exit() iterates atexit handlers then tail-calls _exit. Without
+# this override, libgloss provides an _exit that does ecall + infinite spin,
+# hanging the warp. Provide the GPU semantic: deactivate the warp.
+.section .text
+.type _exit, @function
+.global _exit
+_exit:
+  call vx_perf_dump
+  .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0  # tmc x0
+
+# Polling barrier: spin until only warp 0 is active. Used by vx_spawn_threads
+# to wait for wspawn'd workers to deactivate themselves via vx_tmc_zero.
+.section .text
+.type vx_wspawn_wait, @function
+.global vx_wspawn_wait
+vx_wspawn_wait:
+  csrr  t0, VX_CSR_ACTIVE_WARPS
+  li    t1, 1
+  bne   t0, t1, vx_wspawn_wait
+  ret
+
 .section .text
 .type init_regs, @function
 .local init_regs
