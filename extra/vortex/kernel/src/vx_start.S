@@ -106,6 +106,10 @@ vx_wspawn_wait:
 .type __wrap_exit, @function
 .global __wrap_exit
 __wrap_exit:
+  # Diagnostic: write distinct sentinel to 0x70000120 ([F] __wrap_exit reached)
+  li    t0, 0x70000120
+  li    t1, 0xF00DF00D
+  sw    t1, 0(t0)
   .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0  # vx_tmc_zero
   j __wrap_exit
 

@@ -324,7 +324,7 @@ module vortex_afu #(
 	reg signed [31:0] vx_outstanding_reads, vx_outstanding_writes;
 	reg [31:0] vx_periodic_ctr;
 	reg vx_reset_prev;
-	localparam VX_ADDR_LOG_MAX = 32;
+	localparam VX_ADDR_LOG_MAX = 128;
 	always @(posedge clk) begin
 		if (reset) begin
 			vx_ar_fires <= 0; vx_aw_fires <= 0; vx_w_fires <= 0;

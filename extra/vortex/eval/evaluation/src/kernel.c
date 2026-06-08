@@ -32,11 +32,16 @@ void kernel(void *arg)
 
 int main()
 {
+    // Diagnostic sentinel writes - each lands at a distinct AW address visible
+    // in the AFU's AW print log. Use 0x70000000+ to stay out of any data region.
+    *((volatile uint32_t*)0x70000000) = 0xAAAA0001;  // [A1] main entered
     uint64_t arg_addr;
     __asm__ volatile ("csrr %0, mscratch" : "=r"(arg_addr));
     uint64_t *arg = (uint64_t *)arg_addr;
     uint32_t num_tasks = (uint32_t)arg[0];
+    *((volatile uint32_t*)0x70000004) = 0xAAAA0002;  // [A2] before vx_spawn_threads
     vx_spawn_threads(1, &num_tasks, 0, (vx_kernel_func_cb)kernel, arg);
+    *((volatile uint32_t*)0x70000008) = 0xAAAA0003;  // [A3] returned from spawn
     vx_tmc_zero();
     __builtin_unreachable();
 }

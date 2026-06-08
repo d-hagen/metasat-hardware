@@ -64,11 +64,28 @@ static void __attribute__ ((noinline)) process_threads() {
   uint32_t warp_id = vx_warp_id();
   uint32_t thread_id = vx_thread_id();
 
+  // Diagnostic: one write per warp (thread_id 0 only) so we can see worker
+  // state in the AFU's AW print log.
+  if (thread_id == 0) {
+    volatile uint32_t* dbg = (volatile uint32_t*)0x70000000;
+    dbg[16 + warp_id] = 0xBBBB0000 | warp_id;        // [B] worker entered process_threads
+    dbg[20 + warp_id] = (uint32_t)(uintptr_t)targs;  // workers' targs ptr
+    dbg[24 + warp_id] = targs->warp_batches;         // [KEY] workers' warp_batches
+    dbg[28 + warp_id] = targs->remaining_warps;
+  }
+
   uint32_t start_warp = (warp_id * targs->warp_batches) + MIN(warp_id, targs->remaining_warps);
   uint32_t iterations = targs->warp_batches + (warp_id < targs->remaining_warps);
 
   uint32_t start_task_id = targs->all_tasks_offset + (start_warp * threads_per_warp) + thread_id;
   uint32_t end_task_id = start_task_id + iterations * threads_per_warp;
+
+  if (thread_id == 0) {
+    volatile uint32_t* dbg = (volatile uint32_t*)0x70000000;
+    dbg[32 + warp_id] = 0xCCCC0000 | warp_id;        // [C] reached for-loop
+    dbg[36 + warp_id] = start_task_id;
+    dbg[40 + warp_id] = end_task_id;
+  }
 
   __local_group_id = 0;
   threadIdx.x = 0;
@@ -83,6 +100,10 @@ static void __attribute__ ((noinline)) process_threads() {
     blockIdx.y = (task_id / gridDim.x) % gridDim.y;
     blockIdx.z = task_id / (gridDim.x * gridDim.y);
     callback((void*)arg);
+  }
+
+  if (thread_id == 0) {
+    *((volatile uint32_t*)(0x70000000 + 4*(48 + warp_id))) = 0xDDDD0000 | warp_id;  // [D] exited for-loop
   }
 }
 
@@ -101,6 +122,13 @@ static void __attribute__ ((noinline)) process_threads_stub() {
 
   // process all tasks
   process_threads();
+
+  // Diagnostic: worker reached the stub's vx_tmc_zero
+  uint32_t warp_id = vx_warp_id();
+  uint32_t thread_id = vx_thread_id();
+  if (thread_id == 0) {
+    *((volatile uint32_t*)(0x70000000 + 4*(64 + warp_id))) = 0xEEEE0000 | warp_id;  // [E] worker stub about to tmc_zero
+  }
 
   // disable warp
   vx_tmc_zero();
