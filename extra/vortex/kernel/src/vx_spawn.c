@@ -258,6 +258,12 @@ int vx_spawn_threads(uint32_t dimension,
     // set global variables
     __warps_per_group = warps_per_group;
 
+    // Drain store buffer so workers see g_wspawn_args before they read it.
+    // vx_wspawn is a custom insn — without this, workers can race past the
+    // store and dereference the BSS-initial zero, hanging in the kernel
+    // callback's first load.
+    vx_fence();
+
     // execute callback on other warps
     vx_wspawn(active_warps, process_thread_groups_stub);
 
@@ -308,6 +314,9 @@ int vx_spawn_threads(uint32_t dimension,
     g_wspawn_args[core_id] = &wspawn_args;
 
     if (active_warps >= 1) {
+      // See comment in groups branch — drain store buffer before workers run.
+      vx_fence();
+
       // execute callback on other warps
       vx_wspawn(active_warps, process_threads_stub);
 

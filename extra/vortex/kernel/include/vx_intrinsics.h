@@ -127,7 +127,11 @@ inline void vx_pred_n(int condition, int thread_mask) {
 // Spawn warps
 typedef void (*vx_wspawn_pfn)();
 inline void vx_wspawn(int num_warps, vx_wspawn_pfn func_ptr) {
-    __asm__ volatile (".insn r %0, 1, 0, x0, %1, %2" :: "i"(RISCV_CUSTOM0), "r"(num_warps), "r"(func_ptr));
+    // "memory" clobber forces the compiler to flush pending stores to RAM
+    // before the wspawn issues. Without it, the g_wspawn_args[core_id] store
+    // in vx_spawn_threads can sit in the store buffer when workers begin
+    // executing, leaving them to dereference a stale (zero-init) slot.
+    __asm__ volatile (".insn r %0, 1, 0, x0, %1, %2" :: "i"(RISCV_CUSTOM0), "r"(num_warps), "r"(func_ptr) : "memory");
 }
 
 // Split on a predicate
