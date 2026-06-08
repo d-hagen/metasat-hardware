@@ -324,12 +324,21 @@ module vortex_afu #(
 	reg signed [31:0] vx_outstanding_reads, vx_outstanding_writes;
 	reg [31:0] vx_periodic_ctr;
 	reg vx_reset_prev;
-	localparam VX_ADDR_LOG_MAX = 128;
+	// Split print budgets: any AW whose addr[31:24]==0x70 is treated as a kernel
+	// diagnostic sentinel and gets the large budget; everything else (TLS/BSS
+	// init, data writes, etc.) shares a tiny budget so a store-storm cannot
+	// drown out the sentinels.
+	localparam VX_ADDR_LOG_MAX      = 32;
+	localparam VX_SENTINEL_LOG_MAX  = 1024;
+	reg [31:0] vx_aw_data_logged;     // non-sentinel AW prints emitted
+	reg [31:0] vx_aw_sent_logged;     // sentinel AW prints emitted
+	reg [31:0] vx_ar_data_logged;     // (kept for symmetry; AR has no sentinel concept)
 	always @(posedge clk) begin
 		if (reset) begin
 			vx_ar_fires <= 0; vx_aw_fires <= 0; vx_w_fires <= 0;
 			vx_r_fires <= 0; vx_b_fires <= 0;
 			vx_outstanding_reads <= 0; vx_outstanding_writes <= 0;
+			vx_aw_data_logged <= 0; vx_aw_sent_logged <= 0; vx_ar_data_logged <= 0;
 			vx_periodic_ctr <= 0;
 			vx_reset_prev <= 1'b1;
 		end else begin
@@ -342,9 +351,11 @@ module vortex_afu #(
 				          vx_outstanding_reads, vx_outstanding_writes);
 			if (!vx_reset) begin
 				if (m_axi_vx_arvalid[0] & m_axi_vx_arready[0]) begin
-					if (vx_ar_fires < VX_ADDR_LOG_MAX)
+					if (vx_ar_data_logged < VX_ADDR_LOG_MAX) begin
 						$display("[%0t] VX AR[%0d]: addr=0x%08h len=%0d",
 						         $time, vx_ar_fires, m_axi_vx_araddr[0][31:0], m_axi_vx_arlen[0]);
+						vx_ar_data_logged <= vx_ar_data_logged + 1;
+					end
 					vx_ar_fires <= vx_ar_fires + 1;
 					vx_outstanding_reads <= vx_outstanding_reads + 1;
 				end
@@ -353,9 +364,19 @@ module vortex_afu #(
 					vx_outstanding_reads <= vx_outstanding_reads - 1;
 				end
 				if (m_axi_vx_awvalid[0] & m_axi_vx_awready[0]) begin
-					if (vx_aw_fires < VX_ADDR_LOG_MAX)
-						$display("[%0t] VX AW[%0d]: addr=0x%08h len=%0d",
-						         $time, vx_aw_fires, m_axi_vx_awaddr[0][31:0], m_axi_vx_awlen[0]);
+					if (m_axi_vx_awaddr[0][31:24] == 8'h70) begin
+						if (vx_aw_sent_logged < VX_SENTINEL_LOG_MAX) begin
+							$display("[%0t] VX AW S[%0d]: addr=0x%08h len=%0d",
+							         $time, vx_aw_sent_logged, m_axi_vx_awaddr[0][31:0], m_axi_vx_awlen[0]);
+							vx_aw_sent_logged <= vx_aw_sent_logged + 1;
+						end
+					end else begin
+						if (vx_aw_data_logged < VX_ADDR_LOG_MAX) begin
+							$display("[%0t] VX AW[%0d]: addr=0x%08h len=%0d",
+							         $time, vx_aw_data_logged, m_axi_vx_awaddr[0][31:0], m_axi_vx_awlen[0]);
+							vx_aw_data_logged <= vx_aw_data_logged + 1;
+						end
+					end
 					vx_aw_fires <= vx_aw_fires + 1;
 					vx_outstanding_writes <= vx_outstanding_writes + 1;
 				end

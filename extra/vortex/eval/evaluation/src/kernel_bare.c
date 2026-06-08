@@ -18,6 +18,11 @@ extern "C" __attribute__((used)) void *__wrap_memset(void *s, int c, __SIZE_TYPE
 
 int main()
 {
+    // Canary sentinel: if this lands in the AFU AW-print log, the print
+    // path is wired correctly. _start sentinels (0x70000300..0x7000031C)
+    // and per-thread init sentinels (0x70000400, 0x70000500) should also
+    // appear in this run.
+    *((volatile uint32_t*)0x70000030) = 0xCAFE0001;
     vx_tmc_zero();
     __builtin_unreachable();
 }
