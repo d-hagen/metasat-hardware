@@ -64,15 +64,16 @@ static void __attribute__ ((noinline)) process_threads() {
   uint32_t warp_id = vx_warp_id();
   uint32_t thread_id = vx_thread_id();
 
-  // Diagnostic: one write per warp (thread_id 0 only) so we can see worker
-  // state in the AFU's AW print log.
-  if (thread_id == 0) {
-    volatile uint32_t* dbg = (volatile uint32_t*)0x70000000;
-    dbg[16 + warp_id] = 0xBBBB0000 | warp_id;        // [B] worker entered process_threads
-    dbg[20 + warp_id] = (uint32_t)(uintptr_t)targs;  // workers' targs ptr
-    dbg[24 + warp_id] = targs->warp_batches;         // [KEY] workers' warp_batches
-    dbg[28 + warp_id] = targs->remaining_warps;
-  }
+  // Branch-free per-thread sentinels. An `if (thread_id == 0)` here would
+  // compile to a plain BNEZ; in this RTL VX_alu_int.sv:168 picks the branch
+  // direction from last_active_tid (highest active thread), so all 4 threads
+  // would skip the body and nothing would write. Every thread instead writes
+  // to a thread-distinct slot in the AFU AW-print log.
+  volatile uint32_t* dbg = (volatile uint32_t*)0x70000000;
+  uint32_t slot = warp_id * threads_per_warp + thread_id;
+  dbg[16 + slot] = 0xBBBB0000 | (warp_id << 4) | thread_id;  // [B] entered process_threads
+  dbg[32 + slot] = targs->warp_batches;                       // [Bw] readback from targs
+  dbg[48 + slot] = (uint32_t)(uintptr_t)targs;                // [Bp] targs ptr
 
   uint32_t start_warp = (warp_id * targs->warp_batches) + MIN(warp_id, targs->remaining_warps);
   uint32_t iterations = targs->warp_batches + (warp_id < targs->remaining_warps);
@@ -80,12 +81,9 @@ static void __attribute__ ((noinline)) process_threads() {
   uint32_t start_task_id = targs->all_tasks_offset + (start_warp * threads_per_warp) + thread_id;
   uint32_t end_task_id = start_task_id + iterations * threads_per_warp;
 
-  if (thread_id == 0) {
-    volatile uint32_t* dbg = (volatile uint32_t*)0x70000000;
-    dbg[32 + warp_id] = 0xCCCC0000 | warp_id;        // [C] reached for-loop
-    dbg[36 + warp_id] = start_task_id;
-    dbg[40 + warp_id] = end_task_id;
-  }
+  dbg[64 + slot] = 0xCCCC0000 | (warp_id << 4) | thread_id;   // [C] reached for-loop
+  dbg[80 + slot] = start_task_id;                              // [Cs] per-thread start_task_id
+  dbg[96 + slot] = end_task_id;                                // [Ce] per-thread end_task_id
 
   __local_group_id = 0;
   threadIdx.x = 0;
@@ -102,9 +100,7 @@ static void __attribute__ ((noinline)) process_threads() {
     callback((void*)arg);
   }
 
-  if (thread_id == 0) {
-    *((volatile uint32_t*)(0x70000000 + 4*(48 + warp_id))) = 0xDDDD0000 | warp_id;  // [D] exited for-loop
-  }
+  dbg[112 + slot] = 0xDDDD0000 | (warp_id << 4) | thread_id;  // [D] exited for-loop
 }
 
 static void __attribute__ ((noinline)) process_remaining_threads() {
@@ -123,12 +119,14 @@ static void __attribute__ ((noinline)) process_threads_stub() {
   // process all tasks
   process_threads();
 
-  // Diagnostic: worker reached the stub's vx_tmc_zero
+  // Branch-free per-thread sentinel: every worker thread writes its slot
+  // before the warp deactivates. (Workers only — warp 0 takes the inline
+  // path in vx_spawn_threads, not through the stub.)
   uint32_t warp_id = vx_warp_id();
   uint32_t thread_id = vx_thread_id();
-  if (thread_id == 0) {
-    *((volatile uint32_t*)(0x70000000 + 4*(64 + warp_id))) = 0xEEEE0000 | warp_id;  // [E] worker stub about to tmc_zero
-  }
+  uint32_t threads_per_warp = vx_num_threads();
+  uint32_t slot = warp_id * threads_per_warp + thread_id;
+  *((volatile uint32_t*)(0x70000000 + 4*(128 + slot))) = 0xEEEE0000 | (warp_id << 4) | thread_id;  // [E] stub tmc_zero
 
   // disable warp
   vx_tmc_zero();

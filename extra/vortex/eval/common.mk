@@ -14,26 +14,45 @@ ELF_CLASS = elf$(XLEN)-littleriscv
 CXXFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
 CFLAGS += -I$(IDIR) -I$(BDIR) -O$(OFLAG) $(ARGS)
 
-# Vortex Compiler
-RISCV_TOOLCHAIN_PATH ?= /opt/riscv32-gnu-toolchain
+# Capture our own location for relative-path defaults
+EVAL_COMMON_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+# Vortex Compiler. RISCV_TOOLCHAIN_PATH defaults to the VM path used to build
+# Metasat SRECs; override via env / make var to change.
+RISCV_TOOLCHAIN_PATH ?= /home/dan/tools/riscv32-gnu-toolchain
 RISCV_PREFIX = riscv32-unknown-elf
 
+# Vortex-aware LLVM toolchain (default ON). See kernel/Makefile for the
+# rationale -- generic GCC mis-compiles SIMT-divergent branches in this RTL.
+VX_USE_LLVM ?= 1
+ifeq ($(VX_USE_LLVM),1)
+LLVM_VORTEX   ?= /home/dan/tools/llvm-vortex
+RISCV_SYSROOT ?= $(RISCV_TOOLCHAIN_PATH)/$(RISCV_PREFIX)
+VX_CC  = $(LLVM_VORTEX)/bin/clang
+VX_CXX = $(LLVM_VORTEX)/bin/clang++
+VX_DP  = $(LLVM_VORTEX)/bin/llvm-objdump
+VX_CP  = $(LLVM_VORTEX)/bin/llvm-objcopy
+VX_CFLAGS += --sysroot=$(RISCV_SYSROOT) --gcc-toolchain=$(RISCV_TOOLCHAIN_PATH)
+VX_CFLAGS += -Xclang -target-feature -Xclang +vortex -mllvm -vortex-branch-divergence=1
+VX_CFLAGS += -march=rv32imaf -mabi=ilp32f
+else
 VX_CC  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-gcc
 VX_CXX = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-g++
 VX_DP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objdump
 VX_CP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objcopy
+endif
 VXBIN  = python3 $(VORTEX_KN_PATH)/scripts/vxbin.py
 
 # Resolved from this file's location (extra/vortex/eval/common.mk → ../kernel, ../runtime)
-VORTEX_KN_PATH ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../kernel)
-VORTEX_RT_PATH ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../runtime)
+VORTEX_KN_PATH ?= $(abspath $(EVAL_COMMON_DIR)/../kernel)
+VORTEX_RT_PATH ?= $(abspath $(EVAL_COMMON_DIR)/../runtime)
 
 # VX compiler flags
 VX_XLEN = 32
 VX_STARTUP_ADDR = 0x60000000
 VX_CFLAGS += -O$(OFLAG) -std=c++17
 VX_CFLAGS += -mcmodel=medany -fno-rtti -fno-exceptions -nostartfiles -fdata-sections -ffunction-sections
-VX_CFLAGS += -I$(VORTEX_KN_PATH)/include -I$(VORTEX_KN_PATH)/../hw -I$(IDIR)
+VX_CFLAGS += -I$(VORTEX_KN_PATH)/include -I$(VORTEX_KN_PATH)/../hw -I$(VORTEX_RT_PATH)/soc -I$(IDIR)
 VX_CFLAGS += -DNDEBUG -DACCEL_=vortex
 
 VX_LDFLAGS += -Wl,-Bstatic,--gc-sections,-T,$(VORTEX_KN_PATH)/scripts/link$(VX_XLEN).ld,--defsym=STARTUP_ADDR=$(VX_STARTUP_ADDR) $(VORTEX_KN_PATH)/libvortexrt.a
