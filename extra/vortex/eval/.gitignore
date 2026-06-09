@@ -1,0 +1,8 @@
+# sim/uni-machine: final .srec files and gpu-*-vortex ELFs are PRE-BUILT on
+# the VM and committed. Intermediate compile/link outputs stay ignored.
+build/
+*.o
+*.bin
+*.vx
+*.dump
+*.elf
