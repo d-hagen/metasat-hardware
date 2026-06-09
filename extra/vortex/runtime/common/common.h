@@ -27,7 +27,20 @@
 
 #define RAM_PAGE_SIZE     4096
 
-#define ALLOC_BASE_ADDR   USER_BASE_ADDR
+// Metasat SoC: the GPU master AXI does not reach low memory (below the kernel
+// region). Upstream's `USER_BASE_ADDR = 0x00010000` is where xrt/opae/PCIe
+// targets put the host allocator, but in this SoC anything the GPU has to
+// read (args buffer, src/dst, etc.) must live at an address the GPU master
+// can actually issue to. The kernel binary occupies 0x60000000..~0x60040000
+// in the worst case (eval-light is ~35 KB; other tests are smaller). Place
+// allocations safely above that.
+//
+// Symptom of getting this wrong: main reads `csrr mscratch; lw 0(a4)` where
+// a4 = args_addr from the host allocator; if a4 is in unreachable space the
+// load never produces an AR on the master bus, LSU back-pressures, warp 0
+// freezes with PC parked at the csrr, and vx_busy never falls. (That was the
+// eval-light hang once we removed all the earlier blockers.)
+#define ALLOC_BASE_ADDR   0x60040000ULL
 
 #if (XLEN == 64)
 #define GLOBAL_MEM_SIZE    0x200000000  // 8 GB
