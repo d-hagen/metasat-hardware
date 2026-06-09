@@ -21,6 +21,13 @@
 .type   _start, @function
 _start:
 
+  # Set mtvec to a halt-loop early. If anything in the kernel takes a trap,
+  # the trap PC vectors here instead of bouncing back to 0x60000000 (= _start)
+  # and producing apparent re-entries. The halt does vx_tmc_zero so the
+  # trapping warp dies cleanly instead of generating endless faults.
+  la    t0, _vx_trap_halt
+  csrw  mtvec, t0
+
   # _start runs with mask=1 (only thread 0 of warp 0). All sentinels in
   # this function are therefore single-thread writes and land exactly once.
   # Sentinel addresses 0x70000300..0x7000031C are reserved for _start phase
@@ -45,6 +52,12 @@ _start:
   li    t0, 1
   .insn r RISCV_CUSTOM0, 0, 0, x0, t0, x0  # tmc t0
 
+  # Wait for the spawned init_regs_all workers to fully deactivate before
+  # issuing the next wspawn. The wspawn itself is is_wstall-gated in the RTL
+  # so this is belt-and-suspenders, but it also rules out any case where the
+  # pending-wspawn register holds stale wmask/pc across the next issue.
+  jal   vx_wspawn_wait
+
   li    t0, 0x70000308
   li    t1, 0x5533AAAA            # [S3] after main init_regs, back to single thread
   sw    t1, 0(t0)
@@ -64,6 +77,9 @@ _start:
   li    t0, 1
   .insn r RISCV_CUSTOM0, 0, 0, x0, t0, x0  # tmc t0
 
+  # Wait for init_tls_all workers to drain before proceeding to memset / main.
+  jal   vx_wspawn_wait
+
   li    t0, 0x70000310
   li    t1, 0x5555AAAA            # [S5] after main __init_tls, back to single thread
   sw    t1, 0(t0)
@@ -79,9 +95,7 @@ _start:
   li    t1, 0x5566AAAA            # [S6] after BSS memset
   sw    t1, 0(t0)
 
-  # initialize trap vector
-  # la t0, trap_entry
-  # csrw mtvec, t0
+  # initialize trap vector — already set at the top of _start to _vx_trap_halt.
 
 #ifdef HAVE_INITFINI_ARRAY
   # run global initialization functions
@@ -113,7 +127,7 @@ _Exit:
   fence
   .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0  # tmc x0
 
-# newlib's exit() iterates atexit handlers then tail-calls _exit. Without
+# newlib_s exit() iterates atexit handlers then tail-calls _exit. Without
 # this override, libgloss provides an _exit that does ecall + infinite spin,
 # hanging the warp. Provide the GPU semantic: deactivate the warp.
 .section .text
@@ -124,7 +138,8 @@ _exit:
   .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0  # tmc x0
 
 # Polling barrier: spin until only warp 0 is active. Used by vx_spawn_threads
-# to wait for wspawn'd workers to deactivate themselves via vx_tmc_zero.
+# and by _start (after each wspawn) to wait for wspawn-targeted workers to
+# deactivate themselves via vx_tmc_zero.
 .section .text
 .type vx_wspawn_wait, @function
 .global vx_wspawn_wait
@@ -134,23 +149,33 @@ vx_wspawn_wait:
   bne   t0, t1, vx_wspawn_wait
   ret
 
-# Replacement for newlib's exit() reached via -Wl,--wrap=exit. Vortex cannot
-# deactivate warp 0 (active_warps cannot go below 1), but vx_busy is gated
-# on active threads. If warp 0's PC walks through any path containing a tmc
-# with non-zero mask (e.g. _start's tmc(1) at 0x20), the mask snaps back
-# from 0 and vx_busy stays high. This loop locks warp 0 onto two
-# instructions whose only tmc has mask=0, so the thread mask stays at 0
-# stably and vx_busy falls.
+# Replacement for newlib_s exit() reached via -Wl,--wrap=exit. Warp 0 CAN
+# deactivate in v2.2 RTL (active_warps_n[wid] = (tmask != 0), no exclusion
+# for wid=0). So vx_tmc_zero alone is enough; the j guard never executes
+# because mask=0 disables fetching.
 .section .text
 .type __wrap_exit, @function
 .global __wrap_exit
 __wrap_exit:
-  # Diagnostic: write distinct sentinel to 0x70000120 ([F] __wrap_exit reached)
   li    t0, 0x70000120
   li    t1, 0xF00DF00D
-  sw    t1, 0(t0)
-  .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0  # vx_tmc_zero
-  j __wrap_exit
+  sw    t1, 0(t0)                            # [F] __wrap_exit reached
+  .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0   # vx_tmc_zero
+1:
+  j 1b                                       # guard — never executes (mask=0)
+
+# Trap handler sink. Placed in .init (KEEPed by the linker) so --gc-sections
+# does not strip it, then the la _vx_trap_halt reference from _start resolves.
+.section .init, "ax"
+.type _vx_trap_halt, @function
+.global _vx_trap_halt
+_vx_trap_halt:
+  li    t0, 0x70000130
+  li    t1, 0xDEADC0DE
+  sw    t1, 0(t0)                            # [T] trap taken (per-warp would alias)
+  .insn r RISCV_CUSTOM0, 0, 0, x0, x0, x0   # vx_tmc_zero
+1:
+  j 1b
 
 .section .text
 .type init_regs, @function

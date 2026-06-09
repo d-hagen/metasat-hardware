@@ -164,9 +164,17 @@ module VX_schedule import VX_gpu_pkg::*; #(
                 wspawn.wmask <= warp_ctl_if.wspawn.wmask;
                 wspawn.pc    <= warp_ctl_if.wspawn.pc;
                 wspawn_wid   <= warp_ctl_if.wid;
+                // synthesis translate_off
+                $display("[%0t] WSPAWN ISSUE: wid=%0d wmask=%b pc=0x%h",
+                         $time, warp_ctl_if.wid, warp_ctl_if.wspawn.wmask, warp_ctl_if.wspawn.pc);
+                // synthesis translate_on
             end
             if (wspawn.valid && is_single_warp) begin
                 wspawn.valid <= 0;
+                // synthesis translate_off
+                $display("[%0t] WSPAWN FIRE: wmask=%b pc=0x%h unstall_wid=%0d active=%b",
+                         $time, wspawn.wmask, wspawn.pc, wspawn_wid, active_warps);
+                // synthesis translate_on
             end
             if (schedule_if_fire) begin
                 issued_instrs[schedule_if.data.wid] <= issued_instrs[schedule_if.data.wid] + 1'(1);
@@ -176,6 +184,27 @@ module VX_schedule import VX_gpu_pkg::*; #(
             end
         end
     end
+    // synthesis translate_off
+    reg [4-1:0]      dbg_active_prev;
+    reg [4-1:0][4-1:0] dbg_thread_masks_prev;
+    always @(posedge clk) begin
+        if (reset) begin
+            dbg_active_prev <= 4'b0001;
+            dbg_thread_masks_prev <= 16'h0001;
+        end else begin
+            if (active_warps !== dbg_active_prev)
+                $display("[%0t] SCHED active_warps: 0x%h -> 0x%h", $time, dbg_active_prev, active_warps);
+            for (integer w = 0; w < 4; w = w + 1) begin
+                if (thread_masks[w] !== dbg_thread_masks_prev[w])
+                    $display("[%0t] SCHED tmc warp %0d: mask 0x%h -> 0x%h pc=0x%h",
+                             $time, w, dbg_thread_masks_prev[w], thread_masks[w], warp_pcs[w]);
+            end
+            dbg_active_prev <= active_warps;
+            dbg_thread_masks_prev <= thread_masks;
+        end
+    end
+    // synthesis translate_on
+
     wire [1-1:0] split_join_reset;                        
     VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __split_join_reset ( 
         .clk     (clk),                         
