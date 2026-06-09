@@ -1,0 +1,56 @@
+module VX_divider #(
+    parameter N_WIDTH  = 1,
+    parameter D_WIDTH  = 1,
+    parameter Q_WIDTH  = 1,
+    parameter R_WIDTH  = 1,
+    parameter N_SIGNED = 0,
+    parameter D_SIGNED = 0,
+    parameter LATENCY  = 0
+) (
+    input wire                clk,
+    input wire                enable, 
+    input wire [N_WIDTH-1:0]  numer,
+    input wire [D_WIDTH-1:0]  denom,
+    output wire [Q_WIDTH-1:0] quotient,
+    output wire [R_WIDTH-1:0] remainder
+);
+    reg [N_WIDTH-1:0] quotient_unqual;
+    reg [D_WIDTH-1:0] remainder_unqual;
+    always @(*) begin   
+        begin
+            if (N_SIGNED && D_SIGNED) begin
+                quotient_unqual  = $signed(numer) / $signed(denom);
+                remainder_unqual = $signed(numer) % $signed(denom);
+            end 
+            else if (N_SIGNED && !D_SIGNED) begin
+                quotient_unqual  = $signed(numer) / denom;
+                remainder_unqual = $signed(numer) % denom;
+            end 
+            else if (!N_SIGNED && D_SIGNED) begin
+                quotient_unqual  = numer / $signed(denom);
+                remainder_unqual = numer % $signed(denom);
+            end 
+            else begin
+                quotient_unqual  = numer / denom;
+                remainder_unqual = numer % denom;        
+            end
+        end
+    end
+    if (LATENCY == 0) begin
+        assign quotient  = quotient_unqual [Q_WIDTH-1:0];
+        assign remainder = remainder_unqual [R_WIDTH-1:0];
+    end else begin
+        reg [N_WIDTH-1:0] quotient_pipe [LATENCY-1:0];
+        reg [D_WIDTH-1:0] remainder_pipe [LATENCY-1:0];
+        for (genvar i = 0; i < LATENCY; ++i) begin
+            always @(posedge clk) begin                
+                if (enable) begin
+                    quotient_pipe[i]  <= (0 == i) ? quotient_unqual  : quotient_pipe[i-1];
+                    remainder_pipe[i] <= (0 == i) ? remainder_unqual : remainder_pipe[i-1];
+                end
+            end
+        end
+        assign quotient  = quotient_pipe[LATENCY-1][Q_WIDTH-1:0];
+        assign remainder = remainder_pipe[LATENCY-1][R_WIDTH-1:0];
+    end    
+endmodule

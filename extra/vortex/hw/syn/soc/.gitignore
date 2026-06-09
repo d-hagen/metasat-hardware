@@ -1,4 +1,4 @@
-src/
+# sim/uni-machine: src/, sources.txt, grlib/svlogsyn.txt are PRE-GENERATED on
+# the VM and committed so the sim machine doesn't need Verilator.
+# Only Verilator scratch (obj_dir/) stays ignored.
 obj_dir/
-grlib/svlogsyn.txt
-sources.txt
