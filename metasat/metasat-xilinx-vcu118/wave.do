@@ -22,8 +22,6 @@ log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/clus
 
 # Decode->schedule (who's about to stall and why)
 
-# mscratch (single shared register per core in v2.2 — see when it changes and who reads it)
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/csr_unit/csr_data/mscratch}
 
 run 20000000 ns
 quit -f
