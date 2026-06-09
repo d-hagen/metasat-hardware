@@ -167,7 +167,7 @@ ID_WIDTH = 32
 
 .PHONY: vortex
 vortex: .vortex
-.vortex:
+.vortex: $(VX_CONFIG)
 	make -C $(VX_DIR) grlib VX_CONFIG=$(VX_CONFIG)
 	touch .vortex
 
