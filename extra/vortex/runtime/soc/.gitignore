@@ -1,4 +1,3 @@
-libvortex.a
-*/
-VX_*.h
-vortex_afu.h
+# sim/uni-machine: libvortex.a and generated headers are PRE-BUILT on the VM
+# and committed. Only intermediate object dir stays ignored.
+build/
