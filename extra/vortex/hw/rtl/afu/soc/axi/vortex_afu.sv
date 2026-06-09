@@ -309,4 +309,93 @@ module vortex_afu #(
 	assign m_axi_mem_arid    = vx_reset ? m_axi_ctrl_arid : m_axi_vx_arid   [0];
 	assign m_axi_mem_arlen   = vx_reset ? m_axi_ctrl_arlen : m_axi_vx_arlen  [0];
 	assign m_axi_mem_rready  = vx_reset ? m_axi_ctrl_rready : m_axi_vx_rready [0];
+
+	// ================================================================
+	// SIM-ONLY: Vortex AXI activity monitor (eval-debug diagnostic)
+	//
+	// Tracks handshakes on Vortex's mem-side AXI (m_axi_vx_*).
+	// Counts AR/AW/W/R/B fires and outstanding xacts. Prints a snapshot
+	// on every vx_reset transition and every 50k cycles while Vortex
+	// is active. Distinguishes "Vortex made progress and finished"
+	// from "Vortex froze" from "aximem deadlock".
+	// ================================================================
+	reg [31:0] vx_ar_fires, vx_aw_fires, vx_w_fires;
+	reg [31:0] vx_r_fires, vx_b_fires;
+	reg signed [31:0] vx_outstanding_reads, vx_outstanding_writes;
+	reg [31:0] vx_periodic_ctr;
+	reg vx_reset_prev;
+	// Split print budgets: any AW whose addr[31:24]==0x70 is treated as a kernel
+	// diagnostic sentinel and gets the large budget; everything else (TLS/BSS
+	// init, data writes, etc.) shares a tiny budget so a store-storm cannot
+	// drown out the sentinels.
+	localparam VX_ADDR_LOG_MAX      = 32;
+	localparam VX_SENTINEL_LOG_MAX  = 1024;
+	reg [31:0] vx_aw_data_logged;     // non-sentinel AW prints emitted
+	reg [31:0] vx_aw_sent_logged;     // sentinel AW prints emitted
+	reg [31:0] vx_ar_data_logged;     // (kept for symmetry; AR has no sentinel concept)
+	always @(posedge clk) begin
+		if (reset) begin
+			vx_ar_fires <= 0; vx_aw_fires <= 0; vx_w_fires <= 0;
+			vx_r_fires <= 0; vx_b_fires <= 0;
+			vx_outstanding_reads <= 0; vx_outstanding_writes <= 0;
+			vx_aw_data_logged <= 0; vx_aw_sent_logged <= 0; vx_ar_data_logged <= 0;
+			vx_periodic_ctr <= 0;
+			vx_reset_prev <= 1'b1;
+		end else begin
+			vx_reset_prev <= vx_reset;
+			if (vx_reset_prev && !vx_reset)
+				$display("[%0t] VX: reset deasserted, Vortex active", $time);
+			if (!vx_reset_prev && vx_reset)
+				$display("[%0t] VX: reset asserted; counters AR=%0d AW=%0d W=%0d R=%0d B=%0d outst rd=%0d wr=%0d",
+				          $time, vx_ar_fires, vx_aw_fires, vx_w_fires, vx_r_fires, vx_b_fires,
+				          vx_outstanding_reads, vx_outstanding_writes);
+			if (!vx_reset) begin
+				if (m_axi_vx_arvalid[0] & m_axi_vx_arready[0]) begin
+					if (vx_ar_data_logged < VX_ADDR_LOG_MAX) begin
+						$display("[%0t] VX AR[%0d]: addr=0x%08h len=%0d",
+						         $time, vx_ar_fires, m_axi_vx_araddr[0][31:0], m_axi_vx_arlen[0]);
+						vx_ar_data_logged <= vx_ar_data_logged + 1;
+					end
+					vx_ar_fires <= vx_ar_fires + 1;
+					vx_outstanding_reads <= vx_outstanding_reads + 1;
+				end
+				if (m_axi_vx_rvalid[0] & m_axi_vx_rready[0] & m_axi_vx_rlast[0]) begin
+					vx_r_fires <= vx_r_fires + 1;
+					vx_outstanding_reads <= vx_outstanding_reads - 1;
+				end
+				if (m_axi_vx_awvalid[0] & m_axi_vx_awready[0]) begin
+					if (m_axi_vx_awaddr[0][31:24] == 8'h70) begin
+						if (vx_aw_sent_logged < VX_SENTINEL_LOG_MAX) begin
+							$display("[%0t] VX AW S[%0d]: addr=0x%08h len=%0d",
+							         $time, vx_aw_sent_logged, m_axi_vx_awaddr[0][31:0], m_axi_vx_awlen[0]);
+							vx_aw_sent_logged <= vx_aw_sent_logged + 1;
+						end
+					end else begin
+						if (vx_aw_data_logged < VX_ADDR_LOG_MAX) begin
+							$display("[%0t] VX AW[%0d]: addr=0x%08h len=%0d",
+							         $time, vx_aw_data_logged, m_axi_vx_awaddr[0][31:0], m_axi_vx_awlen[0]);
+							vx_aw_data_logged <= vx_aw_data_logged + 1;
+						end
+					end
+					vx_aw_fires <= vx_aw_fires + 1;
+					vx_outstanding_writes <= vx_outstanding_writes + 1;
+				end
+				if (m_axi_vx_wvalid[0] & m_axi_vx_wready[0])
+					vx_w_fires <= vx_w_fires + 1;
+				if (m_axi_vx_bvalid[0] & m_axi_vx_bready[0]) begin
+					vx_b_fires <= vx_b_fires + 1;
+					vx_outstanding_writes <= vx_outstanding_writes - 1;
+				end
+				vx_periodic_ctr <= vx_periodic_ctr + 1;
+				if (vx_periodic_ctr == 32'd50_000) begin
+					vx_periodic_ctr <= 0;
+					$display("[%0t] VX AXI: AR=%0d AW=%0d W=%0d R=%0d B=%0d outst rd=%0d wr=%0d",
+					          $time, vx_ar_fires, vx_aw_fires, vx_w_fires, vx_r_fires, vx_b_fires,
+					          vx_outstanding_reads, vx_outstanding_writes);
+				end
+			end else begin
+				vx_periodic_ctr <= 0;
+			end
+		end
+	end
 endmodule
