@@ -21,7 +21,6 @@ log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/clus
 log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/is_single_warp}
 
 # Decode->schedule (who's about to stall and why)
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/decode_sched_if}
 
 # mscratch (single shared register per core in v2.2 — see when it changes and who reads it)
 log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/csr_unit/csr_data/mscratch}
