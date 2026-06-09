@@ -23,6 +23,12 @@ extern "C" {
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
+// Spawn args struct pointer travels through VX_CSR_MSCRATCH. Per the Vortex
+// RTL (VX_csr_data.sv:78), mscratch is a single shared flop - not per-warp -
+// so main warp's write is immediately visible to workers when they begin
+// executing. Note: main's caller must read mscratch (the args-buffer ptr from
+// reset) BEFORE calling vx_spawn_threads, since we clobber it here.
+
 __thread dim3_t blockIdx;
 __thread dim3_t threadIdx;
 dim3_t gridDim;
@@ -58,11 +64,26 @@ static void __attribute__ ((noinline)) process_threads() {
   uint32_t warp_id = vx_warp_id();
   uint32_t thread_id = vx_thread_id();
 
+  // Branch-free per-thread sentinels. An `if (thread_id == 0)` here would
+  // compile to a plain BNEZ; in this RTL VX_alu_int.sv:168 picks the branch
+  // direction from last_active_tid (highest active thread), so all 4 threads
+  // would skip the body and nothing would write. Every thread instead writes
+  // to a thread-distinct slot in the AFU AW-print log.
+  volatile uint32_t* dbg = (volatile uint32_t*)0x70000000;
+  uint32_t slot = warp_id * threads_per_warp + thread_id;
+  dbg[16 + slot] = 0xBBBB0000 | (warp_id << 4) | thread_id;  // [B] entered process_threads
+  dbg[32 + slot] = targs->warp_batches;                       // [Bw] readback from targs
+  dbg[48 + slot] = (uint32_t)(uintptr_t)targs;                // [Bp] targs ptr
+
   uint32_t start_warp = (warp_id * targs->warp_batches) + MIN(warp_id, targs->remaining_warps);
   uint32_t iterations = targs->warp_batches + (warp_id < targs->remaining_warps);
 
   uint32_t start_task_id = targs->all_tasks_offset + (start_warp * threads_per_warp) + thread_id;
   uint32_t end_task_id = start_task_id + iterations * threads_per_warp;
+
+  dbg[64 + slot] = 0xCCCC0000 | (warp_id << 4) | thread_id;   // [C] reached for-loop
+  dbg[80 + slot] = start_task_id;                              // [Cs] per-thread start_task_id
+  dbg[96 + slot] = end_task_id;                                // [Ce] per-thread end_task_id
 
   __local_group_id = 0;
   threadIdx.x = 0;
@@ -78,6 +99,8 @@ static void __attribute__ ((noinline)) process_threads() {
     blockIdx.z = task_id / (gridDim.x * gridDim.y);
     callback((void*)arg);
   }
+
+  dbg[112 + slot] = 0xDDDD0000 | (warp_id << 4) | thread_id;  // [D] exited for-loop
 }
 
 static void __attribute__ ((noinline)) process_remaining_threads() {
@@ -95,6 +118,15 @@ static void __attribute__ ((noinline)) process_threads_stub() {
 
   // process all tasks
   process_threads();
+
+  // Branch-free per-thread sentinel: every worker thread writes its slot
+  // before the warp deactivates. (Workers only — warp 0 takes the inline
+  // path in vx_spawn_threads, not through the stub.)
+  uint32_t warp_id = vx_warp_id();
+  uint32_t thread_id = vx_thread_id();
+  uint32_t threads_per_warp = vx_num_threads();
+  uint32_t slot = warp_id * threads_per_warp + thread_id;
+  *((volatile uint32_t*)(0x70000000 + 4*(128 + slot))) = 0xEEEE0000 | (warp_id << 4) | thread_id;  // [E] stub tmc_zero
 
   // disable warp
   vx_tmc_zero();
@@ -315,7 +347,10 @@ int vx_spawn_threads(uint32_t dimension,
     }
   }
 
-  // wait for spawned warps to complete
+  // wait for spawned warps to complete. vx_wspawn(1, 0) is the wait barrier:
+  // the RTL (VX_schedule.sv:117-126,243,246-254) only fires wspawn requests
+  // when is_single_warp is true, so warp 0 stalls here until workers have all
+  // deactivated via vx_tmc_zero. No need for a separate polling function.
   vx_wspawn(1, 0);
 
   return 0;
