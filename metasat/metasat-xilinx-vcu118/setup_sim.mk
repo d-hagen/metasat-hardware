@@ -151,6 +151,9 @@ else ifeq ($(TEST),evaluation)
 else ifeq ($(TEST),evaluation-light)
 	@echo "=== Selecting evaluation-light test (SIZE=16) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-light.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),parallel)
+	@echo "=== Selecting parallel test (multi-warp PoC, raw intrinsics, SIZE=16) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-parallel.srec $(SIM_DIR)/ram.srec
 else ifeq ($(TEST),bare)
 	@echo "=== Selecting bare test (GPU start/stop only) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-bare.srec $(SIM_DIR)/ram.srec
@@ -163,7 +166,7 @@ else ifeq ($(TEST),spawn1)
 else
 	@echo "ERROR: Unknown TEST=$(TEST)."
 	@echo "  memory | memory-light | evaluation | evaluation-light"
-	@echo "  bare | nospawn | spawn1"
+	@echo "  bare | nospawn | spawn1 | parallel"
 	@exit 1
 endif
 
