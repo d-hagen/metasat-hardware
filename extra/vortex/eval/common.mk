@@ -33,7 +33,7 @@ VX_XLEN = 32
 VX_STARTUP_ADDR = 0x60000000
 VX_CFLAGS += -O$(OFLAG) -std=c++17
 VX_CFLAGS += -mcmodel=medany -fno-rtti -fno-exceptions -nostartfiles -fdata-sections -ffunction-sections
-VX_CFLAGS += -I$(VORTEX_KN_PATH)/include -I$(VORTEX_KN_PATH)/../hw -I$(IDIR)
+VX_CFLAGS += -I$(VORTEX_KN_PATH)/include -I$(VORTEX_KN_PATH)/../hw -I$(VORTEX_RT_PATH)/soc -I$(IDIR)
 VX_CFLAGS += -DNDEBUG -DACCEL_=vortex
 
 VX_LDFLAGS += -Wl,-Bstatic,--gc-sections,-T,$(VORTEX_KN_PATH)/scripts/link$(VX_XLEN).ld,--defsym=STARTUP_ADDR=$(VX_STARTUP_ADDR) $(VORTEX_KN_PATH)/libvortexrt.a
