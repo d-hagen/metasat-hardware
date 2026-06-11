@@ -29,7 +29,7 @@ DP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objdump
 CP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objcopy
 
 CFLAGS += -O3 -mcmodel=medany -fno-exceptions -fdata-sections -ffunction-sections
-CFLAGS += -I$(INC_DIR) -I$(ROOT_DIR)/hw
+CFLAGS += -I$(INC_DIR) -I$(ROOT_DIR)/hw -I$(ROOT_DIR)/runtime/soc
 CFLAGS += -DXLEN_$(XLEN)
 
 PROJECT := libvortex
