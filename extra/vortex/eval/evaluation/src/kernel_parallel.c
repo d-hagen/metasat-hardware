@@ -1,6 +1,7 @@
 // parallel
 #include <stdint.h>
 #include <vx_intrinsics.h>
+#include <VX_types.h>
 
 extern "C" __attribute__((used)) void *__wrap_memcpy(void *d, const void *s, __SIZE_TYPE__ n) {
     char *dp = (char *)d; const char *sp = (const char *)s;
@@ -37,6 +38,13 @@ int main() {
     uint32_t gtid;
     __asm__ volatile ("csrr %0, mhartid" : "=r"(gtid));
     dest[gtid] = (uint8_t)(src[gtid] * 2);
+
+    vx_tmc(1);
+
+    uint32_t aw;
+    do {
+        __asm__ volatile ("csrr %0, %1" : "=r"(aw) : "i"(VX_CSR_ACTIVE_WARPS));
+    } while (aw != 1);
 
     vx_tmc_zero();
     __builtin_unreachable();
