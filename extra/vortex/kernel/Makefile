@@ -58,6 +58,16 @@ $(PROJECT).dump: $(PROJECT).a
 %.S.o: $(SRC_DIR)/%.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Per-file override: vx_spawn.c uses uniform branches (driven by core_id /
+# num_warps / etc.) that the divergence pass decorates with vx_split/vx_join.
+# The RTL vx_join stalls when there is no genuinely-pushed stack entry to pop,
+# wedging eval-light at PC 0x60000680. Compile vx_spawn.c without the flag so
+# the compiler emits plain BEQZ/BNEZ for those uniform branches -- the RTL
+# resolves them via last_active_tid, which is fine when every thread agrees.
+# All other files keep the flag so user kernel code stays divergence-safe.
+vx_spawn.c.o: $(SRC_DIR)/vx_spawn.c
+	$(CC) $(filter-out -mllvm -vortex-branch-divergence=1,$(CFLAGS)) -mllvm -vortex-branch-divergence=0 -c $< -o $@
+
 %.c.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
