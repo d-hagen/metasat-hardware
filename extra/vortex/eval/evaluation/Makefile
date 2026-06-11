@@ -72,6 +72,13 @@ srec-spawn1:
 srec-parallel:
 	cp src/kernel_parallel.c src/kernel.c
 	rm -rf build
-	$(MAKE) vortex SIZE=16
+	$(MAKE) vortex
 	git checkout src/kernel.c 2>/dev/null || true
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-parallel.srec
+
+srec-parallel-light:
+	cp src/kernel_parallel.c src/kernel.c
+	rm -rf build
+	$(MAKE) vortex SIZE=16
+	git checkout src/kernel.c 2>/dev/null || true
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-parallel-light.srec

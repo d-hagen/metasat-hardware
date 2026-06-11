@@ -18,11 +18,15 @@ static void __attribute__((noinline)) worker_stub(void) {
     uint64_t arg_addr;
     __asm__ volatile ("csrr %0, mscratch" : "=r"(arg_addr));
     uint64_t *arg  = (uint64_t *)arg_addr;
+    uint32_t n     = (uint32_t)arg[0];
     uint8_t  *src  = (uint8_t *)arg[1];
     uint8_t  *dest = (uint8_t *)arg[2];
     uint32_t gtid;
     __asm__ volatile ("csrr %0, mhartid" : "=r"(gtid));
-    dest[gtid] = (uint8_t)(src[gtid] * 2);
+    uint32_t stride = vx_num_warps() * vx_num_threads();
+    for (uint32_t i = gtid; i < n; i += stride) {
+        dest[i] = (uint8_t)(src[i] * 2);
+    }
     vx_tmc_zero();
 }
 
@@ -33,11 +37,15 @@ int main() {
     uint64_t arg_addr;
     __asm__ volatile ("csrr %0, mscratch" : "=r"(arg_addr));
     uint64_t *arg  = (uint64_t *)arg_addr;
+    uint32_t n     = (uint32_t)arg[0];
     uint8_t  *src  = (uint8_t *)arg[1];
     uint8_t  *dest = (uint8_t *)arg[2];
     uint32_t gtid;
     __asm__ volatile ("csrr %0, mhartid" : "=r"(gtid));
-    dest[gtid] = (uint8_t)(src[gtid] * 2);
+    uint32_t stride = vx_num_warps() * vx_num_threads();
+    for (uint32_t i = gtid; i < n; i += stride) {
+        dest[i] = (uint8_t)(src[i] * 2);
+    }
 
     vx_tmc(1);
 
