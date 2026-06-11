@@ -641,5 +641,30 @@ extern int vx_mpm_query(vx_device_h hdevice, uint32_t addr, uint32_t core_id, ui
         return -1;
     *value = 0;
     return 0;
-}   
+}
+
+// Override nanosleep on the host side. The sim's NOEL-V uses BCC newlib's
+// nanosleep which on this baremetal platform issues a wfi and waits for an
+// ACLINT timer interrupt that does not fire in this configuration -- the
+// CPU sits in wfi forever after the GPU run completes, never returning to
+// poll MMIO_STATUS, so the host print path never executes. Replace it with
+// an immediate return: vx_ready_wait then becomes a tight polling loop on
+// MMIO_STATUS, which is fast (tens of cycles per poll) and correct on both
+// sim and FPGA -- the original sleep was only there as a courtesy yield
+// for Linux process scheduling, irrelevant for baremetal.
+extern "C" int __wrap_nanosleep(const struct timespec*, struct timespec*) {
+    return 0;
+}
+
+// Override clock() too. The compiler inlines nanosleep into a clock()-based
+// busy-loop ( do { now = clock(); } while ((now-start)*scale <= target) ).
+// In BCC baremetal, clock() calls _times_r which returns -1 (not implemented)
+// so now - start stays at 0 forever and the loop never exits -- the CPU spins
+// in clock() with no bus activity, looking dead from the wave. Return a
+// monotonically incrementing value so the loop exits after one iteration.
+#include <time.h>
+extern "C" clock_t __wrap_clock(void) {
+    static clock_t c = 0;
+    return ++c;
+}
 
