@@ -641,5 +641,13 @@ extern int vx_mpm_query(vx_device_h hdevice, uint32_t addr, uint32_t core_id, ui
         return -1;
     *value = 0;
     return 0;
-}   
+}
 
+#include <time.h>
+extern "C" int __wrap_nanosleep(const struct timespec*, struct timespec*) {
+    return 0;
+}
+extern "C" clock_t __wrap_clock(void) {
+    static clock_t c = 0;
+    return ++c;
+}

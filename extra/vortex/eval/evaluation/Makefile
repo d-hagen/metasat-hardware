@@ -7,6 +7,7 @@ VX_SRC = src/kernel.c
 CFLAGS += -I$(VORTEX_RT_PATH)/include -I$(VORTEX_KN_PATH)/../hw
 
 LDFLAGS += $(VORTEX_RT_PATH)/soc/libvortex.a
+LDFLAGS += -Wl,--wrap=clock,--wrap=nanosleep
 
 SIZE ?= 1024
 VERBOSE ?= 1
