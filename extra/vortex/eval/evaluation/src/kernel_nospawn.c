@@ -1,11 +1,4 @@
-// nospawn: single-thread compute, no spawn. Warp 0 reads the args pointer
-// from mscratch (set by host vx_start via DCRs) and writes one byte.
-// Pass condition: dest[0] == src[0]*2 (host initialises src[0]=0, so 0).
-// Proves: args buffer is GPU-AXI reachable, mscratch CSR works, basic
-//         load/store path is functional. If the host args allocator gives
-//         an unreachable address (pre-ALLOC_BASE_ADDR-fix), the args load
-//         here wedges with warp 0 stalled.
-
+// nospawn
 #include <stdint.h>
 #include <vx_intrinsics.h>
 

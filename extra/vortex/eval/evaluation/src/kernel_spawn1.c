@@ -1,9 +1,4 @@
-// spawn1: vx_spawn_threads with exactly one task. With num_tasks=1 the
-// spawn library takes the remaining-tasks path (single thread, no full
-// multi-warp spawn), which is the simplest exercise of the library.
-// Pass condition: dest[0] sentinel.
-// Proves: vx_spawn_threads + remaining-tasks path work.
-
+// spawn1
 #include <stdint.h>
 #include <vx_intrinsics.h>
 #include <vx_spawn.h>
