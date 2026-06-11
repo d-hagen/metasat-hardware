@@ -1,27 +1,20 @@
-# Targeted waveform logging for GPU hang diagnosis.
-# Captures only the critical signals — keeps WLF file small despite long runs.
+# Broad waveform logging — captures the full GPU/AFU hierarchy so any signal
+# in the design is available in the WLF for post-run inspection. The trade-
+# off is WLF file size; on this design at 3-4 ms of sim a full-hierarchy
+# capture is typically a few hundred MB, which is fine for one-off runs.
 
-log /testbench/soc/sys/gpusys/vortex/wrap/afu_ctrl/vx_reset
-log /testbench/soc/sys/gpusys/vortex/wrap/afu_ctrl/vx_busy
-log /testbench/soc/sys/gpusys/vortex/wrap/afu_ctrl/vx_running
-log /testbench/soc/sys/gpusys/vortex/wrap/afu_ctrl/vx_busy_wait
+# AFU control + AXI-master fires (the level your existing $display already
+# annotates in the transcript)
+log -r /testbench/soc/sys/gpusys/vortex/wrap/afu_ctrl/*
+log -r /testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/*
 
-# Scheduler state (present + next-state to distinguish "just changed" from "stable")
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/active_warps}
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/active_warps_n}
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/stalled_warps}
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/stalled_warps_n}
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/thread_masks}
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/thread_masks_n}
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/warp_pcs}
+# Full Vortex core hierarchy — scheduler, decode, issue, execute, commit,
+# LSU, CSR, divergence stack, everything below /core
+log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/*}
 
-# Pending wspawn register + gate
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/wspawn}
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/wspawn_wid}
-log -r {/testbench/soc/sys/gpusys/vortex/wrap/vortex_axi/vortex/clusters[0]/cluster/sockets[0]/socket/cores[0]/core/schedule/is_single_warp}
-
-# Decode->schedule (who's about to stall and why)
-
+# AXI handshakes at the testbench boundary (so you can see the GPU's reads
+# and writes land on the AHB/AXI fabric)
+log -r /testbench/soc/sys/gpusys/vortex/wrap/m_axi_mem_*
 
 run 20000000 ns
 quit -f
