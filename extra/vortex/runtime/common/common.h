@@ -27,7 +27,7 @@
 
 #define RAM_PAGE_SIZE     4096
 
-#define ALLOC_BASE_ADDR   USER_BASE_ADDR
+#define ALLOC_BASE_ADDR   0x60040000ULL
 
 #if (XLEN == 64)
 #define GLOBAL_MEM_SIZE    0x200000000  // 8 GB
