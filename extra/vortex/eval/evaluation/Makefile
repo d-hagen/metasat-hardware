@@ -25,6 +25,10 @@ ifeq ($(NOWRAP),0)
 VX_LDFLAGS += -Wl,--wrap=memset,--wrap=memcpy
 endif
 
+ifneq ($(WRAPONLY),)
+VX_LDFLAGS += -Wl,--wrap=$(WRAPONLY)
+endif
+
 vortex: $(TEST)-vortex
 
 vortex-light:
@@ -120,3 +124,17 @@ srec-parallel-nowrap-pad-light:
 	$(MAKE) vortex SIZE=16 NOWRAP=1
 	git checkout src/kernel.c 2>/dev/null || true
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-parallel-nowrap-pad-light.srec
+
+srec-parallel-wrapset:
+	cp src/kernel_parallel_wrapset.c src/kernel.c
+	rm -rf build
+	$(MAKE) vortex NOWRAP=1 WRAPONLY=memset
+	git checkout src/kernel.c 2>/dev/null || true
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-parallel-wrapset.srec
+
+srec-parallel-wrapcpy:
+	cp src/kernel_parallel_wrapcpy.c src/kernel.c
+	rm -rf build
+	$(MAKE) vortex NOWRAP=1 WRAPONLY=memcpy
+	git checkout src/kernel.c 2>/dev/null || true
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-parallel-wrapcpy.srec
