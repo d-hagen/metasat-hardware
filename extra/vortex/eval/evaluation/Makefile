@@ -106,3 +106,17 @@ srec-parallel-nowrap-light:
 	$(MAKE) vortex SIZE=16 NOWRAP=1
 	git checkout src/kernel.c 2>/dev/null || true
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-parallel-nowrap-light.srec
+
+srec-parallel-nowrap-pad:
+	cp src/kernel_parallel_nowrap_pad.c src/kernel.c
+	rm -rf build
+	$(MAKE) vortex NOWRAP=1
+	git checkout src/kernel.c 2>/dev/null || true
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-parallel-nowrap-pad.srec
+
+srec-parallel-nowrap-pad-light:
+	cp src/kernel_parallel_nowrap_pad.c src/kernel.c
+	rm -rf build
+	$(MAKE) vortex SIZE=16 NOWRAP=1
+	git checkout src/kernel.c 2>/dev/null || true
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-parallel-nowrap-pad-light.srec
