@@ -165,6 +165,12 @@ else ifeq ($(TEST),parallel-nowrap-pad)
 else ifeq ($(TEST),parallel-nowrap-pad-light)
 	@echo "=== Selecting parallel-nowrap-pad-light test (nowrap + 64B pad, SIZE=16) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-parallel-nowrap-pad-light.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),parallel-wrapset)
+	@echo "=== Selecting parallel-wrapset test (byte-loop memset only, newlib memcpy) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-parallel-wrapset.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),parallel-wrapcpy)
+	@echo "=== Selecting parallel-wrapcpy test (byte-loop memcpy only, newlib memset) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-parallel-wrapcpy.srec $(SIM_DIR)/ram.srec
 else
 	@echo "ERROR: Unknown TEST=$(TEST)."
 	@echo "  bare | nospawn | spawn1 | parallel | bare-nowrap | nospawn-nowrap | spawn1-nowrap | parallel-nowrap | parallel-nowrap-light"
