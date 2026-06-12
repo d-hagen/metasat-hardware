@@ -147,6 +147,12 @@ else ifeq ($(TEST),spawn1)
 else ifeq ($(TEST),bare-nowrap)
 	@echo "=== Selecting bare-nowrap test (no __wrap_memset/memcpy) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-bare-nowrap.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),nospawn-nowrap)
+	@echo "=== Selecting nospawn-nowrap test (no __wrap_memset/memcpy) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-nospawn-nowrap.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),spawn1-nowrap)
+	@echo "=== Selecting spawn1-nowrap test (no __wrap_memset/memcpy) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-spawn1-nowrap.srec $(SIM_DIR)/ram.srec
 else ifeq ($(TEST),parallel-nowrap)
 	@echo "=== Selecting parallel-nowrap test (no __wrap_memset/memcpy, SIZE=1024) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-parallel-nowrap.srec $(SIM_DIR)/ram.srec
@@ -155,7 +161,7 @@ else ifeq ($(TEST),parallel-nowrap-light)
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-parallel-nowrap-light.srec $(SIM_DIR)/ram.srec
 else
 	@echo "ERROR: Unknown TEST=$(TEST)."
-	@echo "  bare | nospawn | spawn1 | parallel | bare-nowrap | parallel-nowrap | parallel-nowrap-light"
+	@echo "  bare | nospawn | spawn1 | parallel | bare-nowrap | nospawn-nowrap | spawn1-nowrap | parallel-nowrap | parallel-nowrap-light"
 	@exit 1
 endif
 
