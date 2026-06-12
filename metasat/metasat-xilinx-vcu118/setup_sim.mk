@@ -176,10 +176,10 @@ else ifeq ($(TEST),parallel-wrapcpy)
 	@echo "=== Selecting parallel-wrapcpy test (byte-loop memcpy only, newlib memset) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-parallel-wrapcpy.srec $(SIM_DIR)/ram.srec
 else ifeq ($(TEST),evaluation)
-	@echo "=== Selecting evaluation test (vx_spawn_threads library, SIZE=1024; eval-debug-era binary) ==="
+	@echo "=== Selecting evaluation test (vx_spawn_threads library, SIZE=1024, NOWRAP) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation.srec $(SIM_DIR)/ram.srec
 else ifeq ($(TEST),evaluation-light)
-	@echo "=== Selecting evaluation-light test (vx_spawn_threads library, SIZE=16; eval-debug-era binary) ==="
+	@echo "=== Selecting evaluation-light test (vx_spawn_threads library, SIZE=16, NOWRAP) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-light.srec $(SIM_DIR)/ram.srec
 else
 	@echo "ERROR: Unknown TEST=$(TEST)."
