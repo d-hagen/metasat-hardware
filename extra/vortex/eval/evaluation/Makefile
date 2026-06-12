@@ -20,7 +20,10 @@ all:
 
 include ../common.mk
 
+NOWRAP ?= 0
+ifeq ($(NOWRAP),0)
 VX_LDFLAGS += -Wl,--wrap=memset,--wrap=memcpy
+endif
 
 vortex: $(TEST)-vortex
 
@@ -68,3 +71,24 @@ srec-parallel-light:
 	$(MAKE) vortex SIZE=16
 	git checkout src/kernel.c 2>/dev/null || true
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-parallel-light.srec
+
+srec-bare-nowrap:
+	cp src/kernel_bare_nowrap.c src/kernel.c
+	rm -rf build
+	$(MAKE) vortex SIZE=1 NOWRAP=1
+	git checkout src/kernel.c 2>/dev/null || true
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-bare-nowrap.srec
+
+srec-parallel-nowrap:
+	cp src/kernel_parallel_nowrap.c src/kernel.c
+	rm -rf build
+	$(MAKE) vortex NOWRAP=1
+	git checkout src/kernel.c 2>/dev/null || true
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-parallel-nowrap.srec
+
+srec-parallel-nowrap-light:
+	cp src/kernel_parallel_nowrap.c src/kernel.c
+	rm -rf build
+	$(MAKE) vortex SIZE=16 NOWRAP=1
+	git checkout src/kernel.c 2>/dev/null || true
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-parallel-nowrap-light.srec
