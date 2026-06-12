@@ -79,6 +79,20 @@ srec-bare-nowrap:
 	git checkout src/kernel.c 2>/dev/null || true
 	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-bare-nowrap.srec
 
+srec-nospawn-nowrap:
+	cp src/kernel_nospawn_nowrap.c src/kernel.c
+	rm -rf build
+	$(MAKE) vortex SIZE=1 NOWRAP=1
+	git checkout src/kernel.c 2>/dev/null || true
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-nospawn-nowrap.srec
+
+srec-spawn1-nowrap:
+	cp src/kernel_spawn1_nowrap.c src/kernel.c
+	rm -rf build
+	$(MAKE) vortex SIZE=1 NOWRAP=1
+	git checkout src/kernel.c 2>/dev/null || true
+	$(CP) --srec-len=16 --srec-forceS3 --gap-fill=0 -O srec gpu-evaluation-vortex gpu-evaluation-spawn1-nowrap.srec
+
 srec-parallel-nowrap:
 	cp src/kernel_parallel_nowrap.c src/kernel.c
 	rm -rf build
