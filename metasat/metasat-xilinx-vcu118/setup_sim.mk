@@ -26,7 +26,7 @@ REPO_ROOT_DIR := $(abspath $(SIM_DIR)/../..)
 LOG_FILE       = $(REPO_ROOT_DIR)/sim-$(TEST)-$(shell date +%Y%m%d-%H%M%S).log
 
 .PHONY: all check-paths compile-unisim scripts-gen map-unisim \
-        stub-libs widen-grlib-axi-id select-test compile-rtl run-sim \
+        stub-libs widen-grlib-axi-id select-test compile-rtl run-sim run-wave \
         wipe nuke rebuild check-config check-all clean-unisim help
 
 all: check-paths compile-unisim scripts-gen map-unisim stub-libs widen-grlib-axi-id select-test compile-rtl
@@ -186,6 +186,15 @@ compile-rtl:
 # ---- Step 9: Run simulation ----
 VSIMOPT_FAST = -voptargs="+acc -nowarn 1" -do "run -all; quit -f" testbench
 
+# Waveform capture: +acc keeps signals accessible; wave.do logs the schedule
+# unit (warp_pcs, active/stalled warps, tmasks) and AFU busy, then runs 20ms.
+# Ctrl-C the sim to flush the WLF early and inspect a partial wave.
+WAVE_FILE     = $(REPO_ROOT_DIR)/sim-wave-$(TEST)-$(shell date +%Y%m%d-%H%M%S).wlf
+VSIMOPT_WAVE  = -voptargs="+acc -nowarn 1" \
+                -wlf $(WAVE_FILE) \
+                -do "$(SIM_DIR)/wave.do" \
+                testbench
+
 run-sim: select-test
 	@echo "=== Launching simulation ==="
 	@echo "=== Log file: $(LOG_FILE) ==="
@@ -193,6 +202,15 @@ run-sim: select-test
 	@cd $(SIM_DIR) && $(MAKE) sim-run VSIMOPT='$(VSIMOPT_FAST)' 2>&1 | tee -a $(LOG_FILE)
 	@date '+=== End:   %F %T ===' | tee -a $(LOG_FILE)
 	@echo "=== Sim finished. Full log: $(LOG_FILE) ==="
+
+run-wave: select-test
+	@echo "=== Launching waveform simulation (20ms, +acc) ==="
+	@echo "=== WLF: $(WAVE_FILE) ==="
+	@echo "=== Log file: $(LOG_FILE) ==="
+	@date '+=== Start: %F %T ===' | tee $(LOG_FILE)
+	@cd $(SIM_DIR) && $(MAKE) sim-run VSIMOPT='$(VSIMOPT_WAVE)' 2>&1 | tee -a $(LOG_FILE)
+	@date '+=== End:   %F %T ===' | tee -a $(LOG_FILE)
+	@echo "=== Done. Open waveform: vsim -view $(WAVE_FILE) ==="
 
 # ---- Utilities ----
 clean-unisim:
@@ -281,6 +299,7 @@ help:
 	@echo "Targets:"
 	@echo "  all             - Full setup: UNISIM, scripts, stub-libs, RTL compile"
 	@echo "  run-sim         - Launch simulation (selects test based on TEST=)"
+	@echo "  run-wave        - Launch simulation with waveform capture (wave.do, 20ms)"
 	@echo "  rebuild         - Re-do scripts-gen + compile-rtl after config change"
 	@echo "  wipe            - Drop cached libs; keep UNISIM + pre-generated src/"
 	@echo "  nuke            - Drop everything including UNISIM (~15min to rebuild)"
