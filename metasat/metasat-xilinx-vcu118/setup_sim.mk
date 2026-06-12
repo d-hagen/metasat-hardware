@@ -165,6 +165,9 @@ else ifeq ($(TEST),parallel-nowrap-pad)
 else ifeq ($(TEST),parallel-nowrap-pad-light)
 	@echo "=== Selecting parallel-nowrap-pad-light test (nowrap + 64B pad, SIZE=16) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-parallel-nowrap-pad-light.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),bare-nowrap-shift12)
+	@echo "=== Selecting bare-nowrap-shift12 test (newlib memset jr at line offset 0x4) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-bare-nowrap-shift12.srec $(SIM_DIR)/ram.srec
 else ifeq ($(TEST),parallel-wrapset)
 	@echo "=== Selecting parallel-wrapset test (byte-loop memset only, newlib memcpy) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-parallel-wrapset.srec $(SIM_DIR)/ram.srec
