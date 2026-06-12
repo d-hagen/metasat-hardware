@@ -710,6 +710,54 @@ begin
                           prot => cpu_mem_aximo.ar.prot,
                           valid => cpu_mem_aximo.ar.valid);
       mem_aximo_sim.r <= cpu_mem_aximo.r;
+
+      -- Debug monitor: the parallel-nowrap upload reads zeros for one 32B
+      -- block of the embedded kernel array (CPU addr 0xDF020-0xDF03F,
+      -- kernel offsets 0x6F0-0x70C). Report every CPU-port access touching
+      -- 0xDF000-0xDF05F so one run shows whether the region was zeroed by
+      -- a write (glue/aximem write-queue fault) or read back wrong.
+      cpumon : process(clkm)
+        -- match addr(31:8) = 0x000DF0 -> bytes 0xDF000-0xDF0FF
+        constant MON_BLK : std_logic_vector(23 downto 0) := x"000DF0";
+        variable rd_flag : boolean := false;
+        variable wr_flag : boolean := false;
+      begin
+        if rising_edge(clkm) then
+          if (mem_aximo_sim.aw.valid and cpu_mem_aximi.aw.ready) = '1' then
+            if mem_aximo_sim.aw.addr(31 downto 8) = MON_BLK then
+              report "CPUMON AW addr=" & tost(mem_aximo_sim.aw.addr)
+                   & " id=" & tost(mem_aximo_sim.aw.id)
+                   & " len=" & tost(mem_aximo_sim.aw.len);
+              wr_flag := true;
+            end if;
+          end if;
+          if wr_flag and (mem_aximo_sim.w.valid and cpu_mem_aximi.w.ready) = '1' then
+            report "CPUMON  W data=" & tost(mem_aximo_sim.w.data)
+                 & " strb=" & tost(mem_aximo_sim.w.strb)
+                 & " id=" & tost(mem_aximo_sim.w.id)
+                 & " last=" & tost(mem_aximo_sim.w.last);
+            if mem_aximo_sim.w.last = '1' then
+              wr_flag := false;
+            end if;
+          end if;
+          if (mem_aximo_sim.ar.valid and cpu_mem_aximi.ar.ready) = '1' then
+            if mem_aximo_sim.ar.addr(31 downto 8) = MON_BLK then
+              report "CPUMON AR addr=" & tost(mem_aximo_sim.ar.addr)
+                   & " id=" & tost(mem_aximo_sim.ar.id)
+                   & " len=" & tost(mem_aximo_sim.ar.len);
+              rd_flag := true;
+            end if;
+          end if;
+          if rd_flag and (cpu_mem_aximi.r.valid and mem_aximo_sim.r.ready) = '1' then
+            report "CPUMON  R data=" & tost(cpu_mem_aximi.r.data)
+                 & " id=" & tost(cpu_mem_aximi.r.id)
+                 & " last=" & tost(cpu_mem_aximi.r.last);
+            if cpu_mem_aximi.r.last = '1' then
+              rd_flag := false;
+            end if;
+          end if;
+        end if;
+      end process;
     end generate axi_mem_gen;
 
     ahb_mem_gen : if (CFG_L2_AXI = 0) generate
