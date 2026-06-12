@@ -239,6 +239,8 @@ begin
       variable m: mempage_ptr;
       variable i: integer;
       variable len: integer;
+      variable xr, li: integer;
+      variable vd: unsigned(15 downto 0);
     begin
       L1:= new string'("");	--'
       while not endfile(TCF) loop
@@ -276,21 +278,39 @@ begin
                 opn := pn;
               end if;
               i := to_integer(unsigned(recaddr(pagepos-1 downto 1)));
-              
-              if (swap_halfw = 0) then
-                for x in 0 to 7 loop
-                  m(i+x) := to_integer(unsigned(recdata(16*x to 16*x+15)));
-                end loop;
-              else
-                for x in 0 to 3 loop
-                  m(i+2*x+1) := to_integer(unsigned(recdata(16*2*x to 16*2*x+15)));
-                  m(i+2*x) := to_integer(unsigned(recdata(16*(2*x+1) to 16*(2*x+1)+15)));
-                end loop;
-              end if;
 
-              if rstmode=0 then
-                m(pagesize/2 + i/8) := 16#FFFF# - (2**(16-len)-1);
-              end if;
+              -- Write the record halfword-by-halfword, following page
+              -- crossings and setting the per-byte valid bits for exactly
+              -- the bytes covered. The original code wrote a fixed 8
+              -- halfwords into the page of the record's start address:
+              -- for records not aligned to the record length this
+              -- overflowed past the page data array into the page's
+              -- valid-bit words (corrupting the valid mask for the first
+              -- 64 bytes of that page) and dropped the bytes belonging to
+              -- the next page; it also marked bytes the record did not
+              -- cover as valid.
+              for x in 0 to (len/2)-1 loop
+                if swap_halfw = 0 then
+                  xr := x;
+                else
+                  xr := x + 1 - 2*(x mod 2);
+                end if;
+                li := i + x;
+                if li >= pagesize/2 then
+                  -- record crosses into the next page
+                  if pn+1 /= opn then
+                    m := get_mempage(pn+1, true);
+                    opn := pn+1;
+                  end if;
+                  li := li - pagesize/2;
+                end if;
+                m(li) := to_integer(unsigned(recdata(16*xr to 16*xr+15)));
+                if rstmode=0 then
+                  vd := to_unsigned(m(pagesize/2 + li/8), 16);
+                  vd(15-(li mod 8)*2 downto 14-(li mod 8)*2) := "11";
+                  m(pagesize/2 + li/8) := to_integer(vd);
+                end if;
+              end loop;
               
             end if;
           end if;
