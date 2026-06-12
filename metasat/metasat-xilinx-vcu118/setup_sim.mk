@@ -17,6 +17,7 @@ SIM_DIR      ?= $(CURDIR)
 GRLIB        ?= ../../grlib
 EVAL_DIR     ?= ../../extra/vortex/eval
 TEST         ?= bare
+WAVE_DO      ?= wave.do
 
 # ---- Derived paths ----
 UNISIM_LIB   = $(UNISIM_SRC)/unisim
@@ -195,7 +196,7 @@ VSIMOPT_FAST = -voptargs="+acc -nowarn 1" -do "run -all; quit -f" testbench
 WAVE_FILE     = $(REPO_ROOT_DIR)/sim-wave-$(TEST)-$(shell date +%Y%m%d-%H%M%S).wlf
 VSIMOPT_WAVE  = -voptargs="+acc -nowarn 1" \
                 -wlf $(WAVE_FILE) \
-                -do "$(SIM_DIR)/wave.do" \
+                -do "$(SIM_DIR)/$(WAVE_DO)" \
                 testbench
 
 run-sim: select-test
