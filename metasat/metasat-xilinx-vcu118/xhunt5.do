@@ -18,10 +18,13 @@
 #   set TSCAN1 5900000 ;# freeze-scan window end
 #   set SCANSTEP 50000
 
-if {![info exists THANG]}   { set THANG   5900000 }
-if {![info exists TSCAN0]}  { set TSCAN0  1800000 }
-if {![info exists TSCAN1]}  { set TSCAN1  5900000 }
-if {![info exists SCANSTEP]}{ set SCANSTEP 50000 }
+# wave-eval.do logs the heavy pipeline only from 9 ms onward; upload ends
+# ~10.3 ms, stall ~10.5 ms. THANG sits deep in the established stall; the
+# freeze scan covers the logged 9..16 ms window.
+if {![info exists THANG]}   { set THANG   15000000 }
+if {![info exists TSCAN0]}  { set TSCAN0   9000000 }
+if {![info exists TSCAN1]}  { set TSCAN1  15900000 }
+if {![info exists SCANSTEP]}{ set SCANSTEP  50000 }
 
 set WRAP  {/testbench/soc/sys/gpusys/vortex/wrap}
 set CORE  ${WRAP}/vortex_axi/vortex/clusters\[0\]/cluster/sockets\[0\]/socket/cores\[0\]/core
