@@ -41,7 +41,9 @@ proc exa {t sig} {
 }
 proc hasx {v} { return [string match -nocase *x* $v] }
 proc pcbyte {v} {
-    if {[regexp {'h([0-9a-fA-F]+)} $v -> h]} { return [format 0x%08x [expr {0x$h * 2}]] }
+    if {[regexp {'h([0-9a-fA-F]+)} $v -> h]} {
+        if {[scan $h %x hh] == 1} { return [format 0x%08x [expr {$hh * 2}]] }
+    }
     return $v
 }
 
