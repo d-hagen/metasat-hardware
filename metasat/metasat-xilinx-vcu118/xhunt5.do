@@ -16,7 +16,7 @@
 if {![info exists THANG]}   { set THANG   now }       ;# "now" = current/end time
 if {![info exists TSCAN0]}  { set TSCAN0   8000000 }  ;# freeze-scan window (ns)
 if {![info exists TSCAN1]}  { set TSCAN1  40000000 }
-if {![info exists SCANSTEP]}{ set SCANSTEP  50000 }
+if {![info exists SCANSTEP]} { set SCANSTEP  50000 }
 
 set WRAP  {/testbench/soc/sys/gpusys/vortex/wrap}
 set CORE  ${WRAP}/vortex_axi/vortex/clusters\[0\]/cluster/sockets\[0\]/socket/cores\[0\]/core
