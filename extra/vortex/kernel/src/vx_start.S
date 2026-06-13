@@ -67,7 +67,15 @@ _start:
 .section .text
 .type _Exit, @function
 .global _Exit
+# newlib's exit() tail-calls lowercase _exit; without our own definition the
+# linker pulls newlib's default _exit (li a7,93; ecall; 1: j 1b) which never
+# deactivates the warp, so vx_busy stays high and the AFU never leaves
+# STATE_RUN (host vx_ready_wait spins forever). Alias _exit to this code so a
+# program that returns from main() terminates the GPU with tmc x0.
+.type _exit, @function
+.global _exit
 _Exit:
+_exit:
   call vx_perf_dump
   li t0, IO_MPM_EXITCODE
   sw a0, 0(t0)
