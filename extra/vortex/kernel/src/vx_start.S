@@ -67,7 +67,10 @@ _start:
 .section .text
 .type _Exit, @function
 .global _Exit
+.type _exit, @function
+.global _exit
 _Exit:
+_exit:
   call vx_perf_dump
   li t0, IO_MPM_EXITCODE
   sw a0, 0(t0)
