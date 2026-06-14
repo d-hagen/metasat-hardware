@@ -8,19 +8,6 @@
 #include <stdint.h>
 #include <vx_intrinsics.h>
 
-// SIMT-safe memset/memcpy. newlib's default versions use jalr jump tables
-// which Vortex cannot handle SIMT-divergently. These plain byte loops are
-// pulled in via -Wl,--wrap=memset,--wrap=memcpy at link time.
-extern "C" __attribute__((used)) void *__wrap_memcpy(void *d, const void *s, __SIZE_TYPE__ n) {
-    char *dp = (char *)d; const char *sp = (const char *)s;
-    while (n--) *dp++ = *sp++; return d;
-}
-extern "C" __attribute__((used)) void *__wrap_memset(void *s, int c, __SIZE_TYPE__ n) {
-    unsigned char *p = (unsigned char *)s;
-    while (n--) *p++ = (unsigned char)c;
-    return s;
-}
-
 int main() {
     vx_tmc_zero();
     __builtin_unreachable();

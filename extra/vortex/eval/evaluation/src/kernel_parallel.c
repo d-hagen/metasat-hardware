@@ -3,16 +3,6 @@
 #include <vx_intrinsics.h>
 #include <VX_types.h>
 
-extern "C" __attribute__((used)) void *__wrap_memcpy(void *d, const void *s, __SIZE_TYPE__ n) {
-    char *dp = (char *)d; const char *sp = (const char *)s;
-    while (n--) *dp++ = *sp++; return d;
-}
-extern "C" __attribute__((used)) void *__wrap_memset(void *s, int c, __SIZE_TYPE__ n) {
-    unsigned char *p = (unsigned char *)s;
-    while (n--) *p++ = (unsigned char)c;
-    return s;
-}
-
 static void __attribute__((noinline)) worker_stub(void) {
     vx_tmc(-1);
     uint64_t arg_addr;

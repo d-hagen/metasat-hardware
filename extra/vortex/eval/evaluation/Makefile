@@ -20,16 +20,6 @@ all:
 
 include ../common.mk
 
-# Override SIMT-unsafe newlib memset/memcpy. newlib_s memset/memcpy use jalr
-# Override SIMT-unsafe newlib memset/memcpy. newlib_s versions use jalr jump
-# tables for per-byte alignment which diverge across SIMT threads. The kernel
-# files (kernel_bare.c, kernel_nospawn.c, kernel_spawn1.c, kernel_parallel.c)
-# provide __wrap_memset / __wrap_memcpy as plain byte loops. _start_s BSS
-# clear uses single-thread mask so it would work either way, but __init_tls
-# (called with tmc(-1) widened to all 4 threads) tail-calls memset and memcpy,
-# so the wrap is required to keep __init_tls SIMT-safe.
-VX_LDFLAGS += -Wl,--wrap=memset,--wrap=memcpy
-
 vortex: $(TEST)-vortex
 
 vortex-light:
