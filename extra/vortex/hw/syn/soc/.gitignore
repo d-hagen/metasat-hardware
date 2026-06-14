@@ -1,4 +1,4 @@
-src/
+# src/, sources.txt, grlib/svlogsyn.txt are pre-generated on the VM and
+# committed to this repo so the sim machine does not need Verilator.
+# Only Verilator scratch (obj_dir/) stays ignored.
 obj_dir/
-grlib/svlogsyn.txt
-sources.txt
