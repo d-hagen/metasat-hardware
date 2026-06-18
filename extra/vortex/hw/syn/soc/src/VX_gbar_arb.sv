@@ -8,7 +8,7 @@ module VX_gbar_arb #(
     VX_gbar_bus_if.slave    bus_in_if [NUM_REQS],
     VX_gbar_bus_if.master   bus_out_if
 );
-    localparam REQ_DATAW = ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + ((($clog2(1)) != 0) ? ($clog2(1)) : 1) + ((($clog2(1)) != 0) ? ($clog2(1)) : 1);
+    localparam REQ_DATAW = ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + ((($clog2(2)) != 0) ? ($clog2(2)) : 1) + ((($clog2(2)) != 0) ? ($clog2(2)) : 1);
     wire [NUM_REQS-1:0]                req_valid_in;
     wire [NUM_REQS-1:0][REQ_DATAW-1:0] req_data_in;
     wire [NUM_REQS-1:0]                req_ready_in;

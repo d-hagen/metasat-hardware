@@ -11,7 +11,7 @@ module VX_cluster import VX_gpu_pkg::*; #(
     VX_mem_bus_if #(
         .DATA_SIZE (16),
         .TAG_WIDTH (L1_MEM_ARB_TAG_WIDTH)
-    ) per_socket_mem_bus_if[(((1 / (((4) < (1)) ? (4) : (1))) != 0) ? (1 / (((4) < (1)) ? (4) : (1))) : 1)]();
+    ) per_socket_mem_bus_if[(((2 / (((4) < (2)) ? (4) : (2))) != 0) ? (2 / (((4) < (2)) ? (4) : (2))) : 1)]();
     wire [1-1:0] l2_reset;                        
     VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __l2_reset ( 
         .clk     (clk),                         
@@ -22,7 +22,7 @@ module VX_cluster import VX_gpu_pkg::*; #(
         .INSTANCE_ID    ($sformatf("%s-l2cache", INSTANCE_ID)),
         .CACHE_SIZE     (1048576),
         .LINE_SIZE      (16),
-        .NUM_BANKS      ((((4) < ((((1 / (((4) < (1)) ? (4) : (1))) != 0) ? (1 / (((4) < (1)) ? (4) : (1))) : 1))) ? (4) : ((((1 / (((4) < (1)) ? (4) : (1))) != 0) ? (1 / (((4) < (1)) ? (4) : (1))) : 1)))),
+        .NUM_BANKS      ((((4) < ((((2 / (((4) < (2)) ? (4) : (2))) != 0) ? (2 / (((4) < (2)) ? (4) : (2))) : 1))) ? (4) : ((((2 / (((4) < (2)) ? (4) : (2))) != 0) ? (2 / (((4) < (2)) ? (4) : (2))) : 1)))),
         .NUM_WAYS       (2),
         .WORD_SIZE      (L2_WORD_SIZE),
         .NUM_REQS       (L2_NUM_REQS),
@@ -49,9 +49,9 @@ module VX_cluster import VX_gpu_pkg::*; #(
     assign socket_dcr_bus_tmp_if.write_valid = dcr_bus_if.write_valid && (dcr_bus_if.write_addr >= 12'h001 && dcr_bus_if.write_addr < 12'h006);
     assign socket_dcr_bus_tmp_if.write_addr  = dcr_bus_if.write_addr;
     assign socket_dcr_bus_tmp_if.write_data  = dcr_bus_if.write_data;
-    wire [(((1 / (((4) < (1)) ? (4) : (1))) != 0) ? (1 / (((4) < (1)) ? (4) : (1))) : 1)-1:0] per_socket_busy;
+    wire [(((2 / (((4) < (2)) ? (4) : (2))) != 0) ? (2 / (((4) < (2)) ? (4) : (2))) : 1)-1:0] per_socket_busy;
     VX_dcr_bus_if socket_dcr_bus_if();
-    if (((((1 / (((4) < (1)) ? (4) : (1))) != 0) ? (1 / (((4) < (1)) ? (4) : (1))) : 1) > 1)) begin 
+    if (((((2 / (((4) < (2)) ? (4) : (2))) != 0) ? (2 / (((4) < (2)) ? (4) : (2))) : 1) > 1)) begin 
         reg [(1 + 12 + 32)-1:0] __dst; 
         always @(posedge clk) begin 
             __dst <= {socket_dcr_bus_tmp_if.write_valid, socket_dcr_bus_tmp_if.write_addr, socket_dcr_bus_tmp_if.write_data}; 
@@ -60,7 +60,7 @@ module VX_cluster import VX_gpu_pkg::*; #(
     end else begin 
         assign {socket_dcr_bus_if.write_valid, socket_dcr_bus_if.write_addr, socket_dcr_bus_if.write_data} = {socket_dcr_bus_tmp_if.write_valid, socket_dcr_bus_tmp_if.write_addr, socket_dcr_bus_tmp_if.write_data}; 
     end;
-    for (genvar socket_id = 0; socket_id < (((1 / (((4) < (1)) ? (4) : (1))) != 0) ? (1 / (((4) < (1)) ? (4) : (1))) : 1); ++socket_id) begin : sockets
+    for (genvar socket_id = 0; socket_id < (((2 / (((4) < (2)) ? (4) : (2))) != 0) ? (2 / (((4) < (2)) ? (4) : (2))) : 1); ++socket_id) begin : sockets
     wire [1-1:0] socket_reset;                        
     VX_reset_relay #(.N(1), .MAX_FANOUT(0)) __socket_reset ( 
         .clk     (clk),                         
@@ -68,7 +68,7 @@ module VX_cluster import VX_gpu_pkg::*; #(
         .reset_o (socket_reset)                          
     );
         VX_socket #(
-            .SOCKET_ID ((CLUSTER_ID * (((1 / (((4) < (1)) ? (4) : (1))) != 0) ? (1 / (((4) < (1)) ? (4) : (1))) : 1)) + socket_id),
+            .SOCKET_ID ((CLUSTER_ID * (((2 / (((4) < (2)) ? (4) : (2))) != 0) ? (2 / (((4) < (2)) ? (4) : (2))) : 1)) + socket_id),
             .INSTANCE_ID ($sformatf("%s-socket%0d", INSTANCE_ID, socket_id))
         ) socket (
             .clk            (clk),
@@ -81,7 +81,7 @@ module VX_cluster import VX_gpu_pkg::*; #(
     VX_pipe_register #( 
         .DATAW  ($bits(busy)), 
         .RESETW ($bits(busy)), 
-        .DEPTH  (((((1 / (((4) < (1)) ? (4) : (1))) != 0) ? (1 / (((4) < (1)) ? (4) : (1))) : 1) > 1)) 
+        .DEPTH  (((((2 / (((4) < (2)) ? (4) : (2))) != 0) ? (2 / (((4) < (2)) ? (4) : (2))) : 1) > 1)) 
     ) __busy__ ( 
         .clk      (clk), 
         .reset    (reset), 
