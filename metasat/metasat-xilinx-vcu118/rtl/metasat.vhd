@@ -209,6 +209,19 @@ architecture rtl of metasat is
   -- pragma translate_off
   signal mem_aximo_sim  : axi_mosi_type;
   signal gpu_aximo_sim  : axi_mosi_type;
+  -- [ID-WIDTH TEST] number of low AXI-ID bits the simulated downstream
+  -- carries on the GPU mem port. 32 = no truncation (baseline, current sim
+  -- behaviour). Set to the FPGA MIG/interconnect real ID width (e.g. 4) to
+  -- emulate ID truncation and see whether it reproduces the NUM_CORES>=2 hang.
+  constant GPU_ID_BITS : integer := 32;
+  function trunc_id(v: std_logic_vector; nbits: integer) return std_logic_vector is
+    variable r : std_logic_vector(v'high downto 0) := (others => '0');
+  begin
+    for i in 0 to nbits-1 loop
+      r(i) := v(i);
+    end loop;
+    return r;
+  end function;
   -- pragma translate_on
   signal mem_ahbsi0     : ahb_slv_in_type;
   signal mem_ahbso0     : ahb_slv_out_type;
@@ -739,7 +752,7 @@ begin
                  axisi => gpu_aximo_sim,
                  axiso => gpu_mem_aximi);
 
-      gpu_aximo_sim.aw <= (id => gpu_mem_aximo.aw.id, 
+      gpu_aximo_sim.aw <= (id => trunc_id(gpu_mem_aximo.aw.id, GPU_ID_BITS),
                           addr => gpu_mem_aximo.aw.addr,
                           len => gpu_mem_aximo.aw.len(3 downto 0),
                           size => gpu_mem_aximo.aw.size,
@@ -748,13 +761,13 @@ begin
                           cache => gpu_mem_aximo.aw.cache,
                           prot => gpu_mem_aximo.aw.prot,
                           valid => gpu_mem_aximo.aw.valid);
-      gpu_aximo_sim.w <= (id => gpu_mem_aximo.aw.id,
+      gpu_aximo_sim.w <= (id => trunc_id(gpu_mem_aximo.aw.id, GPU_ID_BITS),
                          data => gpu_mem_aximo.w.data,
                          strb => gpu_mem_aximo.w.strb,
                          last => gpu_mem_aximo.w.last,
                          valid => gpu_mem_aximo.w.valid);
       gpu_aximo_sim.b <= gpu_mem_aximo.b;
-      gpu_aximo_sim.ar <= (id => gpu_mem_aximo.ar.id, 
+      gpu_aximo_sim.ar <= (id => trunc_id(gpu_mem_aximo.ar.id, GPU_ID_BITS),
                           addr => gpu_mem_aximo.ar.addr,
                           len => gpu_mem_aximo.ar.len(3 downto 0),
                           size => gpu_mem_aximo.ar.size,
@@ -764,6 +777,32 @@ begin
                           prot => gpu_mem_aximo.ar.prot,
                           valid => gpu_mem_aximo.ar.valid);
       gpu_aximo_sim.r <= gpu_mem_aximo.r;
+
+      -- [ID-WIDTH TEST] Monitor the ACTUAL (untruncated) AXI IDs the GPU
+      -- emits on its mem port. Accumulates the OR of all AR/AW ids and
+      -- reports whenever a new bit is used. The highest set bit shows how
+      -- many ID bits the GPU needs; if that exceeds the FPGA MIG ID width,
+      -- truncation would alias requests across cores. Compare 1-core vs
+      -- 2-core runs: more cores should light up higher ID bits.
+      gpu_id_mon : process(clkm)
+        variable ar_seen : std_logic_vector(AXI_ID_WIDTH-1 downto 0) := (others => '0');
+        variable aw_seen : std_logic_vector(AXI_ID_WIDTH-1 downto 0) := (others => '0');
+      begin
+        if rising_edge(clkm) then
+          if (gpu_mem_aximo.ar.valid and gpu_mem_aximi.ar.ready) = '1' then
+            if (ar_seen or gpu_mem_aximo.ar.id) /= ar_seen then
+              ar_seen := ar_seen or gpu_mem_aximo.ar.id;
+              report "GPUIDMON AR ids-seen(OR)=" & tost(ar_seen);
+            end if;
+          end if;
+          if (gpu_mem_aximo.aw.valid and gpu_mem_aximi.aw.ready) = '1' then
+            if (aw_seen or gpu_mem_aximo.aw.id) /= aw_seen then
+              aw_seen := aw_seen or gpu_mem_aximo.aw.id;
+              report "GPUIDMON AW ids-seen(OR)=" & tost(aw_seen);
+            end if;
+          end if;
+        end if;
+      end process;
     end generate gpu_mem_gen;
   end generate sim_mem_gen;
   -- pragma translate_on
