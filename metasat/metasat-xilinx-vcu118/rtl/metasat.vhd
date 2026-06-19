@@ -209,6 +209,9 @@ architecture rtl of metasat is
   -- pragma translate_off
   signal mem_aximo_sim  : axi_mosi_type;
   signal gpu_aximo_sim  : axi_mosi_type;
+  signal gpu_wr_awdone  : std_ulogic := '0';
+  signal gpu_wr_wdone   : std_ulogic := '0';
+  signal gpu_wr_id      : std_logic_vector(AXI_ID_WIDTH-1 downto 0) := (others => '0');
   -- pragma translate_on
   signal mem_ahbsi0     : ahb_slv_in_type;
   signal mem_ahbso0     : ahb_slv_out_type;
@@ -739,7 +742,33 @@ begin
                  axisi => gpu_aximo_sim,
                  axiso => gpu_mem_aximi);
 
-      gpu_aximo_sim.aw <= (id => gpu_mem_aximo.aw.id, 
+      -- [gpu_wr_id glue] aximem matches W beats to AW entries by ID and Vortex
+      -- tags overlapping write-through stores with the same AXI ID, which
+      -- corrupts aximem's write queue (e.g. a partial sub-line store to a line
+      -- already written is lost). Stamp each write with a unique local ID;
+      -- Vortex ignores the B-channel ID so this is transparent.
+      gpu_wr_id_gen : process(clkm)
+      begin
+        if rising_edge(clkm) then
+          if gpu_rstn = '0' then
+            gpu_wr_awdone <= '0';
+            gpu_wr_wdone  <= '0';
+            gpu_wr_id     <= (others => '0');
+          else
+            if ((gpu_wr_awdone or (gpu_aximo_sim.aw.valid and gpu_mem_aximi.aw.ready))
+            and (gpu_wr_wdone  or (gpu_aximo_sim.w.valid  and gpu_mem_aximi.w.ready))) = '1' then
+              gpu_wr_awdone <= '0';
+              gpu_wr_wdone  <= '0';
+              gpu_wr_id     <= gpu_wr_id + 1;
+            else
+              gpu_wr_awdone <= gpu_wr_awdone or (gpu_aximo_sim.aw.valid and gpu_mem_aximi.aw.ready);
+              gpu_wr_wdone  <= gpu_wr_wdone  or (gpu_aximo_sim.w.valid  and gpu_mem_aximi.w.ready);
+            end if;
+          end if;
+        end if;
+      end process;
+
+      gpu_aximo_sim.aw <= (id => gpu_wr_id,
                           addr => gpu_mem_aximo.aw.addr,
                           len => gpu_mem_aximo.aw.len(3 downto 0),
                           size => gpu_mem_aximo.aw.size,
@@ -748,7 +777,7 @@ begin
                           cache => gpu_mem_aximo.aw.cache,
                           prot => gpu_mem_aximo.aw.prot,
                           valid => gpu_mem_aximo.aw.valid);
-      gpu_aximo_sim.w <= (id => gpu_mem_aximo.aw.id,
+      gpu_aximo_sim.w <= (id => gpu_wr_id,
                          data => gpu_mem_aximo.w.data,
                          strb => gpu_mem_aximo.w.strb,
                          last => gpu_mem_aximo.w.last,
