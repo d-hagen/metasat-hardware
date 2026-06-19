@@ -160,6 +160,9 @@ else ifeq ($(TEST),evaluation)
 else ifeq ($(TEST),evaluation-light)
 	@echo "=== Selecting evaluation-light test (vx_spawn_threads library, SIZE=16) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-light.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),evaluation-s15)
+	@echo "=== Selecting evaluation-s15 test (vx_spawn_threads, SIZE=15, non-multiple-of-4 -> spawn remainder path) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-s15.srec $(SIM_DIR)/ram.srec
 else
 	@echo "ERROR: Unknown TEST=$(TEST)."
 	@echo "  memory | memory-light | bare | nospawn | spawn1 | parallel | parallel-light | evaluation | evaluation-light"
