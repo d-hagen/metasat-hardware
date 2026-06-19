@@ -35,9 +35,11 @@ log -r ${CORE}/execute/lsu_unit/*
 log -r ${CORE}/execute/sfu_unit/*
 log -r ${CORE}/commit/*
 
-log /testbench/soc/gpu_aximo_sim
-log /testbench/soc/gpu_mem_aximi
-log /testbench/soc/gpu_mem_aximo
+# -r is required: logging a VHDL record without it captures only the composite
+# handle, and -view examine of the sub-fields (.aw.id, .w.strb, ...) then fails.
+log -r /testbench/soc/gpu_aximo_sim
+log -r /testbench/soc/gpu_mem_aximi
+log -r /testbench/soc/gpu_mem_aximo
 
 # size-15 compute is microseconds; 3 ms past vx_busy is ample.
 run 3000 us
