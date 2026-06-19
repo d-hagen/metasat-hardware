@@ -60,9 +60,9 @@ architecture sim of axixmem is
   constant axi_somi_idle : axi_somi_type := (
     aw => (ready => '0'),
     w => (ready => '0'),
-    b => (id => "0000", resp => "00", valid => '0'),
+    b => (id => (others => '0'), resp => "00", valid => '0'),
     ar => (ready => '0'),
-    r => (id => "0000", data => (others => '0'), resp => "00", last => '0', valid => '0')
+    r => (id => (others => '0'), data => (others => '0'), resp => "00", last => '0', valid => '0')
     );
 
   signal rbin: ramback_in_array(1 to 1) := (others => ramback_in_none);
@@ -74,7 +74,7 @@ architecture sim of axixmem is
   
   type rwq_entry is record
     valid: boolean;
-    id: std_logic_vector(3 downto 0);
+    id: std_logic_vector(AXI_ID_WIDTH-1 downto 0);
     addr: std_logic_vector(31 downto 0);
     len: std_logic_vector(7 downto 0);
     size: std_logic_vector(2 downto 0);
@@ -85,7 +85,7 @@ architecture sim of axixmem is
 
   type wdataq_entry is record
     valid: boolean;
-    id: std_logic_vector(3 downto 0);
+    id: std_logic_vector(AXI_ID_WIDTH-1 downto 0);
     data: std_logic_vector(axibits-1 downto 0);
     strb: std_logic_vector(axibits/8-1 downto 0);
   end record;
