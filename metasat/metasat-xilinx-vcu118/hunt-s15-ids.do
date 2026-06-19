@@ -3,12 +3,15 @@
 # Confirms the aximem by-ID write-matching collision that drops the size-15
 # remainder store, using the WLF already captured by wave-s15.do.
 #
-# Usage (batch, like the xhunt scripts):
-#   vsim -c -view <sim-wave-evaluation-s15-*.wlf> \
-#        -do "do hunt-s15-ids.do; quit -f" | tee hunt-s15-ids.log
+# Usage (batch -- script writes the log AND self-quits; single-token -do so it
+# survives ssh/quote collapse). Run from the repo root or the sim dir; pass the
+# .do path that matches your cwd:
+#   vsim -c -view <sim-wave-evaluation-s15-*.wlf> -do hunt-s15-ids.do
 #
-# Or interactively in the GUI (it writes the log file itself either way):
-#   vsim -view <wlf>     then     do hunt-s15-ids.do
+# Or interactively in an already-open GUI (writes the log file either way):
+#   do hunt-s15-ids.do
+#
+# Output: hunt-s15-ids.log in vsim's launch directory.
 #
 # What to look for in the output:
 #   * The W beat with strb=0x7000 (the dest[12..14] remainder store, addr
@@ -73,3 +76,8 @@ for {set t $T0} {$t <= $T1} {incr t $STEP} {
 say {=== done. The strb=0x7000 W beat is dest[12..14]; check its id vs the AW ids to 0x60007540 / 0xfffefff0. ===}
 close $LOGF
 echo "hunt-s15-ids: wrote [file join [pwd] hunt-s15-ids.log]"
+
+# Self-quit only in batch (-c) mode, so a single-token "-do hunt-s15-ids.do"
+# works without an embedded "; quit -f" (which collapses under ssh quoting).
+# In the GUI this is a no-op so the dataset stays open for browsing.
+if {![catch {batch_mode} _bm] && $_bm} { quit -f }
