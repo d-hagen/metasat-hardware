@@ -23,6 +23,9 @@ while {1} {
     if {$tcap >= 60000} { echo "wave-s15: vx_busy never asserted by 60ms"; break }
     run 500 us
     set tcap [expr {$tcap + 500}]
+    # progress heartbeat: if this number keeps climbing the sim is advancing
+    # (just slow); if it freezes at one value the sim is genuinely hung.
+    echo "wave-s15:   fast-forward t=${tcap}us  vx_busy=$v"
 }
 echo "wave-s15: vx_busy asserted after ${tcap} us -- logging compute window"
 
