@@ -41,6 +41,16 @@ log -r /testbench/soc/gpu_aximo_sim
 log -r /testbench/soc/gpu_mem_aximi
 log -r /testbench/soc/gpu_mem_aximo
 
-# size-15 compute is microseconds; 3 ms past vx_busy is ample.
-run 3000 us
+# Run until the GPU finishes (vx_busy deasserts), then a short margin for the
+# CPU readback + "Test passed/failed" print, then quit. A fixed "run 3000 us"
+# kept simulating ~3 ms of *idle* SoC after the test had already finished,
+# which (with full logging) looks frozen for minutes. This stops right after.
+set tdone 0
+while {[regexp {1$} [examine $VXBUSY]]} {
+    if {$tdone >= 5000} { echo "wave-s15: vx_busy still high after 5ms compute -- stopping"; break }
+    run 100 us
+    set tdone [expr {$tdone + 100}]
+}
+echo "wave-s15: vx_busy deasserted after ${tdone} us of compute; +200us margin then quit"
+run 200 us
 quit -f
