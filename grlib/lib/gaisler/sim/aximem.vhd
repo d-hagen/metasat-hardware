@@ -194,7 +194,11 @@ begin
     -- Advance write data
     if wdq(0).valid then
       i := 0;
-      while wq(i).valid and wq(i).id /= wdq(0).id loop i:=i+1; end loop;
+      -- Match W-data to the oldest AW still awaiting data (AXI4 mandates W
+      -- beats in AW order), instead of by AXI ID. The ID match is an AXI3-ism
+      -- that mis-routes / drops W beats when masters (e.g. Vortex) reuse IDs
+      -- across outstanding writes to different addresses.
+      while wq(i).valid and wq(i).done loop i:=i+1; end loop;
       if wq(i).valid then
         assert not wq(i).done;
         vaddr := (others => '0');
