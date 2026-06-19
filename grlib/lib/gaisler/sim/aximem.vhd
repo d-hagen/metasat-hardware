@@ -194,18 +194,9 @@ begin
     -- Advance write data
     if wdq(0).valid then
       i := 0;
-      -- Match W-data to the oldest AW still awaiting data (AXI4 mandates W
-      -- beats in AW order), instead of by AXI ID. The ID match is an AXI3-ism
-      -- that mis-routes / drops W beats when masters (e.g. Vortex) reuse IDs
-      -- across outstanding writes to different addresses.
-      while wq(i).valid and wq(i).done loop i:=i+1; end loop;
+      while wq(i).valid and wq(i).id /= wdq(0).id loop i:=i+1; end loop;
       if wq(i).valid then
         assert not wq(i).done;
-        -- [diag] which AW each W beat is matched to, to catch mis-routes/drops
-        if now > 9 ms then
-          report "AXIMEM[" & fname & "] Wmatch strb=" & tost(wdq(0).strb)
-               & " -> AWaddr=" & tost(wq(i).addr) & " qpos=" & tost(i);
-        end if;
         vaddr := (others => '0');
         vaddr(31-log2(axibits/8) downto 0) := wq(i).addr(31 downto log2(axibits/8));
         vwr := (others => '0');
