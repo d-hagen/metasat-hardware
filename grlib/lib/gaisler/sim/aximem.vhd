@@ -201,6 +201,11 @@ begin
       while wq(i).valid and wq(i).done loop i:=i+1; end loop;
       if wq(i).valid then
         assert not wq(i).done;
+        -- [diag] which AW each W beat is matched to, to catch mis-routes/drops
+        if now > 9 ms then
+          report "AXIMEM[" & fname & "] Wmatch strb=" & tost(wdq(0).strb)
+               & " -> AWaddr=" & tost(wq(i).addr) & " qpos=" & tost(i);
+        end if;
         vaddr := (others => '0');
         vaddr(31-log2(axibits/8) downto 0) := wq(i).addr(31 downto log2(axibits/8));
         vwr := (others => '0');
