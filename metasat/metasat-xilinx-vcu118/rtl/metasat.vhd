@@ -764,6 +764,26 @@ begin
                           prot => gpu_mem_aximo.ar.prot,
                           valid => gpu_mem_aximo.ar.valid);
       gpu_aximo_sim.r <= gpu_mem_aximo.r;
+
+      -- [GPU-WRITE PROBE] Report every GPU memory-port write after 9 ms
+      -- (post-upload, i.e. GPU boot+compute). For the size-15 eval the kernel
+      -- stores dest[i]=src[i]*2 = 0,2,..,28; the remainder warp should write
+      -- dest[12..14] = 24,26,28 (0x18,0x1a,0x1c). If those values/strobes
+      -- never appear, the partial-warp remainder store is not issued/landing.
+      gpu_wr_probe : process(clkm)
+        variable last_aw : std_logic_vector(gpu_mem_aximo.aw.addr'range) := (others => '0');
+      begin
+        if rising_edge(clkm) then
+          if (gpu_mem_aximo.aw.valid and gpu_mem_aximi.aw.ready) = '1' then
+            last_aw := gpu_mem_aximo.aw.addr;
+          end if;
+          if (now > 9 ms) and ((gpu_mem_aximo.w.valid and gpu_mem_aximi.w.ready) = '1') then
+            report "GPUWR addr=" & tost(last_aw)
+                 & " strb=" & tost(gpu_mem_aximo.w.strb)
+                 & " data=" & tost(gpu_mem_aximo.w.data);
+          end if;
+        end if;
+      end process;
     end generate gpu_mem_gen;
   end generate sim_mem_gen;
   -- pragma translate_on
