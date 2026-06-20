@@ -38,22 +38,30 @@ log -r ${CORE}/execute/lsu_unit/*
 log -r ${CORE}/execute/sfu_unit/*
 log -r ${CORE}/commit/*
 
-# -r is required: logging a VHDL record without it captures only the composite
-# handle, and -view examine of the sub-fields (.aw.id, .w.strb, ...) then fails.
+# Capture the ENTIRE memory data path the dest value can travel through -- but
+# NOT the giant GPU/CPU compute internals (those would balloon the WLF and make
+# the logged window crawl for zero benefit; we already proved the GPU emits the
+# right data at its port). -r is required so -view can examine record sub-fields.
+#
+#   sim_mem_gen : BOTH sim memories -- gpu_axiram (GPU) + mig_axiram (CPU) --
+#                 incl. rbin (writes INTO the backing store: addr/wr/din),
+#                 rbout (reads OUT: addr/dout), and aximem's wq/wdq match queues.
+#   *_mem_aximo/i + *_sim : the GPU and CPU AXI ports (incl. the read-back path).
+#
+# Read-out: rbin.wr=0x7000 + din bytes 12-14 = 18/1a/1c at the dest line means
+# the remainder store landed in memory; rbout.dout byte 12 on the read-back tells
+# whether the read sees it (0x18) or not (UU/00) -> splits write- vs read-side.
+log -r /testbench/soc/sim_mem_gen
 log -r /testbench/soc/gpu_aximo_sim
 log -r /testbench/soc/gpu_mem_aximi
 log -r /testbench/soc/gpu_mem_aximo
+log -r /testbench/soc/cpu_mem_aximo
+log -r /testbench/soc/cpu_mem_aximi
+log -r /testbench/soc/mem_aximo_sim
 
-# DECISIVE: the GPU memory model internals. rbin = what aximem writes INTO the
-# ramback backing store (addr/wr-strobe/din); rbout = what ramback RETURNS on a
-# read (addr/dout). This shows whether the dest[12..14] store (strb 0x7000)
-# actually lands (rbin.wr=0x7000 + rbin.din bytes 12-14 = 18/1a/1c) and what the
-# read-back of 0x60008040 returns (rbout.dout byte 12 = 0x18 -> landed, else not).
-# Also captures aximem's wq/wdq so we can see the W-to-AW match. No RTL change.
-set rbpath /testbench/soc/sim_mem_gen/gpu_mem_gen/gpu_axiram
-if {[catch {find signals ${rbpath}/*} rbsigs]} { set rbsigs {} }
-echo "wave-s15: gpu_axiram resolves to [llength $rbsigs] signals (must be >0; if 0, tell me -- the path is wrong and the run won't capture rbin/rbout)"
-log -r ${rbpath}/*
+set rbsigs {}
+catch {set rbsigs [find signals /testbench/soc/sim_mem_gen/gpu_mem_gen/gpu_axiram/*]}
+echo "wave-s15: gpu_axiram resolves to [llength $rbsigs] signals (must be >0; if 0, tell me -- the path is wrong and rbin/rbout won't be captured)"
 
 # Run until the GPU finishes (vx_busy deasserts), then a short margin for the
 # CPU readback + "Test passed/failed" print, then quit. A fixed "run 3000 us"
@@ -64,6 +72,7 @@ while {[regexp {1$} [examine $VXBUSY]]} {
     if {$tdone >= 5000} { echo "wave-s15: vx_busy still high after 5ms compute -- stopping"; break }
     run 100 us
     set tdone [expr {$tdone + 100}]
+    echo "wave-s15:   compute (logging) t=+${tdone}us  vx_busy=high"
 }
 echo "wave-s15: vx_busy deasserted after ${tdone} us of compute; +200us margin then quit"
 run 200 us
