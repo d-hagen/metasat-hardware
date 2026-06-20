@@ -44,6 +44,17 @@ log -r /testbench/soc/gpu_aximo_sim
 log -r /testbench/soc/gpu_mem_aximi
 log -r /testbench/soc/gpu_mem_aximo
 
+# DECISIVE: the GPU memory model internals. rbin = what aximem writes INTO the
+# ramback backing store (addr/wr-strobe/din); rbout = what ramback RETURNS on a
+# read (addr/dout). This shows whether the dest[12..14] store (strb 0x7000)
+# actually lands (rbin.wr=0x7000 + rbin.din bytes 12-14 = 18/1a/1c) and what the
+# read-back of 0x60008040 returns (rbout.dout byte 12 = 0x18 -> landed, else not).
+# Also captures aximem's wq/wdq so we can see the W-to-AW match. No RTL change.
+set rbpath /testbench/soc/sim_mem_gen/gpu_mem_gen/gpu_axiram
+if {[catch {find signals ${rbpath}/*} rbsigs]} { set rbsigs {} }
+echo "wave-s15: gpu_axiram resolves to [llength $rbsigs] signals (must be >0; if 0, tell me -- the path is wrong and the run won't capture rbin/rbout)"
+log -r ${rbpath}/*
+
 # Run until the GPU finishes (vx_busy deasserts), then a short margin for the
 # CPU readback + "Test passed/failed" print, then quit. A fixed "run 3000 us"
 # kept simulating ~3 ms of *idle* SoC after the test had already finished,
