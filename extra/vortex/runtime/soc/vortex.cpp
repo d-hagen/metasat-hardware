@@ -164,12 +164,14 @@ class vx_device {
             return 0;
 
         }
-        int upload(uint64_t dev_addr, uint32_t* host_ptr, uint64_t asize) {    
+        int upload(uint64_t dev_addr, uint32_t* host_ptr, uint64_t asize) {
             // ensure ready for new command
             if (vx_ready_wait((vx_device_h) this, VX_MAX_TIMEOUT) != 0)
                 return -1;
-            
-            for (uint64_t i = 0; i < asize/MEM_TRANSF_WIDTH; ++i)
+
+            uint64_t full = asize / MEM_TRANSF_WIDTH;
+            uint64_t rem  = asize % MEM_TRANSF_WIDTH;
+            for (uint64_t i = 0; i < full; ++i)
             {
                 uint64_t value = host_ptr[i];
                 CHECK_ERR(write_register(MMIO_CMD_DATA, (uint32_t) value), {return -1;});
@@ -181,15 +183,29 @@ class vx_device {
                     return -1;
 
             }
+            if (rem != 0) {
+                uint64_t off = full * MEM_TRANSF_WIDTH;
+                uint32_t value = 0;
+                const uint8_t* hb = (const uint8_t*)host_ptr + off;
+                for (uint64_t b = 0; b < rem; ++b) ((uint8_t*)&value)[b] = hb[b];
+                CHECK_ERR(write_register(MMIO_CMD_DATA, value), {return -1;});
+                CHECK_ERR(write_register(MMIO_CMD_ADDR, (uint32_t) dev_addr+off), {return -1;});
+                CHECK_ERR(write_register(MMIO_CMD_SIZE, MEM_TRANSF_WIDTH), {return -1;});
+                CHECK_ERR(write_register(MMIO_CMD_TYPE, CMD_MEM_WRITE), {return -1;});
+                if (vx_ready_wait((vx_device_h) this, VX_MAX_TIMEOUT) != 0)
+                    return -1;
+            }
             return 0;
         }
 
-        int download(uint32_t* host_ptr, uint64_t dev_addr, uint64_t asize) {    
+        int download(uint32_t* host_ptr, uint64_t dev_addr, uint64_t asize) {
             // ensure ready for new command
             if (vx_ready_wait((vx_device_h) this, VX_MAX_TIMEOUT) != 0)
                 return -1;
-            
-            for (uint64_t i = 0; i < asize/MEM_TRANSF_WIDTH; ++i)
+
+            uint64_t full = asize / MEM_TRANSF_WIDTH;
+            uint64_t rem  = asize % MEM_TRANSF_WIDTH;
+            for (uint64_t i = 0; i < full; ++i)
             {
                 uint64_t value;
                 CHECK_ERR(write_register(MMIO_CMD_ADDR, (uint32_t) dev_addr+i*MEM_TRANSF_WIDTH), {return -1;});
@@ -201,6 +217,18 @@ class vx_device {
 
                 CHECK_ERR(read_register(MMIO_DATA_READ, &value), {return -1;});
                 host_ptr[i] = value;
+            }
+            if (rem != 0) {
+                uint64_t off = full * MEM_TRANSF_WIDTH;
+                uint64_t value;
+                CHECK_ERR(write_register(MMIO_CMD_ADDR, (uint32_t) dev_addr+off), {return -1;});
+                CHECK_ERR(write_register(MMIO_CMD_SIZE, MEM_TRANSF_WIDTH), {return -1;});
+                CHECK_ERR(write_register(MMIO_CMD_TYPE, CMD_MEM_READ), {return -1;});
+                if (vx_ready_wait((vx_device_h) this, VX_MAX_TIMEOUT) != 0)
+                    return -1;
+                CHECK_ERR(read_register(MMIO_DATA_READ, &value), {return -1;});
+                uint8_t* hb = (uint8_t*)host_ptr + off;
+                for (uint64_t b = 0; b < rem; ++b) hb[b] = ((const uint8_t*)&value)[b];
             }
             return 0;
         }
