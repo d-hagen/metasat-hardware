@@ -166,6 +166,9 @@ else ifeq ($(TEST),evaluation-s15)
 else ifeq ($(TEST),evaluation-s15-buggyspawn)
 	@echo "=== Selecting evaluation-s15-buggyspawn (A/B control: BUGGY spawn + copy fix; expected to FAIL at position 12) ==="
 	cp $(EVAL_DIR)/evaluation/gpu-evaluation-s15-buggyspawn.srec $(SIM_DIR)/ram.srec
+else ifeq ($(TEST),evaluation-s34)
+	@echo "=== Selecting evaluation-s34 test (SIZE=34, non-multiple-of-4: 2 remainder threads / 2 tail bytes; both fixes; expected to PASS) ==="
+	cp $(EVAL_DIR)/evaluation/gpu-evaluation-s34.srec $(SIM_DIR)/ram.srec
 else
 	@echo "ERROR: Unknown TEST=$(TEST)."
 	@echo "  memory | memory-light | bare | nospawn | spawn1 | parallel | parallel-light | evaluation | evaluation-light"
