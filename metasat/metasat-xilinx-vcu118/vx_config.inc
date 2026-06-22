@@ -1,6 +1,6 @@
     # Design configuration
     XLEN = 32
-    NUM_CORES = 2
+    NUM_CORES = 8
 
     # Extensions enabled
     EXT_F_EN = 0
