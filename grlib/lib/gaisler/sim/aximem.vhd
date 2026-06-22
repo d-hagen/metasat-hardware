@@ -193,10 +193,15 @@ begin
     end if;
     -- Advance write data
     if wdq(0).valid then
+      -- AXI4 (and any in-order AXI3 master): W bursts follow AW *acceptance order*,
+      -- not WID. The GPU port is AXI4 (no WID; the sim glue fabricates w.id from the
+      -- current aw.id) and can have several same-id AWs outstanding, so the old
+      -- by-id match mis-routed/dropped the W data (GPU stores vanished at >=64
+      -- lanes). Match the oldest not-yet-complete AW instead; bounded with
+      -- 'and then' so a W arriving before its AW cannot index past the queue.
       i := 0;
-      while wq(i).valid and wq(i).id /= wdq(0).id loop i:=i+1; end loop;
-      if wq(i).valid then
-        assert not wq(i).done;
+      while i < wq'high and then (wq(i).valid and wq(i).done) loop i:=i+1; end loop;
+      if wq(i).valid and not wq(i).done then
         vaddr := (others => '0');
         vaddr(31-log2(axibits/8) downto 0) := wq(i).addr(31 downto log2(axibits/8));
         vwr := (others => '0');
