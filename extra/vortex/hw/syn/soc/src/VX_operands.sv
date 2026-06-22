@@ -15,7 +15,7 @@ module VX_operands import VX_gpu_pkg::*; #(
     localparam BANK_SEL_BITS = $clog2(NUM_BANKS);
     localparam BANK_SEL_WIDTH = (((BANK_SEL_BITS) != 0) ? (BANK_SEL_BITS) : 1);
     localparam PER_BANK_REGS = 32 / NUM_BANKS;
-    localparam META_DATAW = ISSUE_WIS_W + 4 + (32-1) + 1 + $clog2((3 + 0)) + 4 + $bits(op_args_t) + $clog2(32) + 1;
+    localparam META_DATAW = ISSUE_WIS_W + 4 + (32-1) + 1 + $clog2((3 + 0)) + 4 + $bits(op_args_t) + $clog2(32) + 16;
     localparam REGS_DATAW = 32 * 4;
     localparam DATAW = META_DATAW + NUM_SRC_REGS * REGS_DATAW;
     localparam RAM_ADDRW = (((32 * PER_ISSUE_WARPS) > 1) ? $clog2(32 * PER_ISSUE_WARPS) : 1);

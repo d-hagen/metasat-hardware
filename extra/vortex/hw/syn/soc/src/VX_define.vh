@@ -52,7 +52,12 @@
 `ifndef NDEBUG
 `define UUID_WIDTH      44
 `else
-`define UUID_WIDTH      1
+// MetaSat fix: widen the release UUID from 1 to 16 so the per-uop memory tag is
+// unique across all in-flight reads at high compute-unit counts. With UUID=1 the
+// mem tag (VX_MEM_TAG_WIDTH=9) reused the AXI RID across non-coalesced per-lane
+// stack reads -> AXI4 mis-routed read responses -> wrong data (8c/4c/2c8t fail).
+// VX_MEM_TAG_WIDTH becomes ~24 bits, within the 32-bit SoC AXI id (AXI_ID_WIDTH).
+`define UUID_WIDTH      16
 `endif
 
 `define PC_BITS         (`XLEN-1)

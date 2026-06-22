@@ -16,10 +16,10 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
     localparam BATCH_COUNT  = (((4 / 8) != 0) ? (4 / 8) : 1) / BLOCK_SIZE;
     localparam BATCH_COUNT_W= (((BATCH_COUNT) > 1) ? $clog2(BATCH_COUNT) : 1);
     localparam ISSUE_W      = ((((((4 / 8) != 0) ? (4 / 8) : 1)) > 1) ? $clog2((((4 / 8) != 0) ? (4 / 8) : 1)) : 1);
-    localparam IN_DATAW     = 1 + ISSUE_WIS_W + 4 + 4 + $bits(op_args_t) + 1 + (32-1) + $clog2(32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (3 * 4 * 32);
-    localparam OUT_DATAW    = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + 4 + $bits(op_args_t) + 1 + (32-1) + $clog2(32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (3 * NUM_LANES * 32) + PID_WIDTH + 1 + 1;
+    localparam IN_DATAW     = 16 + ISSUE_WIS_W + 4 + 4 + $bits(op_args_t) + 1 + (32-1) + $clog2(32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (3 * 4 * 32);
+    localparam OUT_DATAW    = 16 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + 4 + $bits(op_args_t) + 1 + (32-1) + $clog2(32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (3 * NUM_LANES * 32) + PID_WIDTH + 1 + 1;
     localparam FANOUT_ENABLE= (4 > (MAX_FANOUT + MAX_FANOUT /2));
-    localparam DATA_TMASK_OFF = IN_DATAW - (1 + ISSUE_WIS_W + 4);
+    localparam DATA_TMASK_OFF = IN_DATAW - (16 + ISSUE_WIS_W + 4);
     localparam DATA_REGS_OFF = 0;
     wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0] dispatch_valid;
     wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0][IN_DATAW-1:0] dispatch_data;

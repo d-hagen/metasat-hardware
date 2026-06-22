@@ -11,7 +11,7 @@ module VX_fetch import VX_gpu_pkg::*; #(
     wire [ICACHE_ADDR_WIDTH-1:0] icache_req_addr;
     wire [ICACHE_TAG_WIDTH-1:0] icache_req_tag;
     wire icache_req_ready;
-    wire [1-1:0] rsp_uuid;
+    wire [16-1:0] rsp_uuid;
     wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] req_tag, rsp_tag;
     wire icache_req_fire = icache_req_valid && icache_req_ready;
     assign req_tag = schedule_if.data.wid;

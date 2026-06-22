@@ -10,13 +10,13 @@ module VX_lsu_slice import VX_gpu_pkg::*, VX_trace_pkg::*; #(
     localparam NUM_LANES    = 4;
     localparam PID_BITS     = $clog2(4 / NUM_LANES);
     localparam PID_WIDTH    = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam RSP_ARB_DATAW= 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
+    localparam RSP_ARB_DATAW= 16 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
     localparam LSUQ_SIZEW   = ((((2 * (4 / 4))) > 1) ? $clog2((2 * (4 / 4))) : 1);
     localparam REQ_ASHIFT   = $clog2(LSU_WORD_SIZE);
     localparam MEM_ASHIFT   = $clog2(16);
     localparam MEM_ADDRW    = 32 - MEM_ASHIFT;
     localparam TAG_ID_WIDTH = ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + (32-1) + 1 + $clog2(32) + 4 + (NUM_LANES * REQ_ASHIFT) + PID_WIDTH + LSUQ_SIZEW + 1;
-    localparam TAG_WIDTH = 1 + TAG_ID_WIDTH;
+    localparam TAG_WIDTH = 16 + TAG_ID_WIDTH;
     VX_commit_if #(
         .NUM_LANES (NUM_LANES)
     ) commit_rsp_if();
@@ -224,7 +224,7 @@ module VX_lsu_slice import VX_gpu_pkg::*, VX_trace_pkg::*; #(
         .TAG_WIDTH   (TAG_WIDTH),
         .CORE_QUEUE_SIZE ((2 * (4 / 4))),
         .MEM_QUEUE_SIZE (((((2 * (4 / 4))) > ((((4 * (32 / 8)) < (16)) ? (4 * (32 / 8)) : (16)) / (32 / 8))) ? ((2 * (4 / 4))) : ((((4 * (32 / 8)) < (16)) ? (4 * (32 / 8)) : (16)) / (32 / 8)))),
-        .UUID_WIDTH  (1),
+        .UUID_WIDTH  (16),
         .RSP_PARTIAL (1),
         .MEM_OUT_BUF (0),
         .CORE_OUT_BUF(0)
@@ -278,7 +278,7 @@ module VX_lsu_slice import VX_gpu_pkg::*, VX_trace_pkg::*; #(
     assign lsu_mem_rsp_data = lsu_mem_if.rsp_data.data;
     assign lsu_mem_rsp_tag = lsu_mem_if.rsp_data.tag;
     assign lsu_mem_if.rsp_ready = lsu_mem_rsp_ready;
-    wire [1-1:0] rsp_uuid;
+    wire [16-1:0] rsp_uuid;
     wire [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] rsp_wid;
     wire [(32-1)-1:0] rsp_pc;
     wire rsp_wb;
@@ -315,7 +315,7 @@ module VX_lsu_slice import VX_gpu_pkg::*, VX_trace_pkg::*; #(
         end
     end
     VX_elastic_buffer #(
-        .DATAW (1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + 1 + $clog2(32) + (NUM_LANES * 32) + PID_WIDTH + 1 + 1),
+        .DATAW (16 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + 1 + $clog2(32) + (NUM_LANES * 32) + PID_WIDTH + 1 + 1),
         .SIZE  (2)
     ) rsp_buf (
         .clk       (clk),
@@ -328,7 +328,7 @@ module VX_lsu_slice import VX_gpu_pkg::*, VX_trace_pkg::*; #(
         .ready_out (commit_rsp_if.ready)
     );
     VX_elastic_buffer #(
-        .DATAW (1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + PID_WIDTH + 1 + 1),
+        .DATAW (16 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + PID_WIDTH + 1 + 1),
         .SIZE  (2)
     ) no_rsp_buf (
         .clk       (clk),

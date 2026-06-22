@@ -130,7 +130,7 @@ module VX_lmem_unit import VX_gpu_pkg::*; #(
             .NUM_LANES    (4),
             .DATA_SIZE    (LSU_WORD_SIZE),
             .TAG_WIDTH    (LSU_TAG_WIDTH),
-            .TAG_SEL_BITS (LSU_TAG_WIDTH - 1),
+            .TAG_SEL_BITS (LSU_TAG_WIDTH - 16),
             .ARBITER      ("P"),
             .REQ_OUT_BUF  (3),
             .RSP_OUT_BUF  (0)
@@ -162,7 +162,7 @@ module VX_lmem_unit import VX_gpu_pkg::*; #(
         .NUM_BANKS  (4),
         .WORD_SIZE  (LSU_WORD_SIZE),
         .ADDR_WIDTH (LMEM_ADDR_WIDTH),
-        .UUID_WIDTH (1),
+        .UUID_WIDTH (16),
         .TAG_WIDTH  (LSU_TAG_WIDTH),
         .OUT_BUF    (3)
     ) local_mem (

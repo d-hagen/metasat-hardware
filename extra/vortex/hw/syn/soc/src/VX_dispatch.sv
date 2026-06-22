@@ -6,7 +6,7 @@ module VX_dispatch import VX_gpu_pkg::*; #(
     VX_operands_if.slave    operands_if,
     VX_dispatch_if.master   dispatch_if [(3 + 0)]
 );
-    localparam DATAW = 1 + ISSUE_WIS_W + 4 + (32-1) + 4 + $bits(op_args_t) + 1 + $clog2(32) + (3 * 4 * 32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1);
+    localparam DATAW = 16 + ISSUE_WIS_W + 4 + (32-1) + 4 + $bits(op_args_t) + 1 + $clog2(32) + (3 * 4 * 32) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1);
     wire [4-1:0][((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0] tids;
     for (genvar i = 0; i < 4; ++i) begin
         assign tids[i] = ((($clog2(4)) != 0) ? ($clog2(4)) : 1)'(i);

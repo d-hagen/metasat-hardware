@@ -182,7 +182,7 @@ module VX_core import VX_gpu_pkg::*; #(
                 .ADDR_WIDTH     (LSU_ADDR_WIDTH),
                 .ATYPE_WIDTH    ((2 + 1)),
                 .TAG_WIDTH      (LSU_TAG_WIDTH),
-                .UUID_WIDTH     (1),
+                .UUID_WIDTH     (16),
                 .QUEUE_SIZE     (((((2 * (4 / 4))) > ((((4 * (32 / 8)) < (16)) ? (4 * (32 / 8)) : (16)) / (32 / 8))) ? ((2 * (4 / 4))) : ((((4 * (32 / 8)) < (16)) ? (4 * (32 / 8)) : (16)) / (32 / 8))))
             ) mem_coalescer (
                 .clk   (clk),
@@ -238,7 +238,7 @@ module VX_core import VX_gpu_pkg::*; #(
             .NUM_LANES    (DCACHE_CHANNELS),
             .DATA_SIZE    (DCACHE_WORD_SIZE),
             .TAG_WIDTH    (DCACHE_TAG_WIDTH),
-            .TAG_SEL_BITS (DCACHE_TAG_WIDTH - 1),
+            .TAG_SEL_BITS (DCACHE_TAG_WIDTH - 16),
             .ARBITER      ("P"),
             .REQ_OUT_BUF  (0),
             .RSP_OUT_BUF  (0)

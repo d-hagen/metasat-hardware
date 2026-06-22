@@ -29,7 +29,7 @@ module VX_schedule import VX_gpu_pkg::*; #(
     wire [4-1:0] join_tmask;
     wire [(32-1)-1:0]     join_pc;
     reg [44-1:0] cycles;
-    reg [4-1:0][1-1:0] issued_instrs;
+    reg [4-1:0][16-1:0] issued_instrs;
     wire schedule_fire = schedule_valid && schedule_ready;
     wire schedule_if_fire = schedule_if.valid && schedule_if.ready;
     wire [(((4 / 8) != 0) ? (4 / 8) : 1)-1:0]                  branch_valid;
@@ -169,7 +169,7 @@ module VX_schedule import VX_gpu_pkg::*; #(
                 wspawn.valid <= 0;
             end
             if (schedule_if_fire) begin
-                issued_instrs[schedule_if.data.wid] <= issued_instrs[schedule_if.data.wid] + 1'(1);
+                issued_instrs[schedule_if.data.wid] <= issued_instrs[schedule_if.data.wid] + 16'(1);
             end
             if (busy) begin
                 cycles <= cycles + 1;
@@ -217,7 +217,7 @@ module VX_schedule import VX_gpu_pkg::*; #(
         schedule_data[schedule_wid][(4 + (32-1))-1:(4 + (32-1))-4],
         schedule_data[schedule_wid][(4 + (32-1))-5:0]
     };
-    wire [1-1:0] instr_uuid = '0;
+    wire [16-1:0] instr_uuid = '0;
     VX_elastic_buffer #(
         .DATAW (4 + (32-1) + ((($clog2(4)) != 0) ? ($clog2(4)) : 1))
     ) out_buf (

@@ -11,7 +11,7 @@ module VX_alu_unit #(
     localparam NUM_LANES    = 4;
     localparam PID_BITS     = $clog2(4 / NUM_LANES);
     localparam PID_WIDTH    = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam RSP_ARB_DATAW= 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
+    localparam RSP_ARB_DATAW= 16 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
     localparam RSP_ARB_SIZE = 1 + 1;
     localparam PARTIAL_BW   = (BLOCK_SIZE != (((4 / 8) != 0) ? (4 / 8) : 1)) || (NUM_LANES != 4);
     VX_execute_if #(

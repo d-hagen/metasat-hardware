@@ -6,7 +6,7 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
     VX_decode_if.slave  decode_if,
     VX_ibuffer_if.master ibuffer_if [PER_ISSUE_WARPS]
 );
-    localparam DATAW = 1 + 4 + (32-1) + 1 + $clog2((3 + 0)) + 4 + $bits(op_args_t) + ($clog2(32) * 4);
+    localparam DATAW = 16 + 4 + (32-1) + 1 + $clog2((3 + 0)) + 4 + $bits(op_args_t) + ($clog2(32) * 4);
     wire [PER_ISSUE_WARPS-1:0] ibuf_ready_in;
     assign decode_if.ready = ibuf_ready_in[decode_if.data.wid];
     for (genvar w = 0; w < PER_ISSUE_WARPS; ++w) begin

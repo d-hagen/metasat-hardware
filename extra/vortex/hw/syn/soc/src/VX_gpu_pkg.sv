@@ -96,13 +96,13 @@ package VX_gpu_pkg;
     localparam LSU_ADDR_WIDTH	    = (32 - $clog2(LSU_WORD_SIZE));
     localparam LSU_MEM_BATCHES      = 1;
     localparam LSU_TAG_ID_BITS      = ($clog2((2 * (4 / 4))) + $clog2(LSU_MEM_BATCHES));
-    localparam LSU_TAG_WIDTH        = (1 + LSU_TAG_ID_BITS);
+    localparam LSU_TAG_WIDTH        = (16 + LSU_TAG_ID_BITS);
     localparam LSU_NUM_REQS	        = 1 * 4;
     localparam ICACHE_WORD_SIZE	    = 4;
     localparam ICACHE_ADDR_WIDTH	= (32 - $clog2(ICACHE_WORD_SIZE));
     localparam ICACHE_LINE_SIZE	    = 16;
     localparam ICACHE_TAG_ID_BITS	= ((($clog2(4)) != 0) ? ($clog2(4)) : 1);
-    localparam ICACHE_TAG_WIDTH	    = (1 + ICACHE_TAG_ID_BITS);
+    localparam ICACHE_TAG_WIDTH	    = (16 + ICACHE_TAG_ID_BITS);
     localparam ICACHE_MEM_DATA_WIDTH = (ICACHE_LINE_SIZE * 8);
     localparam ICACHE_MEM_TAG_WIDTH = 
         (
@@ -115,7 +115,7 @@ package VX_gpu_pkg;
     localparam DCACHE_MERGED_REQS   = (4 * LSU_WORD_SIZE) / DCACHE_WORD_SIZE;
     localparam DCACHE_MEM_BATCHES   = ((DCACHE_MERGED_REQS + DCACHE_CHANNELS - 1) / (DCACHE_CHANNELS));
     localparam DCACHE_TAG_ID_BITS   = ($clog2(((((2 * (4 / 4))) > ((((4 * (32 / 8)) < (16)) ? (4 * (32 / 8)) : (16)) / (32 / 8))) ? ((2 * (4 / 4))) : ((((4 * (32 / 8)) < (16)) ? (4 * (32 / 8)) : (16)) / (32 / 8)))) + $clog2(DCACHE_MEM_BATCHES));
-    localparam DCACHE_TAG_WIDTH	    = (1 + DCACHE_TAG_ID_BITS);
+    localparam DCACHE_TAG_WIDTH	    = (16 + DCACHE_TAG_ID_BITS);
     localparam DCACHE_MEM_DATA_WIDTH = (DCACHE_LINE_SIZE * 8);
     localparam DCACHE_MEM_TAG_WIDTH = 
         (

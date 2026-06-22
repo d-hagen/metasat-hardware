@@ -8,7 +8,7 @@ module VX_commit import VX_gpu_pkg::*, VX_trace_pkg::*; #(
     VX_commit_csr_if.master commit_csr_if,
     VX_commit_sched_if.master commit_sched_if
 );
-    localparam DATAW = 1 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + 4 + (32-1) + 1 + $clog2(32) + 4 * 32 + 1 + 1 + 1;
+    localparam DATAW = 16 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + 4 + (32-1) + 1 + $clog2(32) + 4 * 32 + 1 + 1 + 1;
     localparam COMMIT_SIZEW = $clog2(4 + 1);
     localparam COMMIT_ALL_SIZEW = COMMIT_SIZEW + (((4 / 8) != 0) ? (4 / 8) : 1) - 1;
     VX_commit_if commit_arb_if[(((4 / 8) != 0) ? (4 / 8) : 1)]();

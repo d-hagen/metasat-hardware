@@ -34,7 +34,7 @@ module VX_cluster import VX_gpu_pkg::*; #(
         .WRITE_ENABLE   (1),
         .WRITEBACK      (0),
         .DIRTY_BYTES    (0),
-        .UUID_WIDTH     (1),
+        .UUID_WIDTH     (16),
         .CORE_OUT_BUF   (2),
         .MEM_OUT_BUF    (2),
         .NC_ENABLE      (1),
