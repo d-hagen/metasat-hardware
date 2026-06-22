@@ -333,11 +333,10 @@ module VX_schedule import VX_gpu_pkg::*; #(
         schedule_data[schedule_wid][(`NUM_THREADS + `PC_BITS)-5:0]
     };
 
-`ifndef NDEBUG
     localparam GNW_WIDTH = `LOG2UP(`NUM_CLUSTERS * `NUM_CORES * `NUM_WARPS);
-    reg [`UUID_WIDTH-1:0] instr_uuid;
     wire [GNW_WIDTH-1:0] g_wid = (GNW_WIDTH'(CORE_ID) << `NW_BITS) + GNW_WIDTH'(schedule_wid);
 `ifdef SV_DPI
+    reg [`UUID_WIDTH-1:0] instr_uuid;
     always @(posedge clk) begin
         if (reset) begin
             instr_uuid <= `UUID_WIDTH'(dpi_uuid_gen(1, 32'd0));
@@ -346,13 +345,13 @@ module VX_schedule import VX_gpu_pkg::*; #(
         end
     end
 `else
+    // MetaSat fix: generate a real {global_warp_id, pc} uuid in RELEASE too.
+    // Upstream hardwired instr_uuid='0 under NDEBUG, leaving the memory tag's UUID
+    // field zero, so transactions from different warps shared a tag -> AXI read
+    // responses mis-routed (RID aliasing) on concurrent non-coalesced per-lane
+    // stack reads -> wrong data at >=64 lanes. UUID_WIDTH must hold {g_wid,pc}.
     wire [GNW_WIDTH+16-1:0] w_uuid = {g_wid, 16'(schedule_pc)};
-    always @(*) begin
-        instr_uuid = `UUID_WIDTH'(w_uuid);
-    end
-`endif
-`else
-    wire [`UUID_WIDTH-1:0] instr_uuid = '0;
+    wire [`UUID_WIDTH-1:0] instr_uuid = `UUID_WIDTH'(w_uuid);
 `endif
 
     VX_elastic_buffer #(

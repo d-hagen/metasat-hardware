@@ -52,12 +52,12 @@
 `ifndef NDEBUG
 `define UUID_WIDTH      44
 `else
-// MetaSat fix: widen the release UUID from 1 to 16 so the per-uop memory tag is
-// unique across all in-flight reads at high compute-unit counts. With UUID=1 the
-// mem tag (VX_MEM_TAG_WIDTH=9) reused the AXI RID across non-coalesced per-lane
-// stack reads -> AXI4 mis-routed read responses -> wrong data (8c/4c/2c8t fail).
-// VX_MEM_TAG_WIDTH becomes ~24 bits, within the 32-bit SoC AXI id (AXI_ID_WIDTH).
-`define UUID_WIDTH      16
+// MetaSat fix: release UUID must hold {global_warp_id, pc[15:0]} = GNW_WIDTH+16
+// bits (21 at 8 cores x 4 warps) so each warp's memory transactions get a unique
+// tag. The UUID *value* is now generated in release too (see VX_schedule.sv); it
+// was hardwired to 0 under NDEBUG, which is why widening to 16 alone did nothing.
+// 23 holds {g_wid,pc} with margin; VX_MEM_TAG_WIDTH stays within the 32-bit AXI id.
+`define UUID_WIDTH      23
 `endif
 
 `define PC_BITS         (`XLEN-1)
