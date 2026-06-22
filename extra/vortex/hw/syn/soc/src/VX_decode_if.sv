@@ -3,7 +3,7 @@ interface VX_decode_if import VX_gpu_pkg::*; #(
     parameter NW_WIDTH  = (((NUM_WARPS) > 1) ? $clog2(NUM_WARPS) : 1)
 );
     typedef struct packed {
-        logic [16-1:0]     uuid;
+        logic [23-1:0]     uuid;
         logic [NW_WIDTH-1:0]        wid;
         logic [4-1:0]    tmask;
         logic [(32-1)-1:0]        PC;

@@ -11,8 +11,8 @@ module VX_gather_unit import VX_gpu_pkg::*; #(
     localparam BLOCK_SIZE_W = (((BLOCK_SIZE) > 1) ? $clog2(BLOCK_SIZE) : 1);
     localparam PID_BITS     = $clog2(4 / NUM_LANES);
     localparam PID_WIDTH    = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam DATAW        = 16 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + 1 + $clog2(32) + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
-    localparam DATA_WIS_OFF = DATAW - (16 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1));
+    localparam DATAW        = 23 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + 1 + $clog2(32) + NUM_LANES * 32 + PID_WIDTH + 1 + 1;
+    localparam DATA_WIS_OFF = DATAW - (23 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1));
     wire [BLOCK_SIZE-1:0] commit_in_valid;
     wire [BLOCK_SIZE-1:0][DATAW-1:0] commit_in_data;
     wire [BLOCK_SIZE-1:0] commit_in_ready;

@@ -12,7 +12,7 @@ module VX_wctl_unit import VX_gpu_pkg::*; #(
     localparam PID_BITS   = $clog2(4 / NUM_LANES);
     localparam PID_WIDTH  = (((PID_BITS) != 0) ? (PID_BITS) : 1);
     localparam WCTL_WIDTH = $bits(tmc_t) + $bits(wspawn_t) + $bits(split_t) + $bits(join_t) + $bits(barrier_t);
-    localparam DATAW = 16 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + WCTL_WIDTH + PID_WIDTH + 1 + 1 + ((($clog2((((4-1) != 0) ? (4-1) : 1))) != 0) ? ($clog2((((4-1) != 0) ? (4-1) : 1))) : 1);
+    localparam DATAW = 23 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (32-1) + $clog2(32) + 1 + WCTL_WIDTH + PID_WIDTH + 1 + 1 + ((($clog2((((4-1) != 0) ? (4-1) : 1))) != 0) ? ($clog2((((4-1) != 0) ? (4-1) : 1))) : 1);
     tmc_t       tmc, tmc_r;
     wspawn_t    wspawn, wspawn_r;
     split_t     split, split_r;

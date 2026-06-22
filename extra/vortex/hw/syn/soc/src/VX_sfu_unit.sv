@@ -15,7 +15,7 @@ module VX_sfu_unit import VX_gpu_pkg::*; #(
     localparam NUM_LANES  = 4;
     localparam PID_BITS   = $clog2(4 / NUM_LANES);
     localparam PID_WIDTH  = (((PID_BITS) != 0) ? (PID_BITS) : 1);
-    localparam RSP_ARB_DATAW = 16 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (NUM_LANES * 32) + $clog2(32) + 1 + (32-1) + PID_WIDTH + 1 + 1;
+    localparam RSP_ARB_DATAW = 23 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + (NUM_LANES * 32) + $clog2(32) + 1 + (32-1) + PID_WIDTH + 1 + 1;
     localparam RSP_ARB_SIZE = 1 + 1;
     localparam RSP_ARB_IDX_WCTL = 0;
     localparam RSP_ARB_IDX_CSRS = 1;

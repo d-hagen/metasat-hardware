@@ -101,7 +101,7 @@ module VX_alu_int #(
         assign tid = 0;
     end
     VX_elastic_buffer #(
-        .DATAW (16 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + $clog2(32) + 1 + PID_WIDTH + 1 + 1 + (NUM_LANES * 32) + (32-1) + (32-1) + 1 + 4 + LANE_WIDTH)
+        .DATAW (23 + ((($clog2(4)) != 0) ? ($clog2(4)) : 1) + NUM_LANES + $clog2(32) + 1 + PID_WIDTH + 1 + 1 + (NUM_LANES * 32) + (32-1) + (32-1) + 1 + 4 + LANE_WIDTH)
     ) rsp_buf (
         .clk      (clk),
         .reset    (reset),

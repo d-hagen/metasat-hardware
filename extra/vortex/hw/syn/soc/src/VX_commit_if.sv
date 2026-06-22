@@ -3,7 +3,7 @@ interface VX_commit_if #(
     parameter PID_WIDTH = (((4 / NUM_LANES) > 1) ? $clog2(4 / NUM_LANES) : 1)
 ) ();
     typedef struct packed {
-        logic [16-1:0]     uuid;
+        logic [23-1:0]     uuid;
         logic [((($clog2(4)) != 0) ? ($clog2(4)) : 1)-1:0]       wid;
         logic [NUM_LANES-1:0]       tmask;
         logic [(32-1)-1:0]        PC;
