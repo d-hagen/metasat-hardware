@@ -28,7 +28,7 @@ LOG_FILE       = $(REPO_ROOT_DIR)/sim-$(TEST)-$(shell date +%Y%m%d-%H%M%S).log
 
 .PHONY: all check-paths compile-unisim scripts-gen map-unisim \
         stub-libs widen-grlib-axi-id select-test compile-rtl run-sim run-wave \
-        wipe nuke rebuild check-config check-all clean-unisim help
+        run-probe wipe nuke rebuild check-config check-all clean-unisim help
 
 all: check-paths compile-unisim scripts-gen map-unisim stub-libs widen-grlib-axi-id select-test compile-rtl
 	@echo ""
@@ -200,6 +200,17 @@ run-sim: select-test
 	@cd $(SIM_DIR) && $(MAKE) sim-run VSIMOPT='$(VSIMOPT_FAST)' 2>&1 | tee -a $(LOG_FILE)
 	@date '+=== End:   %F %T ===' | tee -a $(LOG_FILE)
 	@echo "=== Sim finished. Full log: $(LOG_FILE) ==="
+
+# run-probe: fix-liveness probe through the makefile, so it inherits the same
+# PATH + SALT_LICENSE_SERVER that compile/run-sim use (avoids "invalid license
+# environment" when launching vsim directly from a tcsh/bash shell). No long run:
+# probe-fix.do checks the instr_uuid width at t=0, then a bounded run for value.
+PROBE_DO     ?= probe-fix.do
+VSIMOPT_PROBE = -voptargs="+acc -nowarn 1" -do "$(SIM_DIR)/$(PROBE_DO)" testbench
+
+run-probe: select-test
+	@echo "=== Fix-liveness probe (no long run) ==="
+	@cd $(SIM_DIR) && $(MAKE) sim-run VSIMOPT='$(VSIMOPT_PROBE)'
 
 run-wave: select-test
 	@echo "=== Launching waveform simulation (20ms, +acc) ==="
