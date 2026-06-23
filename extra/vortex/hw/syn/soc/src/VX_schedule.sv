@@ -234,6 +234,18 @@ module VX_schedule import VX_gpu_pkg::*; #(
         .ready_out (schedule_if.ready)
     );
     assign schedule_if.data.uuid = instr_uuid;
+    // === METASAT build-liveness probe (sim-only; ignored by synthesis) ===
+`ifndef SYNTHESIS
+    reg metasat_fix_printed = 1'b0;
+    always @(posedge clk) begin
+        if (schedule_fire && !metasat_fix_printed) begin
+            $display("[METASAT-FIX-LIVE t=%0t] core=%0d uuid_width=%0d first_uuid=0x%0h",
+                     $time, CORE_ID, $bits(instr_uuid), instr_uuid);
+            metasat_fix_printed <= 1'b1;
+        end
+    end
+`endif
+    // === end METASAT probe ===
     reg [4-1:0] per_warp_incr;
     always @(*) begin
         per_warp_incr = 0;

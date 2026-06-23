@@ -369,6 +369,22 @@ module VX_schedule import VX_gpu_pkg::*; #(
 
     assign schedule_if.data.uuid = instr_uuid;
 
+    // === METASAT build-liveness probe (sim-only; ignored by synthesis) ===
+    // Prints once per core at its first scheduled warp so the run log shows,
+    // within microseconds of GPU start, that the wide non-zero UUID fix is LIVE.
+    // width must be >=21 (expect 23) and value must be non-zero/varying per core.
+`ifndef SYNTHESIS
+    reg metasat_fix_printed = 1'b0;
+    always @(posedge clk) begin
+        if (schedule_fire && !metasat_fix_printed) begin
+            $display("[METASAT-FIX-LIVE t=%0t] core=%0d uuid_width=%0d first_uuid=0x%0h",
+                     $time, CORE_ID, $bits(instr_uuid), instr_uuid);
+            metasat_fix_printed <= 1'b1;
+        end
+    end
+`endif
+    // === end METASAT probe ===
+
     // Track pending instructions per warp
 
     reg [`NUM_WARPS-1:0] per_warp_incr;
