@@ -27,7 +27,13 @@
 
 #define RAM_PAGE_SIZE     4096
 
-#define ALLOC_BASE_ADDR   (STARTUP_ADDR + 0x40000ULL)
+// Device buffers start 256 MB above the kernel. The Vortex kernel runtime
+// (vx_start.S init_regs) places each hart's TLS block at _end + hart*__tbss_size
+// WITHOUT reserving that memory, so anything allocated right after the kernel
+// image gets zeroed by __init_tls and overwritten by blockIdx stores once the
+// hart count is large enough (seen at 128 harts: TLS reached 760 B into src).
+// 0x70000000 is distinct from the kernel and the stacks modulo the 1 GB GPU DDR.
+#define ALLOC_BASE_ADDR   (STARTUP_ADDR + 0x10000000ULL)
 
 #if (XLEN == 64)
 #define GLOBAL_MEM_SIZE    0x200000000  // 8 GB

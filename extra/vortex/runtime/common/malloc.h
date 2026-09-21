@@ -495,7 +495,13 @@ private:
       }
       // Update the end of the last page to the end of the current page
       // Move to the next page in the sorted list
-      endOfLastPage = current->addr + current->size;
+      // Never move the search point below baseAddress_: the kernel image is
+      // reserve()d BELOW the base, and following its page end would place the
+      // first buffer directly behind the kernel (ignoring ALLOC_BASE_ADDR).
+      {
+        uint64_t pageEnd = current->addr + current->size;
+        if (pageEnd > endOfLastPage) endOfLastPage = pageEnd;
+      }
       current = current->next;
     }
 
